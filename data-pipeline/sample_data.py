@@ -3,12 +3,12 @@
 Gera dados com distribuições estatísticas que simulam padrões reais:
 - Sazonalidade (mais acidentes em dez/jan)
 - Diferenças regionais (SP >> BH >> VC)
-- Subcategorias CID-10 V01–V89 com pesos realistas
+- Subcategorias CID-10 V01-V89 com pesos realistas
 - Faixas etárias e sexo conforme perfil epidemiológico
 """
 
 import random
-from datetime import date, timedelta
+from datetime import date
 
 import pandas as pd
 

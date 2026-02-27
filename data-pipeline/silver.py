@@ -1,6 +1,6 @@
 """Camada Silver — limpeza, filtragem e padronização.
 
-Aplica o filtro CID-10 V01–V89 (acidentes de transporte terrestre),
+Aplica o filtro CID-10 V01-V89 (acidentes de transporte terrestre),
 padroniza tipos e adiciona campos derivados.
 """
 

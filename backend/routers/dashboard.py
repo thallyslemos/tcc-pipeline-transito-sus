@@ -102,7 +102,7 @@ async def dashboard_summary(ano: int | None = None):
         GROUP BY sexo ORDER BY total DESC
     """).fetchdf().to_dict(orient="records")
 
-    periodo = f"Ano {ano}" if ano else "2019–2023"
+    periodo = f"Ano {ano}" if ano else "2019-2023"
 
     return {
         "total_obitos": int(total_obitos),
