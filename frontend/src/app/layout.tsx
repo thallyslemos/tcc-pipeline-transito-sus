@@ -1,20 +1,18 @@
 import type { Metadata } from "next";
+import AppShell from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Acidentes de Trânsito no SUS — Dashboard",
-  description:
-    "Painel analítico de impacto econômico e macrotendências de acidentes de trânsito no Sistema Único de Saúde",
+  title: "Acidentes de Transito no SUS",
+  description: "Painel analitico - impacto economico e macrotendencias de acidentes de transito no SUS",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

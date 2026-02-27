@@ -1,26 +1,41 @@
+import type { FilterValues, MapPoint, Municipio, MunicipioDetail, DashboardData } from "./types";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export async function fetchDashboardSummary(ano?: number) {
-  const params = ano ? `?ano=${ano}` : "";
-  const res = await fetch(`${API_URL}/api/dashboard/summary${params}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+function qs(filters: FilterValues): string {
+  const p = new URLSearchParams();
+  if (filters.ano) p.set("ano", String(filters.ano));
+  if (filters.municipio) p.set("municipio", filters.municipio);
+  if (filters.tipo_veiculo) p.set("tipo_veiculo", filters.tipo_veiculo);
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
 }
 
-export async function fetchAnosDisponiveis() {
-  const res = await fetch(`${API_URL}/api/dashboard/anos`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
-}
+export const fetchSummary = (f: FilterValues = {}) =>
+  get<DashboardData>(`/api/dashboard/summary${qs(f)}`);
 
-export async function fetchMunicipioDetalhe(codMun: string) {
-  const res = await fetch(`${API_URL}/api/dashboard/municipio/${codMun}`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
-}
+export const fetchAnos = () =>
+  get<{ anos: number[] }>("/api/dashboard/anos");
+
+export const fetchTiposVeiculo = () =>
+  get<{ tipos: string[] }>("/api/dashboard/tipos-veiculo");
+
+export const fetchMunicipios = () =>
+  get<{ municipios: Municipio[] }>("/api/dashboard/municipios");
+
+export const fetchMunicipio = (cod: string, ano?: number) =>
+  get<MunicipioDetail>(`/api/dashboard/municipio/${cod}${ano ? `?ano=${ano}` : ""}`);
+
+export const fetchMapa = (metrica: string = "obitos", ano?: number) => {
+  const p = new URLSearchParams({ metrica });
+  if (ano) p.set("ano", String(ano));
+  return get<{ metrica: string; ano: number | null; dados: MapPoint[] }>(
+    `/api/dashboard/mapa?${p}`
+  );
+};

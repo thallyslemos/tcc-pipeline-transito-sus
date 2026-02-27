@@ -110,7 +110,7 @@ def test_gold_obitos_aggregation(tmp_data):
         FROM '{tmp_data["gold_obitos"]}'
     """).fetchone()
     con.close()
-    assert result[0] == 3, "Deve ter 3 municípios"
+    assert result[0] == 9, "Deve ter 9 municipios"
     assert result[1] == 2022
     assert result[2] == 2023
 

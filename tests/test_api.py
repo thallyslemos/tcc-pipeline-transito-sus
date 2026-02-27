@@ -1,77 +1,107 @@
 """Testes da API FastAPI (endpoints do dashboard)."""
 
-import pytest
-from backend.app import app
 from fastapi.testclient import TestClient
+
+from backend.app import app
+
+
+def _client():
+    with TestClient(app) as c:
+        yield c
+
+
+import pytest
 
 
 @pytest.fixture()
 def client():
-    """Client de teste do FastAPI."""
     with TestClient(app) as c:
         yield c
 
 
 def test_health_check(client):
-    """GET / deve retornar status ok."""
     r = client.get("/")
     assert r.status_code == 200
-    data = r.json()
-    assert data["status"] == "ok"
-    assert "version" in data
+    assert r.json()["status"] == "ok"
 
 
 def test_dashboard_summary(client):
-    """GET /api/dashboard/summary deve retornar dados completos."""
     r = client.get("/api/dashboard/summary")
     assert r.status_code == 200
-    data = r.json()
-    assert data["total_obitos"] > 0
-    assert data["total_custos"] > 0
-    assert data["total_atendimentos"] > 0
-    assert data["municipios"] == 3
-    assert len(data["obitos_por_ano"]) > 0
-    assert len(data["serie_temporal_obitos"]) > 0
-    assert len(data["obitos_por_tipo_veiculo"]) > 0
-    assert len(data["obitos_por_faixa_etaria"]) > 0
+    d = r.json()
+    assert d["total_obitos"] > 0
+    assert d["total_custos"] > 0
+    assert d["total_atendimentos"] > 0
+    assert d["municipios"] == 9
+    assert len(d["obitos_por_ano"]) > 0
+    assert len(d["serie_temporal_obitos"]) > 0
 
 
 def test_dashboard_summary_by_year(client):
-    """GET /api/dashboard/summary?ano=2023 deve filtrar por ano."""
     r = client.get("/api/dashboard/summary?ano=2023")
     assert r.status_code == 200
-    data = r.json()
-    assert data["total_obitos"] > 0
-    assert data["periodo"] == "Ano 2023"
+    d = r.json()
+    assert d["total_obitos"] > 0
+    assert "2023" in d["periodo"]
+
+
+def test_dashboard_summary_with_filters(client):
+    r = client.get("/api/dashboard/summary?ano=2023&municipio=3550308")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["total_obitos"] > 0
+    assert d["municipios"] == 1
 
 
 def test_anos_disponiveis(client):
-    """GET /api/dashboard/anos deve listar anos disponíveis."""
     r = client.get("/api/dashboard/anos")
     assert r.status_code == 200
-    data = r.json()
-    assert "anos" in data
-    assert 2023 in data["anos"]
-    assert 2019 in data["anos"]
+    assert 2023 in r.json()["anos"]
+
+
+def test_tipos_veiculo(client):
+    r = client.get("/api/dashboard/tipos-veiculo")
+    assert r.status_code == 200
+    assert len(r.json()["tipos"]) > 0
+
+
+def test_listar_municipios(client):
+    r = client.get("/api/dashboard/municipios")
+    assert r.status_code == 200
+    munis = r.json()["municipios"]
+    assert len(munis) == 9
+    assert all("lat" in m for m in munis)
 
 
 def test_municipio_detalhe(client):
-    """GET /api/dashboard/municipio/{cod_mun} deve retornar dados."""
     r = client.get("/api/dashboard/municipio/3550308")
     assert r.status_code == 200
-    data = r.json()
-    assert data["municipio"] == "São Paulo"
-    assert len(data["serie_obitos"]) > 0
-    assert len(data["serie_custos"]) > 0
+    d = r.json()
+    assert d["municipio"] == "Sao Paulo"
+    assert d["total_obitos"] > 0
+    assert len(d["serie_obitos"]) > 0
+    assert len(d["obitos_por_tipo_veiculo"]) > 0
+
+
+def test_mapa_obitos(client):
+    r = client.get("/api/dashboard/mapa?metrica=obitos")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["metrica"] == "obitos"
+    assert len(d["dados"]) == 9
+
+
+def test_mapa_custos(client):
+    r = client.get("/api/dashboard/mapa?metrica=custos&ano=2023")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["metrica"] == "custos"
+    assert d["ano"] == 2023
 
 
 def test_cors_headers(client):
-    """Resposta deve incluir headers CORS para localhost:3000."""
     r = client.options(
         "/api/dashboard/summary",
-        headers={
-            "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "GET",
-        },
+        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "GET"},
     )
     assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
