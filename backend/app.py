@@ -1,78 +1,99 @@
-"""Minimal FastAPI backend demonstrating DuckDB integration with sample data."""
+"""Aplicação FastAPI — Pipeline Analítico de Acidentes de Trânsito no SUS.
 
+Ponto de entrada do backend. Configura CORS, logging estruturado,
+routers e ciclo de vida do DuckDB.
+"""
+
+import logging
+import sys
 from contextlib import asynccontextmanager
 
-import duckdb
+import structlog
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-DB: duckdb.DuckDBPyConnection | None = None
+from .config import settings
+from .database import close_connection, get_connection
+from .routers import dashboard
 
 
-def _seed_sample_data(con: duckdb.DuckDBPyConnection) -> None:
-    con.sql("""
-        CREATE TABLE IF NOT EXISTS obitos_transito (
-            cod_mun_ibge VARCHAR,
-            municipio    VARCHAR,
-            competencia  DATE,
-            obitos       INTEGER,
-            causabas     VARCHAR
-        )
-    """)
-    con.sql("""
-        INSERT INTO obitos_transito VALUES
-        ('2933307', 'Vitória da Conquista', '2023-01-01', 5, 'V201'),
-        ('2933307', 'Vitória da Conquista', '2023-02-01', 3, 'V291'),
-        ('3550308', 'São Paulo',            '2023-01-01', 42, 'V031'),
-        ('3550308', 'São Paulo',            '2023-02-01', 38, 'V491'),
-        ('3106200', 'Belo Horizonte',       '2023-01-01', 18, 'V201'),
-        ('3106200', 'Belo Horizonte',       '2023-02-01', 15, 'V401')
-    """)
-    con.sql("""
-        CREATE VIEW IF NOT EXISTS v_obitos_transito_municipio_mes AS
-        SELECT
-            cod_mun_ibge,
-            municipio,
-            competencia,
-            SUM(obitos) AS total_obitos
-        FROM obitos_transito
-        WHERE LEFT(causabas, 3) BETWEEN 'V01' AND 'V89'
-        GROUP BY cod_mun_ibge, municipio, competencia
-        ORDER BY competencia, municipio
-    """)
+def _setup_logging() -> None:
+    """Configura logging estruturado (console dev / JSON prod)."""
+    if settings.app_env == "production":
+        renderer: structlog.types.Processor = structlog.processors.JSONRenderer()
+    else:
+        renderer = structlog.dev.ConsoleRenderer(colors=True)
+
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.UnicodeDecoder(),
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+    )
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(handler)
+    root.setLevel(settings.log_level.upper())
+
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    global DB
-    DB = duckdb.connect(":memory:")
-    _seed_sample_data(DB)
+async def lifespan(_app: FastAPI):
+    """Gerencia ciclo de vida: inicializa DuckDB no startup, fecha no shutdown."""
+    _setup_logging()
+    logger = structlog.get_logger("backend")
+    logger.info("backend_iniciando", env=settings.app_env)
+    get_connection()
+    logger.info("backend_pronto", port=settings.backend_port)
     yield
-    if DB:
-        DB.close()
+    close_connection()
+    logger.info("backend_encerrado")
 
 
 app = FastAPI(
     title="Pipeline Acidentes de Trânsito no SUS",
-    description="MVP — API de consulta de óbitos por acidentes de trânsito",
+    description=(
+        "API REST do MVP — Impacto econômico e macrotendências de "
+        "acidentes de trânsito nas bases do DATASUS (SIM e SIA)."
+    ),
     version="0.1.0",
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
-@app.get("/")
+app.include_router(dashboard.router)
+
+
+@app.get("/", tags=["Health"])
 async def root():
-    return {"status": "ok", "message": "Pipeline Analítico de Acidentes de Trânsito no SUS"}
-
-
-@app.get("/obitos")
-async def obitos_por_municipio(municipio: str | None = None):
-    query = "SELECT * FROM v_obitos_transito_municipio_mes"
-    if municipio:
-        query += f" WHERE municipio ILIKE '%{municipio}%'"
-    return DB.sql(query).fetchdf().to_dict(orient="records")
-
-
-@app.get("/obitos/total")
-async def total_obitos():
-    result = DB.sql("SELECT SUM(total_obitos) AS total FROM v_obitos_transito_municipio_mes").fetchone()
-    return {"total_obitos": result[0]}
+    """Health check."""
+    return {
+        "status": "ok",
+        "service": "Pipeline Analítico de Acidentes de Trânsito no SUS",
+        "version": "0.1.0",
+    }
