@@ -29,14 +29,31 @@ Filtro SQL sugerido: `REGEXP_MATCHES(causabas, '^V[0-8][0-9]')` ou `LEFT(causaba
 ### Estrutura do Monorepo
 
 ```
-/data-pipeline    # ETL com PySUS → Parquet
+/data_pipeline    # ETL com PySUS → Parquet (extract, transform, load)
+/config          # Configurações, logging
 /notebooks        # EDA e validação
 /backend          # FastAPI + DuckDB
-/frontend         # Next.js dashboards
-/mcp-server       # FastMCP + tools SQL
+/frontend         # Dashboard HTML (Tailwind, Chart.js)
+/scripts          # Scripts de execução
+/mcp-server       # FastMCP + tools SQL (próxima iteração)
 ```
 
 Detalhes: [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+### Quick Start
+
+```bash
+# 1. Ambiente
+python -m venv .venv && source .venv/bin/activate  # ou .venv\Scripts\activate no Windows
+pip install -r requirements.txt
+
+# 2. Pipeline EDA (gera amostra e dados Gold)
+python scripts/run_eda.py
+
+# 3. API e Dashboard
+uvicorn backend.main:app --reload
+# Acesse http://localhost:8000
+```
 
 ---
 

@@ -1,0 +1,10 @@
+# Pipeline Analítico - Acidentes de Trânsito no SUS
+# Python 3.10+
+
+pysus>=1.0.0
+duckdb>=1.0.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+matplotlib>=3.7.0
+fastapi>=0.100.0
+uvicorn>=0.22.0
