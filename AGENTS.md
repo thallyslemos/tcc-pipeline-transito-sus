@@ -40,3 +40,6 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 - O diretorio `data-pipeline` tem hifen no nome. Para importar em Python: `from importlib import import_module; mod = import_module('data-pipeline.modulo')`.
 - Dados `.parquet` ficam em `data/` (gitignored). Execute o pipeline ETL para gerar.
 - Requer `python3-dev` e `libffi-dev` no sistema para compilar `cffi` (dep do PySUS).
+- Frontend usa Leaflet (client-only). O componente `MapView` usa `dynamic import` com `ssr: false`.
+- Sample data cobre 9 municipios em 3 estados (SP, MG, BA) com coordenadas lat/lon.
+- O `FilterBar` e desacoplado: recebe `filters[]` como prop, nao conhece o dominio.
