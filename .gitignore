@@ -1,0 +1,7 @@
+data/
+*.parquet
+*.dbc
+__pycache__/
+.venv/
+venv/
+.python-version
