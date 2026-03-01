@@ -22,7 +22,7 @@ _MUNICIPIOS_META = {
 def _where(ano: int | None = None, mun: str | None = None, veiculo: str | None = None) -> str:
     """Monta clausula WHERE dinamica."""
     clauses = []
-    if ano:
+    if ano is not None:
         clauses.append(f"ano = {ano}")
     if mun:
         clauses.append(f"cod_mun_ibge = '{mun}'")
@@ -34,7 +34,7 @@ def _where(ano: int | None = None, mun: str | None = None, veiculo: str | None =
 def _where_and(ano: int | None = None, mun: str | None = None, veiculo: str | None = None) -> str:
     """Monta filtro como AND para queries com WHERE 1=1."""
     clauses = []
-    if ano:
+    if ano is not None:
         clauses.append(f"AND ano = {ano}")
     if mun:
         clauses.append(f"AND cod_mun_ibge = '{mun}'")
@@ -150,7 +150,7 @@ async def dashboard_summary(
     )
 
     partes = []
-    if ano:
+    if ano is not None:
         partes.append(str(ano))
     if municipio and municipio in _MUNICIPIOS_META:
         partes.append(_MUNICIPIOS_META[municipio]["nome"])
@@ -200,7 +200,7 @@ async def listar_municipios():
 async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     """Dados detalhados de um municipio especifico."""
     con = get_connection()
-    wa = f"AND ano = {ano}" if ano else ""
+    wa = f"AND ano = {ano}" if ano is not None else ""
 
     nome = con.sql(
         f"SELECT DISTINCT municipio FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' LIMIT 1"
@@ -290,7 +290,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
 async def dados_mapa(ano: int | None = None, metrica: str = "obitos"):
     """Dados agregados por municipio para visualizacao no mapa."""
     con = get_connection()
-    w = f"WHERE ano = {ano}" if ano else ""
+    w = f"WHERE ano = {ano}" if ano is not None else ""
 
     if metrica == "custos":
         rows = (

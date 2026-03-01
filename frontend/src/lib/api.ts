@@ -39,3 +39,47 @@ export const fetchMapa = (metrica: string = "obitos", ano?: number) => {
     `/api/dashboard/mapa?${p}`
   );
 };
+
+export interface IndicadorAnual {
+  ano: number;
+  populacao: number;
+  obitos: number;
+  taxa_obitos_100mil: number;
+  custo_total: number;
+  custo_per_capita: number;
+  atendimentos: number;
+  taxa_atend_100mil: number;
+}
+
+export interface IndicadoresMunicipio {
+  cod_mun_ibge: string;
+  municipio: string;
+  uf: string;
+  regiao: string;
+  area_km2: number;
+  idh: number;
+  pib_per_capita: number;
+  indicadores: IndicadorAnual[];
+  fontes: Record<string, string>;
+}
+
+export const fetchIndicadores = (cod: string, ano?: number) =>
+  get<IndicadoresMunicipio>(
+    `/api/indicadores/municipio/${cod}${ano ? `?ano=${ano}` : ""}`
+  );
+
+export interface RankingItem {
+  cod_mun_ibge: string;
+  municipio: string;
+  uf: string;
+  populacao: number;
+  obitos: number;
+  taxa_obitos_100mil: number;
+  custo_total: number;
+  custo_per_capita: number;
+}
+
+export const fetchRanking = (ano: number = 2023, metrica: string = "taxa_obitos_100mil") =>
+  get<{ ano: number; metrica: string; ranking: RankingItem[] }>(
+    `/api/indicadores/ranking?ano=${ano}&metrica=${metrica}`
+  );
