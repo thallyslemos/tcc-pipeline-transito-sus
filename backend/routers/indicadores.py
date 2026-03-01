@@ -56,16 +56,18 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
             FROM v_custos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {a}
         """).fetchone()[0]
 
-        indicadores_anuais.append({
-            "ano": a,
-            "populacao": pop,
-            "obitos": int(obitos),
-            "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
-            "custo_total": float(custos),
-            "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
-            "atendimentos": int(atend),
-            "taxa_atend_100mil": ibge.taxa_por_100mil(float(atend), pop),
-        })
+        indicadores_anuais.append(
+            {
+                "ano": a,
+                "populacao": pop,
+                "obitos": int(obitos),
+                "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
+                "custo_total": float(custos),
+                "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
+                "atendimentos": int(atend),
+                "taxa_atend_100mil": ibge.taxa_por_100mil(float(atend), pop),
+            }
+        )
 
     return {
         "cod_mun_ibge": cod_mun,
@@ -108,16 +110,18 @@ async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mi
             FROM v_custos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {ano}
         """).fetchone()[0]
 
-        resultados.append({
-            "cod_mun_ibge": cod_mun,
-            "municipio": info["nome"],
-            "uf": info["uf"],
-            "populacao": pop,
-            "obitos": int(obitos),
-            "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
-            "custo_total": float(custos),
-            "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
-        })
+        resultados.append(
+            {
+                "cod_mun_ibge": cod_mun,
+                "municipio": info["nome"],
+                "uf": info["uf"],
+                "populacao": pop,
+                "obitos": int(obitos),
+                "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
+                "custo_total": float(custos),
+                "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
+            }
+        )
 
     key = metrica if metrica in ("taxa_obitos_100mil", "custo_per_capita") else "taxa_obitos_100mil"
     resultados.sort(key=lambda x: x[key], reverse=True)
