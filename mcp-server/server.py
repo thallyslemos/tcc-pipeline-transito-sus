@@ -210,7 +210,8 @@ def query_serie_temporal(
                    ROUND(SUM(custo_total), 2) AS valor
             FROM v_custos
             WHERE municipio ILIKE '%{municipio}%'
-            GROUP BY mes ORDER BY mes
+            GROUP BY STRFTIME(competencia, '%Y-%m')
+            ORDER BY mes
         """).fetchdf()
     else:
         result = con.sql(f"""
@@ -218,7 +219,8 @@ def query_serie_temporal(
                    SUM(total_obitos) AS valor
             FROM v_obitos
             WHERE municipio ILIKE '%{municipio}%'
-            GROUP BY mes ORDER BY mes
+            GROUP BY STRFTIME(competencia, '%Y-%m')
+            ORDER BY mes
         """).fetchdf()
     con.close()
 

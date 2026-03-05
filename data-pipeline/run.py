@@ -25,6 +25,7 @@ Exemplos:
 """
 
 import argparse
+import gc
 
 from .bronze import salvar_bronze
 from .config import settings
@@ -48,11 +49,16 @@ def run_sample() -> None:
 def run_real(ufs: list[str], anos: list[int]) -> None:
     """Pipeline com dados reais do DATASUS (requer FTP).
 
+    Usa download streaming para evitar estouro de memoria:
+    cada arquivo e salvo diretamente em disco e a memoria e
+    liberada antes de baixar o proximo. SIM e SIA sao processados
+    sequencialmente (nunca simultaneos em memoria).
+
     Args:
         ufs: Lista de UFs ou ["ALL"] para todos os estados.
         anos: Lista de anos para download.
     """
-    from .datasus import UFS_BRASIL, baixar_sia, baixar_sim
+    from .datasus import UFS_BRASIL, baixar_sia_streaming, baixar_sim_streaming
 
     if ufs == ["ALL"]:
         ufs = UFS_BRASIL
@@ -60,13 +66,47 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     else:
         logger.info("modo", tipo="real", ufs=ufs, anos=anos)
 
-    df_sim = baixar_sim(ufs=ufs, anos=anos)
-    df_sia = baixar_sia(ufs=ufs, anos=anos)
-    _executar_etl(df_sim, df_sia)
+    # ── SIM: download streaming → bronze (partes) → silver ──────
+    logger.info("etapa", sistema="sim", status="download_streaming")
+    sim_bronze_dir = baixar_sim_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_sim", status="iniciando")
+    silver_sim = processar_silver_sim(sim_bronze_dir)
+    logger.info("etapa", camada="silver_sim", status="concluido")
+    gc.collect()
+
+    # ── SIA: download streaming → bronze (partes) → silver ──────
+    logger.info("etapa", sistema="sia", status="download_streaming")
+    sia_bronze_dir = baixar_sia_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_sia", status="iniciando")
+    silver_sia = processar_silver_sia(sia_bronze_dir)
+    logger.info("etapa", camada="silver_sia", status="concluido")
+    gc.collect()
+
+    # ── IBGE ────────────────────────────────────────────────────
+    logger.info("etapa", camada="ibge", status="iniciando")
+    from .ibge_fetcher import salvar_ibge_parquet
+
+    ibge_dir = settings.resolve(settings.data_dir)
+    salvar_ibge_parquet(ibge_dir)
+    logger.info("etapa", camada="ibge", status="concluido")
+
+    # ── Gold ────────────────────────────────────────────────────
+    logger.info("etapa", camada="gold", status="iniciando")
+    gold_obitos = gerar_gold_obitos(silver_sim)
+    gold_custos = gerar_gold_custos(silver_sia)
+    logger.info("etapa", camada="gold", status="concluido")
+
+    logger.info(
+        "pipeline_concluido",
+        gold_obitos=str(gold_obitos),
+        gold_custos=str(gold_custos),
+    )
 
 
 def _executar_etl(df_sim, df_sia) -> None:
-    """Executa Bronze -> Silver -> Gold."""
+    """Executa Bronze -> Silver -> Gold (modo classico, para sample data)."""
     logger.info("etapa", camada="bronze", status="iniciando")
     bronze_sim = salvar_bronze(df_sim, "sim")
     bronze_sia = salvar_bronze(df_sia, "sia")

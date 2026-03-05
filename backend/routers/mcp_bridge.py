@@ -39,6 +39,15 @@ async def mcp_query_taxa(municipio: str | None = None, ano: int = 2023):
     return {"tool": "query_taxa_mortalidade", "result": result}
 
 
+@router.get("/query_serie_temporal")
+async def mcp_query_serie_temporal(
+    municipio: str,
+    metrica: str = "obitos",
+):
+    result = srv.query_serie_temporal(municipio=municipio, metrica=metrica)
+    return {"tool": "query_serie_temporal", "result": result}
+
+
 @router.get("/listar_municipios")
 async def mcp_listar():
     result = srv.listar_municipios()
