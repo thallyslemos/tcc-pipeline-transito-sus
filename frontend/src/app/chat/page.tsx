@@ -4,11 +4,129 @@ import { useCallback, useRef, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+interface ToolCall {
+  name: string;
+  args: Record<string, string | number | undefined>;
+  result: string;
+}
+
 interface Message {
   role: "user" | "assistant" | "system";
   content: string;
-  toolCalls?: { name: string; result: string }[];
+  toolCalls?: ToolCall[];
 }
+
+const MCP_TOOLS = [
+  {
+    type: "function" as const,
+    function: {
+      name: "query_obitos",
+      description:
+        "Consulta obitos (mortes) por acidentes de transito no SUS. " +
+        "Retorna dados agregados por municipio, ano e tipo de veiculo.",
+      parameters: {
+        type: "object",
+        properties: {
+          municipio: {
+            type: "string",
+            description: "Nome do municipio (ex: Salvador, Sao Paulo, Belo Horizonte)",
+          },
+          ano: {
+            type: "number",
+            description: "Ano de referencia (ex: 2019, 2020, 2021, 2022, 2023)",
+          },
+          tipo_veiculo: {
+            type: "string",
+            description: "Tipo de veiculo (Motociclista, Automóvel, Pedestre, Ciclista, Caminhonete, Ônibus, Veículo pesado, Triciclo, Outros)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "query_custos",
+      description:
+        "Consulta custos ambulatoriais (SIA) de acidentes de transito no SUS. " +
+        "Retorna valor total em reais e numero de atendimentos.",
+      parameters: {
+        type: "object",
+        properties: {
+          municipio: {
+            type: "string",
+            description: "Nome do municipio",
+          },
+          ano: {
+            type: "number",
+            description: "Ano de referencia",
+          },
+          tipo_veiculo: {
+            type: "string",
+            description: "Tipo de veiculo",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "query_taxa_mortalidade",
+      description:
+        "Calcula a taxa de mortalidade por 100 mil habitantes para acidentes de transito. " +
+        "Usa dados do SIM e populacao estimada do IBGE.",
+      parameters: {
+        type: "object",
+        properties: {
+          municipio: {
+            type: "string",
+            description: "Nome do municipio (opcional, retorna todos se vazio)",
+          },
+          ano: {
+            type: "number",
+            description: "Ano de referencia (padrao: 2023)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "query_serie_temporal",
+      description:
+        "Retorna serie temporal mensal de obitos ou custos para um municipio especifico. " +
+        "Util para analisar tendencias ao longo do tempo.",
+      parameters: {
+        type: "object",
+        properties: {
+          municipio: {
+            type: "string",
+            description: "Nome do municipio (obrigatorio)",
+          },
+          metrica: {
+            type: "string",
+            description: "Metrica desejada: 'obitos' ou 'custos' (padrao: obitos)",
+          },
+        },
+        required: ["municipio"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "listar_municipios",
+      description:
+        "Lista todos os municipios disponiveis na base de dados com o total de obitos de cada um.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+];
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -16,7 +134,8 @@ export default function ChatPage() {
       role: "system",
       content:
         "Assistente de dados de acidentes de transito no SUS. " +
-        "Conecte o Ollama para usar IA generativa, ou consulte os dados diretamente abaixo.",
+        "Conecte o Ollama para usar IA generativa com acesso aos dados via MCP tools, " +
+        "ou consulte os dados diretamente abaixo.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -39,7 +158,12 @@ export default function ChatPage() {
         const models = data.models?.map((m: { name: string }) => m.name) || [];
         setMessages((p) => [
           ...p,
-          { role: "system", content: `Ollama conectado! Modelos disponiveis: ${models.join(", ") || "nenhum"}. Configure o modelo acima.` },
+          {
+            role: "system",
+            content:
+              `Ollama conectado! Modelos: ${models.join(", ") || "nenhum"}. ` +
+              `O modelo agora pode consultar dados reais do SUS via MCP tools (obitos, custos, taxas, series temporais).`,
+          },
         ]);
       }
     } catch {
@@ -52,7 +176,7 @@ export default function ChatPage() {
     scrollToBottom();
   }, [ollamaUrl]);
 
-  const queryMcpTool = async (toolName: string, args: Record<string, string | number | undefined>) => {
+  const queryMcpTool = async (toolName: string, args: Record<string, string | number | undefined>): Promise<{ tool: string; result: string }> => {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(args)) {
       if (v !== undefined && v !== "") params.set(k, String(v));
@@ -61,19 +185,26 @@ export default function ChatPage() {
     return r.json();
   };
 
-  const sendToOllama = async (userMsg: string) => {
+  const sendToOllama = async (userMsg: string): Promise<{ content: string; toolCalls: ToolCall[] }> => {
     const systemPrompt = `Voce e um assistente de dados sobre acidentes de transito no SUS (Brasil).
-Voce tem acesso a dados de mortalidade (SIM) e custos ambulatoriais (SIA) de 2019-2023.
-Municipios disponiveis: Sao Paulo, Salvador, Belo Horizonte, Guarulhos, Campinas, Uberlandia, Feira de Santana, Contagem, Vitoria da Conquista.
+Voce tem acesso a tools que consultam dados reais de mortalidade (SIM) e custos ambulatoriais (SIA).
 
-IMPORTANTE sobre dados financeiros:
-- Os custos sao AMBULATORIAIS (SIA/PA), NAO incluem internacoes hospitalares (SIH).
-- PA_VALAPR e o valor aprovado pelo SUS para pagamento, baseado na tabela SIGTAP.
-- A taxa de mortalidade usa a formula: (obitos / populacao IBGE) * 100.000
+REGRAS IMPORTANTES:
+1. SEMPRE use as tools disponiveis para buscar dados antes de responder. NAO invente numeros.
+2. Use query_obitos para perguntas sobre mortes/obitos.
+3. Use query_custos para perguntas sobre custos/gastos.
+4. Use query_taxa_mortalidade para taxas por 100 mil habitantes.
+5. Use query_serie_temporal para tendencias ao longo do tempo.
+6. Use listar_municipios para saber quais cidades estao na base.
 
-Responda em portugues, seja preciso com numeros, cite as fontes quando possivel.`;
+CONTEXTO sobre os dados:
+- Custos sao AMBULATORIAIS (SIA/PA), NAO incluem internacoes (SIH).
+- PA_VALAPR e o valor aprovado pelo SUS baseado na tabela SIGTAP.
+- Taxa de mortalidade: (obitos / populacao IBGE) * 100.000.
 
-    const ollamaMessages = [
+Responda em portugues, seja preciso, cite fontes quando possivel.`;
+
+    const ollamaMessages: Array<{ role: string; content: string; tool_calls?: unknown[] }> = [
       { role: "system", content: systemPrompt },
       ...messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: userMsg },
@@ -85,16 +216,70 @@ Responda em portugues, seja preciso com numeros, cite as fontes quando possivel.
       body: JSON.stringify({
         model: ollamaModel,
         messages: ollamaMessages,
+        tools: MCP_TOOLS,
         stream: false,
       }),
     });
 
     if (!r.ok) throw new Error(`Ollama error: ${r.status}`);
     const data = await r.json();
-    return data.message?.content || "Sem resposta do modelo.";
+    const msg = data.message;
+
+    const executedTools: ToolCall[] = [];
+
+    if (msg?.tool_calls?.length) {
+      ollamaMessages.push(msg);
+
+      for (const tc of msg.tool_calls) {
+        const fnName = tc.function?.name;
+        const fnArgs = tc.function?.arguments || {};
+
+        try {
+          const mcpResult = await queryMcpTool(fnName, fnArgs);
+          executedTools.push({
+            name: fnName,
+            args: fnArgs,
+            result: typeof mcpResult.result === "string" ? mcpResult.result : JSON.stringify(mcpResult.result),
+          });
+          ollamaMessages.push({
+            role: "tool",
+            content: JSON.stringify(mcpResult),
+          });
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : "erro desconhecido";
+          executedTools.push({ name: fnName, args: fnArgs, result: `Erro: ${errMsg}` });
+          ollamaMessages.push({
+            role: "tool",
+            content: JSON.stringify({ tool: fnName, error: errMsg }),
+          });
+        }
+      }
+
+      const r2 = await fetch(`${ollamaUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages: ollamaMessages,
+          stream: false,
+        }),
+      });
+
+      if (!r2.ok) throw new Error(`Ollama error: ${r2.status}`);
+      const data2 = await r2.json();
+      return {
+        content: data2.message?.content || "Sem resposta do modelo.",
+        toolCalls: executedTools,
+      };
+    }
+
+    return {
+      content: msg?.content || "Sem resposta do modelo.",
+      toolCalls: [],
+    };
   };
 
-  const handleDirectQuery = async (userMsg: string) => {
+  const handleDirectQuery = async (userMsg: string): Promise<string> => {
     const lower = userMsg.toLowerCase();
     let result = "";
 
@@ -144,13 +329,13 @@ Responda em portugues, seja preciso com numeros, cite as fontes quando possivel.
     scrollToBottom();
 
     try {
-      let response: string;
       if (ollamaConnected) {
-        response = await sendToOllama(userMsg);
+        const { content, toolCalls } = await sendToOllama(userMsg);
+        setMessages((p) => [...p, { role: "assistant", content, toolCalls }]);
       } else {
-        response = await handleDirectQuery(userMsg);
+        const response = await handleDirectQuery(userMsg);
+        setMessages((p) => [...p, { role: "assistant", content: response }]);
       }
-      setMessages((p) => [...p, { role: "assistant", content: response }]);
     } catch (e) {
       setMessages((p) => [
         ...p,
@@ -210,6 +395,23 @@ Responda em portugues, seja preciso com numeros, cite as fontes quando possivel.
                 }`}
               >
                 <pre className="whitespace-pre-wrap font-sans">{m.content}</pre>
+                {m.toolCalls && m.toolCalls.length > 0 && (
+                  <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Ferramentas consultadas
+                    </p>
+                    {m.toolCalls.map((tc, j) => (
+                      <details key={j} className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-500">
+                        <summary className="cursor-pointer font-mono text-blue-600">
+                          {tc.name}({Object.entries(tc.args).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join(", ")})
+                        </summary>
+                        <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap text-[10px] text-slate-500">
+                          {tc.result}
+                        </pre>
+                      </details>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -249,8 +451,8 @@ Responda em portugues, seja preciso com numeros, cite as fontes quando possivel.
         </div>
         <p className="mt-2 text-center text-[10px] text-slate-400">
           {ollamaConnected
-            ? `Usando ${ollamaModel} via Ollama`
-            : "Modo consulta direta (sem LLM). Conecte o Ollama para respostas em linguagem natural."}
+            ? `Usando ${ollamaModel} via Ollama — com MCP tools para dados reais`
+            : "Modo consulta direta (sem LLM). Conecte o Ollama para respostas em linguagem natural com acesso aos dados."}
         </p>
       </div>
     </div>

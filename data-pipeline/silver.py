@@ -2,6 +2,9 @@
 
 Aplica o filtro CID-10 V01-V89 (acidentes de transporte terrestre),
 padroniza tipos e adiciona campos derivados.
+
+Suporta tanto arquivo Bronze unico quanto diretorio de partes
+(gerado pelo download streaming).
 """
 
 from pathlib import Path
@@ -12,6 +15,16 @@ from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _parquet_source(path: Path) -> str:
+    """Gera expressao DuckDB para ler parquet(s).
+
+    Suporta arquivo unico ou diretorio de partes (glob).
+    """
+    if path.is_dir():
+        return f"{path}/*.parquet"
+    return str(path)
 
 
 def processar_silver_sim(bronze_path: Path) -> Path:
@@ -26,6 +39,7 @@ def processar_silver_sim(bronze_path: Path) -> Path:
     destino = settings.resolve(settings.silver_dir) / "sim.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
 
+    source = _parquet_source(bronze_path)
     con = duckdb.connect(":memory:")
     con.sql(f"""
         COPY (
@@ -60,7 +74,7 @@ def processar_silver_sim(bronze_path: Path) -> Path:
                     WHEN IDADE BETWEEN 55 AND 64 THEN '55-64'
                     ELSE '65+'
                 END                                              AS faixa_etaria
-            FROM read_parquet('{bronze_path}')
+            FROM read_parquet('{source}')
             WHERE LEFT(CAUSABAS, 3) BETWEEN 'V01' AND 'V89'
         ) TO '{destino}' (FORMAT PARQUET)
     """)
@@ -85,6 +99,7 @@ def processar_silver_sia(bronze_path: Path) -> Path:
     destino = settings.resolve(settings.silver_dir) / "sia.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
 
+    source = _parquet_source(bronze_path)
     con = duckdb.connect(":memory:")
     con.sql(f"""
         COPY (
@@ -123,7 +138,7 @@ def processar_silver_sia(bronze_path: Path) -> Path:
                     WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 55 AND 64 THEN '55-64'
                     ELSE '65+'
                 END                                              AS faixa_etaria
-            FROM read_parquet('{bronze_path}')
+            FROM read_parquet('{source}')
             WHERE LEFT(PA_CIDPRI, 3) BETWEEN 'V01' AND 'V89'
         ) TO '{destino}' (FORMAT PARQUET)
     """)
