@@ -1,119 +1,96 @@
-# Pipeline Analítico de Acidentes de Trânsito no SUS
+## Visao geral do projeto
 
-MVP para TCC em Sistemas de Informação — Impacto Econômico e Macrotendências de Acidentes de Trânsito no SUS, com Engenharia de Dados (DuckDB) e IA via Model Context Protocol (MCP).
+Este repositorio implementa um **pipeline analitico de acidentes de transito no SUS (DATASUS)**,
+organizado em arquitetura Medallion (Bronze → Silver → Gold) com:
 
-## Objetivo
+- **Backend** `FastAPI` expondo uma API para dashboards e indicadores.
+- **Pipeline de dados** em Python + DuckDB lendo/dumpando Parquet.
+- **Frontend** em `Next.js` para visualizacao (dashboards, mapa, detalhe por municipio, chat).
+- **MCP Server** (`mcp-server/server.py`) para que LLMs consultem o DuckDB via Model Context Protocol.
 
-Desenvolver um pipeline de processamento e servidor MCP para extração, análise temporal e quantificação do impacto econômico municipal dos acidentes de trânsito nas bases do DATASUS (SIM e SIA), permitindo interrogação via linguagem natural.
-
-## Referência CID-10 — Acidentes de Trânsito
-
-| Item | Valor |
-|------|-------|
-| Capítulo | XX (Causas Externas) |
-| Códigos | **V01 a V89** (Acidentes de Transporte Terrestre) |
-| Campos no DATASUS | `CAUSABAS` (SIM), `CIDPRI` (SIA/CIHA) |
-
-Filtro SQL sugerido: `REGEXP_MATCHES(causabas, '^V[0-8][0-9]')` ou `LEFT(causabas, 3) BETWEEN 'V01' AND 'V89'`.
-
-## Proposta de Implementação
-
-### Stack
-
-- **Extração:** PySUS (Python)
-- **Processamento:** DuckDB, Parquet
-- **Interface IA:** FastMCP (MCP)
-- **Backend:** FastAPI
-- **Frontend:** Next.js, Tailwind, shadcn/ui
-
-### Estrutura do Monorepo
-
-```
-/data-pipeline    # ETL com PySUS → Parquet
-/notebooks        # EDA e validação
-/backend          # FastAPI + DuckDB
-/frontend         # Next.js dashboards
-/mcp-server       # FastMCP + tools SQL
-```
-
-Detalhes: [ARCHITECTURE.md](./ARCHITECTURE.md)
+Para uma explicacao profunda da arquitetura (camadas, tabelas, indicadores e fontes),
+veja `ARCHITECTURE.md`.
 
 ---
 
-## Plano de Iterações
+## Como rodar o projeto
 
-```mermaid
-flowchart LR
-    subgraph I1 [Iteração 1]
-        EDA[EDA PySUS]
-    end
-    subgraph I2 [Iteração 2]
-        ETL[Pipeline ETL]
-    end
-    subgraph I3 [Iteração 3]
-        DWH[DuckDB DWH]
-    end
-    subgraph I4 [Iteração 4]
-        MCP[MCP Server]
-    end
-    subgraph I5 [Iteração 5]
-        POC[POC Completo]
-    end
-    I1 --> I2 --> I3 --> I4 --> I5
-```
+Para o passo a passo completo (instalacao de Python/Node, `uv`, setup de ambiente, comandos
+para gerar dados e subir backend/frontend/chat), use o guia dedicado:
 
-| Iteração | Escopo | Entregas |
-|----------|--------|----------|
-| **1** | Análise Exploratória | Notebook com PySUS: download SIM/SIA, conversão DBC→Parquet, filtro CID V01–V89, agregados por município/mês |
-| **2** | Pipeline ETL | Scripts em `data-pipeline/` automatizando extração e particionamento |
-| **3** | Data Warehouse | DuckDB com views: custos e óbitos por município/competência |
-| **4** | Servidor MCP | FastMCP com tools que traduzem NL → SQL no DuckDB |
-| **5** | POC | Integração ETL + MCP + interface mínima (API ou chat) |
+- **Guia completo de setup**: `docs/SETUP.md`
+
+Em resumo, o fluxo padrao de desenvolvimento e:
+
+1. **Instalar dependencias Python**  
+   ```bash
+   uv sync
+   ```
+2. **Instalar dependencias do frontend**  
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+3. **Gerar dados amostrais (rapido, sem internet)**  
+   ```bash
+   uv run python -m data-pipeline.run
+   ```
+4. **Rodar backend FastAPI**  
+   ```bash
+   uv run uvicorn backend.app:app --reload --port 8000
+   ```
+5. **Rodar frontend Next.js**  
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+URLs principais:
+
+- Backend: `http://localhost:8000` (health) e `http://localhost:8000/docs` (Swagger).
+- Frontend: `http://localhost:3000` (`/dashboard`, `/municipio`, `/mapa`, `/chat`).
 
 ---
 
-## Instruções para Execução por IA
+## Documentacao relacionada
 
-Este repositório está conectado ao Cursor para implementação iterativa. Ao executar iterações, siga:
+- **`docs/SETUP.md`**: guia completo de configuracao local (Windows/macOS/Linux), comandos do dia a dia.
+- **`ARCHITECTURE.md`**: arquitetura do pipeline, modelo de dados Gold, integracao com IBGE (localidades, malhas, SIDRA).
+- **`FINANCEIRO.md`**: definicoes de custos, metodos de agregacao e referencias de calculos financeiros.
+- **`AGENTS.md`**: instrucoes especificas para uso com agentes (por exemplo, Cursor/LLMs) e comandos uteis.
+- **`mcp-server/server.py`**: implementacao do MCP Server (FastMCP) com tools como `query_obitos`, `query_custos`,
+  `query_taxa_mortalidade`, `query_serie_temporal` e `listar_municipios`.
 
-### Iteração 1 — Análise Exploratória
+---
 
-1. Criar `notebooks/01_eda_transito_sus.ipynb`.
-2. Usar **PySUS** conforme API oficial:
-   - `from pysus import SIM, SIA`
-   - SIM: `sim = SIM().load()` → `sim.get_files("CID10", uf=["BA","SP","MG"], year=[2022,2023])` → `sim.download(file)` (retorna .parquet)
-   - SIA: `sia = SIA().load()` → `sia.get_files("PA", uf="BA", year=2023, month=[1,2,3])` → `sia.download(files)` (PA = Produção Ambulatorial)
-3. Ler Parquet com `parquet.to_dataframe()` ou `duckdb.read_parquet()`.
-4. Filtrar: SIM `CAUSABAS` e SIA `PA_CIDPRI` em V01–V89 (`REGEXP_MATCHES` ou `LEFT(col, 3) BETWEEN 'V01' AND 'V89'`).
-5. Agregar por município (SIM: `CODMUNOCOR`/`CODMUNRES`; SIA: `PA_UFMUN`/`PA_MUNAT`) e competência (SIM: `DTOBITO`; SIA: `PA_DATREF`).
-6. Documentar schema, volumes e exemplos de consulta SQL.
+## Servicos principais
 
-### Iteração 2 — Pipeline ETL
+| Servico              | Porta | Comando                                                                 |
+|----------------------|-------|-------------------------------------------------------------------------|
+| Backend (FastAPI)    | 8000  | `uv run uvicorn backend.app:app --reload --port 8000`                  |
+| Frontend (Next.js)   | 3000  | `cd frontend && npm run dev`                                            |
+| MCP Server (FastMCP) | N/A   | `uv run python -m mcp-server.server`                                   |
 
-1. Criar `data-pipeline/` com módulos reutilizáveis.
-2. Parametrizar: UF, anos, bases (SIM, SIA).
-3. Output: Parquet particionado em `data/raw/` ou `data/bronze/`.
+Os caminhos de dados (Parquet) sao configurados via `.env` e documentados em `ARCHITECTURE.md`
+e em `docs/SETUP.md`.
 
-### Iteração 3 — DuckDB
+---
 
-1. Criar `data/` ou `backend/` com DuckDB.
-2. Views: `v_custos_transito_municipio_mes`, `v_obitos_transito_municipio_mes`.
-3. Unificar SIM e SIA por código IBGE e competência.
+## Testes e qualidade
 
-### Iteração 4 — MCP Server
+- **Rodar todos os testes**:
+  ```bash
+  uv run pytest tests/ -v
+  ```
+- **Lint Python (ruff)**:
+  ```bash
+  uv run ruff check .
+  ```
+- **Formatar Python (ruff format)**:
+  ```bash
+  uv run ruff format .
+  ```
 
-1. Criar `mcp-server/` com FastMCP.
-2. Tools: `query_custos_municipio`, `query_obitos_municipio`, `query_series_temporal`.
-3. Gerar SQL parametrizado e executar no DuckDB.
+Todos os testes do pipeline, API e stack basica estao em `tests/`.
 
-### Iteração 5 — POC
-
-1. Integrar ETL + DuckDB + MCP.
-2. Testar fluxo end-to-end e respostas em linguagem natural.
-
-### Regras Técnicas
-
-- Python 3.10+; preferir `uv` para ambiente.
-- Dados: SIM (óbitos) e SIA (produção ambulatorial/custos).
-- Municípios prioritários: São Paulo, Belo Horizonte, Vitória da Conquista (BA).
-- Manter arquivos Parquet em `data/` (adicionar ao `.gitignore` se >50MB).

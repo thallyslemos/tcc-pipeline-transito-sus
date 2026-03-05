@@ -28,6 +28,7 @@ ibge_mod = import_module("data-pipeline.ibge")
 
 settings = config.settings
 gold_dir = settings.resolve(settings.gold_dir)
+data_dir = settings.resolve(settings.data_dir)
 
 mcp = FastMCP(
     "Transito SUS",
@@ -42,7 +43,7 @@ mcp = FastMCP(
 
 
 def _get_con() -> duckdb.DuckDBPyConnection:
-    """Cria conexao DuckDB com views sobre os Parquet Gold."""
+    """Cria conexao DuckDB com views sobre os Parquet Gold e IBGE (quando existirem)."""
     con = duckdb.connect(":memory:")
     con.sql(f"""
         CREATE VIEW v_obitos AS
@@ -52,6 +53,12 @@ def _get_con() -> duckdb.DuckDBPyConnection:
         CREATE VIEW v_custos AS
         SELECT * FROM read_parquet('{gold_dir}/custos_municipio_mes.parquet')
     """)
+    ibge_mun = data_dir / "ibge_municipios.parquet"
+    ibge_pop = data_dir / "ibge_populacao.parquet"
+    if ibge_mun.exists():
+        con.sql(f"CREATE VIEW v_ibge_municipios AS SELECT * FROM read_parquet('{ibge_mun}')")
+    if ibge_pop.exists():
+        con.sql(f"CREATE VIEW v_ibge_populacao AS SELECT * FROM read_parquet('{ibge_pop}')")
     return con
 
 

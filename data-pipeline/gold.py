@@ -3,9 +3,8 @@
 Gera Parquet com agregacoes por municipio e competencia,
 otimizadas para consultas dos dashboards e MCP Server.
 
-Funciona tanto com dados amostrais (sample_data.py) quanto
-com dados reais do DATASUS (datasus.py). Quando o campo
-'municipio' nao existe no Silver, usa cod_mun como identificador.
+Quando existem Parquets IBGE (ibge_municipios, ibge_populacao),
+enriquece com nome, lat, lon e populacao estimada.
 """
 
 from pathlib import Path
@@ -18,43 +17,127 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 
+def _ibge_paths() -> tuple[Path, Path]:
+    data_dir = settings.resolve(settings.data_dir)
+    return data_dir / "ibge_municipios.parquet", data_dir / "ibge_populacao.parquet"
+
+
 def gerar_gold_obitos(silver_sim: Path) -> Path:
-    """Gera tabela Gold de obitos agregados por municipio/mes."""
+    """Gera tabela Gold de obitos agregados por municipio/mes.
+
+    Se existirem ibge_municipios.parquet e ibge_populacao.parquet,
+    enriquece com lat, lon, municipio (nome IBGE) e populacao.
+    """
     destino = settings.resolve(settings.gold_dir) / "obitos_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
+    ibge_mun_path, ibge_pop_path = _ibge_paths()
+    has_ibge_mun = ibge_mun_path.exists()
+    has_ibge_pop = ibge_pop_path.exists()
 
     con = duckdb.connect(":memory:")
 
     cols = [c[0] for c in con.sql(f"DESCRIBE SELECT * FROM '{silver_sim}'").fetchall()]
     has_municipio = "municipio" in cols
-
     municipio_expr = "municipio" if has_municipio else "cod_mun_ocorrencia"
 
-    con.sql(f"""
-        COPY (
-            SELECT
-                cod_mun_ocorrencia      AS cod_mun_ibge,
-                {municipio_expr}        AS municipio,
-                uf,
-                competencia,
-                YEAR(competencia)       AS ano,
-                MONTH(competencia)      AS mes,
-                COUNT(*)                AS total_obitos,
-                tipo_veiculo,
-                faixa_etaria,
-                sexo_desc               AS sexo
-            FROM read_parquet('{silver_sim}')
-            GROUP BY cod_mun_ocorrencia, {municipio_expr}, uf, competencia,
-                     tipo_veiculo, faixa_etaria, sexo_desc
-            ORDER BY competencia, cod_mun_ocorrencia
-        ) TO '{destino}' (FORMAT PARQUET)
-    """)
+    base_sql = f"""
+        SELECT
+            cod_mun_ocorrencia      AS cod_mun_ibge,
+            {municipio_expr}        AS municipio,
+            uf,
+            competencia,
+            YEAR(competencia)       AS ano,
+            MONTH(competencia)      AS mes,
+            COUNT(*)                AS total_obitos,
+            tipo_veiculo,
+            faixa_etaria,
+            sexo_desc               AS sexo
+        FROM read_parquet('{silver_sim}')
+        GROUP BY cod_mun_ocorrencia, {municipio_expr}, uf, competencia,
+                 tipo_veiculo, faixa_etaria, sexo_desc
+    """
+
+    if has_ibge_mun and has_ibge_pop:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    COALESCE(ibge.nome, base.municipio) AS municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    ibge.lat,
+                    ibge.lon,
+                    pop.populacao AS populacao_estimada
+                FROM ({base_sql}) base
+                LEFT JOIN read_parquet('{ibge_mun_path}') ibge
+                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                LEFT JOIN read_parquet('{ibge_pop_path}') pop
+                    ON base.cod_mun_ibge = pop.cod_mun_ibge AND base.ano = pop.ano
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    elif has_ibge_mun:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    COALESCE(ibge.nome, base.municipio) AS municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    ibge.lat,
+                    ibge.lon,
+                    CAST(NULL AS INTEGER) AS populacao_estimada
+                FROM ({base_sql}) base
+                LEFT JOIN read_parquet('{ibge_mun_path}') ibge
+                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    else:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    base.municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    CAST(NULL AS DOUBLE) AS lat,
+                    CAST(NULL AS DOUBLE) AS lon,
+                    CAST(NULL AS INTEGER) AS populacao_estimada
+                FROM ({base_sql}) base
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+
     con.close()
 
     con2 = duckdb.connect(":memory:")
     total = con2.sql(f"SELECT COUNT(*) FROM '{destino}'").fetchone()[0]
     con2.close()
-    logger.info("gold_obitos_gerado", registros=total, caminho=str(destino))
+    logger.info(
+        "gold_obitos_gerado",
+        registros=total,
+        caminho=str(destino),
+        enriquecido_ibge=has_ibge_mun,
+    )
     return destino
 
 
@@ -85,38 +168,87 @@ def gerar_gold_custos(silver_sia: Path) -> Path:
     """
     destino = settings.resolve(settings.gold_dir) / "custos_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
+    ibge_mun_path, _ = _ibge_paths()
+    has_ibge_mun = ibge_mun_path.exists()
 
     con = duckdb.connect(":memory:")
 
     cols = [c[0] for c in con.sql(f"DESCRIBE SELECT * FROM '{silver_sia}'").fetchall()]
     has_municipio = "municipio" in cols
-
     municipio_expr = "municipio" if has_municipio else "cod_mun"
 
-    con.sql(f"""
-        COPY (
-            SELECT
-                cod_mun                 AS cod_mun_ibge,
-                {municipio_expr}        AS municipio,
-                uf,
-                competencia,
-                YEAR(competencia)       AS ano,
-                MONTH(competencia)      AS mes,
-                SUM(valor_aprovado)     AS custo_total,
-                SUM(qtd_aprovada)       AS total_procedimentos,
-                COUNT(*)                AS total_atendimentos,
-                tipo_veiculo,
-                faixa_etaria
-            FROM read_parquet('{silver_sia}')
-            GROUP BY cod_mun, {municipio_expr}, uf, competencia,
-                     tipo_veiculo, faixa_etaria
-            ORDER BY competencia, cod_mun
-        ) TO '{destino}' (FORMAT PARQUET)
-    """)
+    base_sql = f"""
+        SELECT
+            cod_mun                 AS cod_mun_ibge,
+            {municipio_expr}        AS municipio,
+            uf,
+            competencia,
+            YEAR(competencia)       AS ano,
+            MONTH(competencia)      AS mes,
+            SUM(valor_aprovado)     AS custo_total,
+            SUM(qtd_aprovada)       AS total_procedimentos,
+            COUNT(*)                AS total_atendimentos,
+            tipo_veiculo,
+            faixa_etaria
+        FROM read_parquet('{silver_sia}')
+        GROUP BY cod_mun, {municipio_expr}, uf, competencia,
+                 tipo_veiculo, faixa_etaria
+    """
+
+    if has_ibge_mun:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    COALESCE(ibge.nome, base.municipio) AS municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.custo_total,
+                    base.total_procedimentos,
+                    base.total_atendimentos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    ibge.lat,
+                    ibge.lon
+                FROM ({base_sql}) base
+                LEFT JOIN read_parquet('{ibge_mun_path}') ibge
+                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    else:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    base.municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.custo_total,
+                    base.total_procedimentos,
+                    base.total_atendimentos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    CAST(NULL AS DOUBLE) AS lat,
+                    CAST(NULL AS DOUBLE) AS lon
+                FROM ({base_sql}) base
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+
     con.close()
 
     con2 = duckdb.connect(":memory:")
     total = con2.sql(f"SELECT COUNT(*) FROM '{destino}'").fetchone()[0]
     con2.close()
-    logger.info("gold_custos_gerado", registros=total, caminho=str(destino))
+    logger.info(
+        "gold_custos_gerado",
+        registros=total,
+        caminho=str(destino),
+        enriquecido_ibge=has_ibge_mun,
+    )
     return destino

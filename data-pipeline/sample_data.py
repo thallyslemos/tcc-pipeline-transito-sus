@@ -1,25 +1,24 @@
 """Gerador de dados amostrais realistas do SIM e SIA.
 
-Gera dados com distribuicoes estatisticas que simulam padroes reais:
-- Sazonalidade (mais acidentes em dez/jan)
-- Diferencas regionais proporcionais a populacao
-- Subcategorias CID-10 V01-V89 com pesos realistas
-- Faixas etarias e sexo conforme perfil epidemiologico
-- 9 municipios em 3 estados (SP, MG, BA) com coordenadas
+Gera dados com distribuicoes estatisticas que simulam padroes reais.
+Se existir data/ibge_municipios.parquet (e opcionalmente ibge_populacao.parquet),
+usa municipios reais do IBGE; senao usa lista fixa de 9 municipios.
 """
 
 import random
 from datetime import date
 
+import duckdb
 import pandas as pd
 
+from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
 
-# ── Municipios com coordenadas (para mapa) ──────────────────────────
+# ── Municipios: Parquet IBGE se existir, senao fallback ─────────────────────
 
-MUNICIPIOS = {
+MUNICIPIOS_FALLBACK = {
     "3550308": {
         "nome": "Sao Paulo",
         "uf": "SP",
@@ -60,6 +59,58 @@ MUNICIPIOS = {
         "pop": 620_000,
     },
 }
+
+
+def _load_municipios_from_parquet() -> dict | None:
+    """Carrega municipios de data/ibge_municipios.parquet (+ pop de ibge_populacao se existir)."""
+    data_dir = settings.resolve(settings.data_dir)
+    mun_path = data_dir / "ibge_municipios.parquet"
+    pop_path = data_dir / "ibge_populacao.parquet"
+    if not mun_path.exists():
+        return None
+    try:
+        con = duckdb.connect(":memory:")
+        df_mun = con.execute(f"SELECT * FROM read_parquet('{mun_path}')").fetchdf()
+        con.close()
+        if df_mun.empty:
+            return None
+        # Populacao: usar 2023 se existir ibge_populacao, senao estimativa por regiao
+        pop_por_cod: dict[str, int] = {}
+        if pop_path.exists():
+            con = duckdb.connect(":memory:")
+            df_pop = con.execute(
+                f"SELECT cod_mun_ibge, populacao FROM read_parquet('{pop_path}') WHERE ano = 2023"
+            ).fetchdf()
+            con.close()
+            pop_por_cod = df_pop.set_index("cod_mun_ibge")["populacao"].to_dict()
+        out = {}
+        for _, row in df_mun.iterrows():
+            cod = str(row["cod_mun_ibge"])
+            pop = pop_por_cod.get(cod)
+            if pop is None:
+                pop = 200_000  # fallback para amostra
+            out[cod] = {
+                "nome": row["nome"],
+                "uf": row["uf"],
+                "lat": float(row["lat"]) if row["lat"] is not None else None,
+                "lon": float(row["lon"]) if row["lon"] is not None else None,
+                "pop": int(pop),
+            }
+        return out if out else None
+    except Exception as e:
+        logger.warning("sample_data_ibge_parquet_falha", erro=str(e))
+        return None
+
+
+def get_municipios() -> dict:
+    """Retorna dict de municipios (IBGE Parquet se existir, senao fallback)."""
+    muns = _load_municipios_from_parquet()
+    return muns if muns is not None else MUNICIPIOS_FALLBACK
+
+
+# Compatibilidade: MUNICIPIOS aponta para o resultado de get_municipios() na importacao.
+# Em runtime, gerar_sim/gerar_sia usam get_municipios() para permitir parquet apos pipeline.
+MUNICIPIOS = MUNICIPIOS_FALLBACK
 
 CID_TRANSITO = {
     "V01-V09": {"desc": "Pedestre", "peso": 0.12},
@@ -139,11 +190,12 @@ def gerar_sim(anos: list[int] | None = None, seed: int = 42) -> pd.DataFrame:
     """Gera dados amostrais do SIM (mortalidade) por acidentes de transito."""
     random.seed(seed)
     anos = anos or list(range(2019, 2024))
+    municipios = get_municipios()
     registros: list[dict] = []
 
     for ano in anos:
         for mes in range(1, 13):
-            for cod_mun, info in MUNICIPIOS.items():
+            for cod_mun, info in municipios.items():
                 base = _taxa_obitos(info["pop"])
                 n = int(
                     base * SAZONALIDADE[mes] * _TENDENCIA.get(ano, 1.0) * random.uniform(0.8, 1.2)
@@ -185,9 +237,10 @@ def gerar_sia(anos: list[int] | None = None, seed: int = 42) -> pd.DataFrame:
         "V80-V89": 1900.0,
     }
 
+    municipios = get_municipios()
     for ano in anos:
         for mes in range(1, 13):
-            for cod_mun, info in MUNICIPIOS.items():
+            for cod_mun, info in municipios.items():
                 base = _taxa_atendimentos(info["pop"])
                 n = int(
                     base * SAZONALIDADE[mes] * _TENDENCIA.get(ano, 1.0) * random.uniform(0.85, 1.15)

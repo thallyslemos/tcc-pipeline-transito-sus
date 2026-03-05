@@ -12,22 +12,24 @@ Metodologia:
   Ref: https://www.atlasbrasil.org.br
 """
 
-from importlib import import_module
-
 from fastapi import APIRouter
 
 from ..database import get_connection
+from ..ibge import (
+    custo_per_capita,
+    get_info,
+    get_populacao,
+    taxa_por_100mil,
+)
 
 router = APIRouter(prefix="/api/indicadores", tags=["Indicadores"])
-
-ibge = import_module("data-pipeline.ibge")
 
 
 @router.get("/municipio/{cod_mun}")
 async def indicadores_municipio(cod_mun: str, ano: int | None = None):
     """Indicadores relativos por municipio com dados demograficos."""
     con = get_connection()
-    info = ibge.get_info(cod_mun)
+    info = get_info(cod_mun)
     if not info:
         return {"error": "Municipio nao encontrado"}
 
@@ -37,7 +39,7 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
 
     indicadores_anuais = []
     for a in anos_disponveis:
-        pop = ibge.get_populacao(cod_mun, a)
+        pop = get_populacao(cod_mun, a)
         if not pop:
             continue
 
@@ -61,11 +63,11 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
                 "ano": a,
                 "populacao": pop,
                 "obitos": int(obitos),
-                "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
+                "taxa_obitos_100mil": taxa_por_100mil(float(obitos), pop),
                 "custo_total": float(custos),
-                "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
+                "custo_per_capita": custo_per_capita(float(custos), pop),
                 "atendimentos": int(atend),
-                "taxa_atend_100mil": ibge.taxa_por_100mil(float(atend), pop),
+                "taxa_atend_100mil": taxa_por_100mil(float(atend), pop),
             }
         )
 
@@ -74,9 +76,9 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
         "municipio": info["nome"],
         "uf": info["uf"],
         "regiao": info["regiao"],
-        "area_km2": info["area_km2"],
-        "idh": info["idh"],
-        "pib_per_capita": info["pib_per_capita"],
+        "area_km2": info.get("area_km2"),
+        "idh": info.get("idh"),
+        "pib_per_capita": info.get("pib_per_capita"),
         "indicadores": indicadores_anuais,
         "fontes": {
             "populacao": "IBGE - Estimativas da Populacao (Tabela 6579 SIDRA)",
@@ -90,13 +92,16 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
 
 @router.get("/ranking")
 async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mil"):
-    """Ranking comparativo de municipios por indicador relativo."""
+    """Ranking comparativo de municipios por indicador relativo (muns distintos de v_obitos)."""
     con = get_connection()
+    codigos = con.sql(
+        f"SELECT DISTINCT cod_mun_ibge FROM v_obitos WHERE ano = {ano}"
+    ).fetchdf()["cod_mun_ibge"].tolist()
     resultados = []
 
-    for cod_mun in ibge.POPULACAO_ESTIMADA:
-        pop = ibge.get_populacao(cod_mun, ano)
-        info = ibge.get_info(cod_mun)
+    for cod_mun in codigos:
+        pop = get_populacao(cod_mun, ano)
+        info = get_info(cod_mun)
         if not pop or not info:
             continue
 
@@ -117,9 +122,9 @@ async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mi
                 "uf": info["uf"],
                 "populacao": pop,
                 "obitos": int(obitos),
-                "taxa_obitos_100mil": ibge.taxa_por_100mil(float(obitos), pop),
+                "taxa_obitos_100mil": taxa_por_100mil(float(obitos), pop),
                 "custo_total": float(custos),
-                "custo_per_capita": ibge.custo_per_capita(float(custos), pop),
+                "custo_per_capita": custo_per_capita(float(custos), pop),
             }
         )
 
