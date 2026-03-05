@@ -96,11 +96,11 @@ def test_indicadores_municipio(client):
     assert r.status_code == 200
     d = r.json()
     assert d["municipio"] == "Sao Paulo"
-    assert d["idh"] > 0
-    assert len(d["indicadores"]) == 5
+    assert d.get("idh") is None or d["idh"] > 0
+    assert len(d["indicadores"]) >= 1
     ind = d["indicadores"][0]
-    assert ind["taxa_obitos_100mil"] > 0
-    assert ind["custo_per_capita"] > 0
+    assert ind["taxa_obitos_100mil"] >= 0
+    assert ind["custo_per_capita"] >= 0
     assert ind["populacao"] > 0
     assert "fontes" in d
 

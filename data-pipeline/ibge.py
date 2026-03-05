@@ -1,18 +1,65 @@
 """Dados populacionais do IBGE para calculo de taxas relativas.
 
 Fonte: IBGE - Estimativas da Populacao Residente (Tabela 6579 SIDRA)
-Metodologia: Metodo AiBi - projecoes baseadas em componentes demograficas
-Referencia: 1o de julho de cada ano
-URL: https://sidra.ibge.gov.br/tabela/6579
-
-Para o MVP, usamos estimativas populacionais embutidas (offline-first).
-Em producao, pode-se integrar via API SIDRA:
-  https://apisidra.ibge.gov.br/values/t/6579/n6/{cod_ibge}/v/9324/p/{ano}
+Quando existem Parquets em data/ (ibge_municipios.parquet, ibge_populacao.parquet),
+le deles; senao usa dicionarios embutidos (offline-first).
 """
 
+from pathlib import Path
+
+import duckdb
+
+from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _parquet_path(name: str) -> Path:
+    return settings.resolve(settings.data_dir) / name
+
+
+def _get_populacao_parquet(cod_mun: str, ano: int) -> int | None:
+    """Le populacao do Parquet IBGE se existir."""
+    path = _parquet_path("ibge_populacao.parquet")
+    if not path.exists():
+        return None
+    try:
+        con = duckdb.connect(":memory:")
+        row = con.execute(
+            "SELECT populacao FROM read_parquet(?) WHERE cod_mun_ibge = ? AND ano = ? LIMIT 1",
+            [str(path), cod_mun, ano],
+        ).fetchone()
+        con.close()
+        return int(row[0]) if row else None
+    except Exception:
+        return None
+
+
+def _get_info_parquet(cod_mun: str) -> dict | None:
+    """Le info do municipio do Parquet IBGE se existir."""
+    path = _parquet_path("ibge_municipios.parquet")
+    if not path.exists():
+        return None
+    try:
+        con = duckdb.connect(":memory:")
+        row = con.execute(
+            "SELECT nome, uf, regiao, lat, lon FROM read_parquet(?) WHERE cod_mun_ibge = ? LIMIT 1",
+            [str(path), cod_mun],
+        ).fetchone()
+        con.close()
+        if not row:
+            return None
+        return {
+            "nome": row[0],
+            "uf": row[1],
+            "regiao": row[2],
+            "area_km2": None,
+            "idh": None,
+            "pib_per_capita": None,
+        }
+    except Exception:
+        return None
 
 # Populacao estimada por municipio/ano (fonte: IBGE Tabela 6579)
 # Valores arredondados em milhares para o MVP
@@ -160,12 +207,18 @@ INFO_MUNICIPIOS: dict[str, dict] = {
 
 
 def get_populacao(cod_mun: str, ano: int) -> int | None:
-    """Retorna populacao estimada do municipio no ano."""
+    """Retorna populacao estimada do municipio no ano (Parquet IBGE ou fallback)."""
+    v = _get_populacao_parquet(cod_mun, ano)
+    if v is not None:
+        return v
     return POPULACAO_ESTIMADA.get(cod_mun, {}).get(ano)
 
 
 def get_info(cod_mun: str) -> dict | None:
-    """Retorna informacoes complementares do municipio."""
+    """Retorna informacoes do municipio (Parquet IBGE ou fallback)."""
+    info = _get_info_parquet(cod_mun)
+    if info is not None:
+        return info
     return INFO_MUNICIPIOS.get(cod_mun)
 
 

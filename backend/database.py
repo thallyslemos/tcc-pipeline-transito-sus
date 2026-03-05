@@ -4,6 +4,8 @@ Mantém uma conexão singleton (DuckDB é single-writer)
 que registra views sobre os arquivos Parquet gerados pelo pipeline.
 """
 
+from pathlib import Path
+
 import duckdb
 import structlog
 
@@ -16,6 +18,10 @@ _connection: duckdb.DuckDBPyConnection | None = None
 
 def _gold_path(filename: str) -> str:
     return str(settings.resolve(settings.gold_dir) / filename)
+
+
+def _data_path(filename: str) -> str:
+    return str(settings.project_root / "data" / filename)
 
 
 def get_connection() -> duckdb.DuckDBPyConnection:
@@ -41,6 +47,19 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
         CREATE VIEW IF NOT EXISTS v_custos AS
         SELECT * FROM read_parquet('{custos_path}')
     """)
+
+    ibge_mun_path = _data_path("ibge_municipios.parquet")
+    ibge_pop_path = _data_path("ibge_populacao.parquet")
+    if Path(ibge_mun_path).exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_ibge_municipios AS
+            SELECT * FROM read_parquet('{ibge_mun_path}')
+        """)
+    if Path(ibge_pop_path).exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_ibge_populacao AS
+            SELECT * FROM read_parquet('{ibge_pop_path}')
+        """)
 
     logger.info("duckdb_inicializado", obitos=obitos_path, custos=custos_path)
     return con

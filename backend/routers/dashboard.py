@@ -1,22 +1,27 @@
 """Router para endpoints do dashboard - dados agregados para visualizacao."""
 
+import math
+
 from fastapi import APIRouter, Query
 
 from ..database import get_connection
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 
-_MUNICIPIOS_META = {
-    "3550308": {"nome": "Sao Paulo", "uf": "SP", "lat": -23.5505, "lon": -46.6333},
-    "3509502": {"nome": "Campinas", "uf": "SP", "lat": -22.9099, "lon": -47.0626},
-    "3518800": {"nome": "Guarulhos", "uf": "SP", "lat": -23.4628, "lon": -46.5333},
-    "3106200": {"nome": "Belo Horizonte", "uf": "MG", "lat": -19.9167, "lon": -43.9345},
-    "3170206": {"nome": "Uberlandia", "uf": "MG", "lat": -18.9186, "lon": -48.2772},
-    "3118601": {"nome": "Contagem", "uf": "MG", "lat": -19.9312, "lon": -44.0539},
-    "2927408": {"nome": "Salvador", "uf": "BA", "lat": -12.9714, "lon": -38.5124},
-    "2933307": {"nome": "Vitoria da Conquista", "uf": "BA", "lat": -14.8619, "lon": -40.8444},
-    "2910800": {"nome": "Feira de Santana", "uf": "BA", "lat": -12.2669, "lon": -38.9666},
-}
+
+def _sanitize_floats(rows: list[dict]) -> list[dict]:
+    """Substitui float nan por None para serializacao JSON."""
+    for r in rows:
+        for k, v in r.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                r[k] = None
+    return rows
+
+
+def _obitos_has_lat_lon(con) -> bool:
+    """Verifica se v_obitos possui colunas lat/lon (Gold enriquecido com IBGE)."""
+    cols = [r[0] for r in con.sql("DESCRIBE SELECT * FROM v_obitos").fetchall()]
+    return "lat" in cols and "lon" in cols
 
 
 def _where(ano: int | None = None, mun: str | None = None, veiculo: str | None = None) -> str:
@@ -152,8 +157,12 @@ async def dashboard_summary(
     partes = []
     if ano is not None:
         partes.append(str(ano))
-    if municipio and municipio in _MUNICIPIOS_META:
-        partes.append(_MUNICIPIOS_META[municipio]["nome"])
+    if municipio:
+        nome_mun = con.sql(
+            f"SELECT DISTINCT municipio FROM v_obitos WHERE cod_mun_ibge = '{municipio}' LIMIT 1"
+        ).fetchone()
+        if nome_mun:
+            partes.append(nome_mun[0])
     periodo = " - ".join(partes) if partes else "2019-2023"
 
     return {
@@ -177,23 +186,37 @@ async def dashboard_summary(
 
 @router.get("/municipios")
 async def listar_municipios():
-    """Lista todos os municipios com metadados e totais."""
+    """Lista todos os municipios com metadados e totais (lat/lon do Gold quando enriquecido)."""
     con = get_connection()
-    rows = (
-        con.sql("""
-        SELECT cod_mun_ibge, municipio, uf, SUM(total_obitos) AS obitos
-        FROM v_obitos GROUP BY cod_mun_ibge, municipio, uf ORDER BY obitos DESC
-    """)
-        .fetchdf()
-        .to_dict(orient="records")
-    )
-
-    for row in rows:
-        meta = _MUNICIPIOS_META.get(row["cod_mun_ibge"], {})
-        row["lat"] = meta.get("lat")
-        row["lon"] = meta.get("lon")
-
-    return {"municipios": rows}
+    if _obitos_has_lat_lon(con):
+        rows = (
+            con.sql("""
+            SELECT cod_mun_ibge, municipio, uf,
+                   SUM(total_obitos) AS obitos,
+                   MAX(lat) AS lat,
+                   MAX(lon) AS lon
+            FROM v_obitos
+            GROUP BY cod_mun_ibge, municipio, uf
+            ORDER BY obitos DESC
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
+    else:
+        rows = (
+            con.sql("""
+            SELECT cod_mun_ibge, municipio, uf,
+                   SUM(total_obitos) AS obitos,
+                   CAST(NULL AS DOUBLE) AS lat,
+                   CAST(NULL AS DOUBLE) AS lon
+            FROM v_obitos
+            GROUP BY cod_mun_ibge, municipio, uf
+            ORDER BY obitos DESC
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
+    return {"municipios": _sanitize_floats(rows)}
 
 
 @router.get("/municipio/{cod_mun}")
@@ -267,14 +290,31 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
         .to_dict(orient="records")
     )
 
-    meta = _MUNICIPIOS_META.get(cod_mun, {})
+    if _obitos_has_lat_lon(con):
+        meta_row = con.sql(
+            f"SELECT uf, MAX(lat) AS lat, MAX(lon) AS lon FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' GROUP BY uf LIMIT 1"
+        ).fetchone()
+        uf_val = meta_row[0] if meta_row else ""
+        lat_val = meta_row[1] if meta_row else None
+        lon_val = meta_row[2] if meta_row else None
+        if lat_val is not None and isinstance(lat_val, float) and math.isnan(lat_val):
+            lat_val = None
+        if lon_val is not None and isinstance(lon_val, float) and math.isnan(lon_val):
+            lon_val = None
+    else:
+        uf_row = con.sql(
+            f"SELECT uf FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' LIMIT 1"
+        ).fetchone()
+        uf_val = uf_row[0] if uf_row else ""
+        lat_val = None
+        lon_val = None
 
     return {
         "cod_mun_ibge": cod_mun,
         "municipio": nome[0] if nome else cod_mun,
-        "uf": meta.get("uf", ""),
-        "lat": meta.get("lat"),
-        "lon": meta.get("lon"),
+        "uf": uf_val,
+        "lat": lat_val,
+        "lon": lon_val,
         "total_obitos": int(total_obitos),
         "total_custos": float(total_custos),
         "total_atendimentos": int(total_atend),
@@ -292,34 +332,65 @@ async def dados_mapa(ano: int | None = None, metrica: str = "obitos"):
     con = get_connection()
     w = f"WHERE ano = {ano}" if ano is not None else ""
 
+    has_geo = _obitos_has_lat_lon(con)
     if metrica == "custos":
-        rows = (
-            con.sql(f"""
-            SELECT cod_mun_ibge, municipio, uf,
-                   ROUND(SUM(custo_total),2) AS valor,
-                   SUM(total_atendimentos) AS atendimentos
-            FROM v_custos {w} GROUP BY cod_mun_ibge, municipio, uf ORDER BY valor DESC
-        """)
-            .fetchdf()
-            .to_dict(orient="records")
-        )
+        if has_geo:
+            rows = (
+                con.sql(f"""
+                SELECT cod_mun_ibge, municipio, uf,
+                       ROUND(SUM(custo_total),2) AS valor,
+                       SUM(total_atendimentos) AS atendimentos,
+                       MAX(lat) AS lat, MAX(lon) AS lon
+                FROM v_custos {w}
+                GROUP BY cod_mun_ibge, municipio, uf
+                ORDER BY valor DESC
+            """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(f"""
+                SELECT cod_mun_ibge, municipio, uf,
+                       ROUND(SUM(custo_total),2) AS valor,
+                       SUM(total_atendimentos) AS atendimentos,
+                       CAST(NULL AS DOUBLE) AS lat, CAST(NULL AS DOUBLE) AS lon
+                FROM v_custos {w}
+                GROUP BY cod_mun_ibge, municipio, uf
+                ORDER BY valor DESC
+            """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
     else:
-        rows = (
-            con.sql(f"""
-            SELECT cod_mun_ibge, municipio, uf,
-                   SUM(total_obitos) AS valor
-            FROM v_obitos {w} GROUP BY cod_mun_ibge, municipio, uf ORDER BY valor DESC
-        """)
-            .fetchdf()
-            .to_dict(orient="records")
-        )
+        if has_geo:
+            rows = (
+                con.sql(f"""
+                SELECT cod_mun_ibge, municipio, uf,
+                       SUM(total_obitos) AS valor,
+                       MAX(lat) AS lat, MAX(lon) AS lon
+                FROM v_obitos {w}
+                GROUP BY cod_mun_ibge, municipio, uf
+                ORDER BY valor DESC
+            """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(f"""
+                SELECT cod_mun_ibge, municipio, uf,
+                       SUM(total_obitos) AS valor,
+                       CAST(NULL AS DOUBLE) AS lat, CAST(NULL AS DOUBLE) AS lon
+                FROM v_obitos {w}
+                GROUP BY cod_mun_ibge, municipio, uf
+                ORDER BY valor DESC
+            """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
 
-    for row in rows:
-        meta = _MUNICIPIOS_META.get(row["cod_mun_ibge"], {})
-        row["lat"] = meta.get("lat")
-        row["lon"] = meta.get("lon")
-
-    return {"metrica": metrica, "ano": ano, "dados": rows}
+    return {"metrica": metrica, "ano": ano, "dados": _sanitize_floats(rows)}
 
 
 @router.get("/anos")

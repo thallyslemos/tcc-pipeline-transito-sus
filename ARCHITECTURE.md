@@ -14,6 +14,7 @@ flowchart TB
 
     subgraph Pipeline[Pipeline ETL]
         PySUS[PySUS]
+        IBGE_Fetch[IBGE Fetcher]
         Parquet[(Parquet)]
         DuckDB[(DuckDB)]
     end
@@ -27,7 +28,8 @@ flowchart TB
 
     SIM --> PySUS
     SIA --> PySUS
-    IBGE --> DuckDB
+    IBGE --> IBGE_Fetch
+    IBGE_Fetch --> Parquet
     PySUS --> Parquet
     Parquet --> DuckDB
     DuckDB --> FastAPI
@@ -50,6 +52,11 @@ flowchart LR
         S2[Tipagem + campos derivados]
     end
 
+    subgraph IBGE[IBGE Parquets]
+        IM[ibge_municipios.parquet]
+        IP[ibge_populacao.parquet]
+    end
+
     subgraph Gold[Gold]
         G1[Obitos por municipio/mes]
         G2[Custos por municipio/mes]
@@ -63,8 +70,12 @@ flowchart LR
     B1 --> S1
     B2 --> S1
     S1 --> S2
+    S2 --> IM
+    S2 --> IP
     S2 --> G1
     S2 --> G2
+    IM --> G1
+    IP --> G1
     G1 --> I1
     G2 --> I2
 ```
@@ -73,27 +84,30 @@ flowchart LR
 |--------|----------|
 | Bronze | Dados brutos do SIM e SIA em Parquet |
 | Silver | Filtrados (CID V01-V89), tipados, com campos derivados (tipo_veiculo, faixa_etaria) |
-| Gold | Tabelas agregadas por municipio (IBGE) e competencia (mes/ano) |
-| Indicadores | Taxas relativas usando populacao estimada do IBGE |
+| IBGE | Parquets gerados por `ibge_fetcher`: localidades, malhas (lat/lon), populacao SIDRA |
+| Gold | Tabelas agregadas por municipio/competencia, enriquecidas com nome, lat, lon e populacao quando IBGE existir |
+| Indicadores | Taxas relativas usando populacao estimada (views v_ibge_populacao ou fallback) |
 
 ## 3. Componentes
 
 ### 3.1 Data Pipeline (`data-pipeline/`)
 
-- **sample_data.py**: Gerador de dados amostrais com 9 municipios, distribuicoes realistas
+- **sample_data.py**: Dados amostrais; usa `ibge_municipios.parquet` se existir, senao 9 municipios fixos
 - **bronze.py**: Ingestao bruta para Parquet
 - **silver.py**: Filtragem CID + enriquecimento (tipo veiculo, faixa etaria, sexo)
-- **gold.py**: Agregacoes por municipio/competencia
-- **ibge.py**: Dados populacionais IBGE + calculo de taxas relativas
+- **ibge_fetcher.py**: Integracao com APIs IBGE (localidades, malhas GeoJSON, SIDRA populacao); gera `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
+- **gold.py**: Agregacoes por municipio/competencia; enriquecimento com JOIN nos Parquets IBGE (nome, lat, lon, populacao)
+- **ibge.py**: Leitura de populacao/info a partir dos Parquets IBGE (ou dicionarios fallback) + funcoes de taxa (taxa_por_100mil, custo_per_capita)
 - **config.py**: Pydantic Settings (`.env`)
 - **logging.py**: structlog (dev: console colorido, prod: JSON)
 
 ### 3.2 Backend (`backend/`)
 
 - **FastAPI** com routers:
-  - `/api/dashboard/*` - dados para graficos e mapa
-  - `/api/indicadores/*` - taxas relativas com dados demograficos IBGE
-- **DuckDB** in-process sobre Parquet Gold
+  - `/api/dashboard/*` - dados para graficos e mapa (lat/lon e nome vindos do Gold ou views IBGE)
+  - `/api/indicadores/*` - taxas relativas com populacao/info do IBGE (views v_ibge_municipios, v_ibge_populacao ou fallback)
+- **DuckDB** in-process: views sobre Gold e, quando existirem, sobre `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
+- **ibge.py**: Acesso a dados IBGE via views DuckDB com fallback para `data-pipeline.ibge`
 
 ### 3.3 MCP Server (`mcp-server/`)
 
@@ -126,6 +140,9 @@ erDiagram
         string tipo_veiculo
         string faixa_etaria
         string sexo
+        double lat
+        double lon
+        int populacao_estimada
     }
 
     custos_municipio_mes {
@@ -140,12 +157,23 @@ erDiagram
         int total_atendimentos
         string tipo_veiculo
         string faixa_etaria
+        double lat
+        double lon
     }
 
-    populacao_ibge {
+    ibge_municipios {
+        string cod_mun_ibge PK
+        string nome
+        string uf
+        string regiao
+        double lat
+        double lon
+    }
+
+    ibge_populacao {
         string cod_mun_ibge PK
         int ano PK
-        int populacao_estimada
+        int populacao
     }
 ```
 

@@ -27,6 +27,7 @@ Exemplos:
 import argparse
 
 from .bronze import salvar_bronze
+from .config import settings
 from .gold import gerar_gold_custos, gerar_gold_obitos
 from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
@@ -75,6 +76,13 @@ def _executar_etl(df_sim, df_sia) -> None:
     silver_sim = processar_silver_sim(bronze_sim)
     silver_sia = processar_silver_sia(bronze_sia)
     logger.info("etapa", camada="silver", status="concluido")
+
+    logger.info("etapa", camada="ibge", status="iniciando")
+    from .ibge_fetcher import salvar_ibge_parquet
+
+    ibge_dir = settings.resolve(settings.data_dir)
+    salvar_ibge_parquet(ibge_dir)
+    logger.info("etapa", camada="ibge", status="concluido")
 
     logger.info("etapa", camada="gold", status="iniciando")
     gold_obitos = gerar_gold_obitos(silver_sim)
