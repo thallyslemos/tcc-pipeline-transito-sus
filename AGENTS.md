@@ -24,7 +24,7 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 | Lint Python | `uv run ruff check .` |
 | Format Python | `uv run ruff format .` |
 | Testes | `uv run pytest tests/ -v` |
-| Executar pipeline ETL | `uv run python -c "from importlib import import_module; import_module('data-pipeline.run').run()"` |
+| Executar pipeline ETL | `uv run python -c "from importlib import import_module; import_module('data-pipeline.run').main()"` |
 | Build frontend | `cd frontend && npx next build` |
 
 ### Configuracao
