@@ -6,9 +6,16 @@ dados embutidos do data-pipeline.ibge (offline-first).
 
 from __future__ import annotations
 
+
 from importlib import import_module
 
+import structlog
+
 from .database import get_connection
+
+
+
+logger = structlog.get_logger(__name__)
 
 _ibge_fallback = None
 
@@ -31,6 +38,7 @@ def get_populacao(cod_mun: str, ano: int) -> int | None:
         if row:
             return int(row[0])
     except Exception:
+        logger.error("Erro ao buscar populacao do municipio", exc_info=True)
         pass
     return _fallback().get_populacao(cod_mun, ano)
 
@@ -40,8 +48,15 @@ def get_info(cod_mun: str) -> dict | None:
     try:
         con = get_connection()
         row = con.execute(
-            "SELECT nome, uf, regiao, lat, lon FROM v_ibge_municipios WHERE cod_mun_ibge = ? LIMIT 1",
-            [cod_mun],
+            """SELECT
+                nome,
+                uf,
+                regiao,
+                lat,
+                lon
+            FROM v_ibge_municipios
+            WHERE cod_mun_ibge = :cod_mun LIMIT 1""",
+            {"cod_mun": cod_mun},
         ).fetchone()
         if row:
             return {
@@ -55,6 +70,7 @@ def get_info(cod_mun: str) -> dict | None:
                 "pib_per_capita": None,
             }
     except Exception:
+        logger.error("Erro ao buscar informacoes do municipio", exc_info=True)
         pass
     return _fallback().get_info(cod_mun)
 

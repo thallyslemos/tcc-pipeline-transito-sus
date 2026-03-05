@@ -7,7 +7,6 @@ usa municipios reais do IBGE; senao usa lista fixa de 9 municipios.
 
 import random
 from datetime import date
-from pathlib import Path
 
 import duckdb
 import pandas as pd

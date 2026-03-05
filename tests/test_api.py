@@ -69,7 +69,7 @@ def test_municipio_detalhe(client):
     r = client.get("/api/dashboard/municipio/3550308")
     assert r.status_code == 200
     d = r.json()
-    assert d["municipio"] == "Sao Paulo"
+    assert d["municipio"] == "São Paulo"
     assert d["total_obitos"] > 0
     assert len(d["serie_obitos"]) > 0
     assert len(d["obitos_por_tipo_veiculo"]) > 0
@@ -95,7 +95,7 @@ def test_indicadores_municipio(client):
     r = client.get("/api/indicadores/municipio/3550308")
     assert r.status_code == 200
     d = r.json()
-    assert d["municipio"] == "Sao Paulo"
+    assert d["municipio"] == "São Paulo"
     assert d.get("idh") is None or d["idh"] > 0
     assert len(d["indicadores"]) >= 1
     ind = d["indicadores"][0]

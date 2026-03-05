@@ -9,9 +9,9 @@ Responsavel por:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
 
 import duckdb
 import httpx
@@ -39,7 +39,7 @@ class MunicipioLocalidade:
     regiao: str
 
 
-def _http_get(url: str, *, params: Optional[dict] = None, timeout: float = 30.0) -> httpx.Response:
+def _http_get(url: str, *, params: dict | None = None, timeout: float = 30.0) -> httpx.Response:
     """Wrapper simples de GET com log e timeout padrao."""
     try:
         resp = httpx.get(url, params=params, timeout=timeout)
@@ -50,13 +50,13 @@ def _http_get(url: str, *, params: Optional[dict] = None, timeout: float = 30.0)
         raise
 
 
-def fetch_localidades() -> List[MunicipioLocalidade]:
+def fetch_localidades() -> list[MunicipioLocalidade]:
     """Busca lista completa de municipios na API de localidades."""
     logger.info("ibge_localidades_busca", url=LOCALIDADES_URL)
     resp = _http_get(LOCALIDADES_URL)
     data = resp.json()
 
-    municipios: List[MunicipioLocalidade] = []
+    municipios: list[MunicipioLocalidade] = []
     for item in data:
         try:
             cod = str(item["id"])
@@ -80,7 +80,7 @@ def fetch_localidades() -> List[MunicipioLocalidade]:
     return municipios
 
 
-def _iter_coords(obj) -> Iterable[Tuple[float, float]]:
+def _iter_coords(obj) -> Iterable[tuple[float, float]]:
     """Itera recursivamente por todas as coordenadas [lon, lat] em um GeoJSON."""
     if isinstance(obj, (list, tuple)):
         if (
@@ -94,7 +94,7 @@ def _iter_coords(obj) -> Iterable[Tuple[float, float]]:
                 yield from _iter_coords(child)
 
 
-def fetch_malha_municipios(uf: str) -> Dict[str, Dict[str, float]]:
+def fetch_malha_municipios(uf: str) -> dict[str, dict[str, float]]:
     """Busca malha GeoJSON para uma UF e calcula centroid por municipio.
 
     Retorna dict {cod_mun_ibge: {\"lat\": float, \"lon\": float}}.
@@ -111,7 +111,7 @@ def fetch_malha_municipios(uf: str) -> Dict[str, Dict[str, float]]:
     data = resp.json()
     features = data.get("features", [])
 
-    coords_por_mun: Dict[str, Dict[str, float]] = {}
+    coords_por_mun: dict[str, dict[str, float]] = {}
     for feat in features:
         props = feat.get("properties", {}) or {}
         cod = str(props.get("codarea") or props.get("id") or feat.get("id") or "")
@@ -134,7 +134,7 @@ def fetch_malha_municipios(uf: str) -> Dict[str, Dict[str, float]]:
     return coords_por_mun
 
 
-def fetch_populacao(cod_mun: str, ano: int) -> Optional[int]:
+def fetch_populacao(cod_mun: str, ano: int) -> int | None:
     """Busca populacao estimada para um municipio/ano (SIDRA Tabela 6579)."""
     url = (
         f"{SIDRA_BASE_URL}/t/{SIDRA_TABELA}/n6/{cod_mun}/"
@@ -172,17 +172,17 @@ def fetch_populacao(cod_mun: str, ano: int) -> Optional[int]:
     return None
 
 
-def _silver_paths() -> Tuple[Path, Path]:
+def _silver_paths() -> tuple[Path, Path]:
     """Retorna caminhos esperados dos Parquet Silver."""
     sim = settings.resolve(settings.silver_dir) / "sim.parquet"
     sia = settings.resolve(settings.silver_dir) / "sia.parquet"
     return sim, sia
 
 
-def _infer_cod_ano_uf() -> List[Tuple[str, int, str]]:
+def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
     """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver."""
     silver_sim, silver_sia = _silver_paths()
-    combos: set[Tuple[str, int, str]] = set()
+    combos: set[tuple[str, int, str]] = set()
 
     con = duckdb.connect(":memory:")
     try:
@@ -237,11 +237,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         dest_dir: Diretório base para os arquivos Parquet IBGE.
                   Se None, usa settings.data_dir.
     """
-    if dest_dir is None:
-        dest_dir = settings.resolve(settings.data_dir)
-    else:
-        # Garante caminho absoluto relativo ao projeto
-        dest_dir = Path(dest_dir)
+    dest_dir = settings.resolve(settings.data_dir) if dest_dir is None else Path(dest_dir)
 
     logger.info("ibge_parquet_iniciando", dest_dir=str(dest_dir))
 
@@ -263,17 +259,17 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
 
     # 1) Localidades (nome, uf, regiao)
     localidades = fetch_localidades()
-    loc_map: Dict[str, MunicipioLocalidade] = {
+    loc_map: dict[str, MunicipioLocalidade] = {
         m.cod_mun_ibge: m for m in localidades if m.cod_mun_ibge in codigos
     }
 
     # 2) Malhas (lat/lon por UF)
-    coords_map: Dict[str, Dict[str, float]] = {}
+    coords_map: dict[str, dict[str, float]] = {}
     for uf in ufs:
         coords_uf = fetch_malha_municipios(uf)
         coords_map.update(coords_uf)
 
-    municipios_rows: List[dict] = []
+    municipios_rows: list[dict] = []
     for cod in codigos:
         loc = loc_map.get(cod)
         if not loc:
@@ -298,7 +294,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     logger.info("ibge_municipios_salvo", path=str(municipios_path), registros=len(df_mun))
 
     # 3) Populacao (cod, ano -> populacao)
-    pop_rows: List[dict] = []
+    pop_rows: list[dict] = []
     for cod, ano, _uf in combos:
         pop = fetch_populacao(cod, ano)
         if not pop:

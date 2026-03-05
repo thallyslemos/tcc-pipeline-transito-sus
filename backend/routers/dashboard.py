@@ -292,7 +292,13 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
 
     if _obitos_has_lat_lon(con):
         meta_row = con.sql(
-            f"SELECT uf, MAX(lat) AS lat, MAX(lon) AS lon FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' GROUP BY uf LIMIT 1"
+            f"""SELECT
+                    uf, MAX(lat) AS lat,
+                    MAX(lon) AS lon
+                FROM v_obitos
+                WHERE cod_mun_ibge='{cod_mun}'
+                GROUP BY uf
+                LIMIT 1"""
         ).fetchone()
         uf_val = meta_row[0] if meta_row else ""
         lat_val = meta_row[1] if meta_row else None
