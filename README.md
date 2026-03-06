@@ -1,96 +1,103 @@
-## Visao geral do projeto
+## Pipeline Analítico de Acidentes de Trânsito no SUS
 
-Este repositorio implementa um **pipeline analitico de acidentes de transito no SUS (DATASUS)**,
-organizado em arquitetura Medallion (Bronze → Silver → Gold) com:
+**TCC — Bacharelado em Sistemas de Informação, IFBA Campus Vitória da Conquista**
 
-- **Backend** `FastAPI` expondo uma API para dashboards e indicadores.
-- **Pipeline de dados** em Python + DuckDB lendo/dumpando Parquet.
-- **Frontend** em `Next.js` para visualizacao (dashboards, mapa, detalhe por municipio, chat).
-- **MCP Server** (`mcp-server/server.py`) para que LLMs consultem o DuckDB via Model Context Protocol.
+Impacto econômico e macrotendências de acidentes de trânsito no SUS, com Engenharia
+de Dados (DuckDB), IA Preditiva (TimesFM) e interface conversacional (MCP + Ollama).
 
-Para uma explicacao profunda da arquitetura (camadas, tabelas, indicadores e fontes),
-veja `ARCHITECTURE.md`.
+### O que este projeto faz
 
----
+1. **Extrai** microdados de mortalidade (SIM) e custos ambulatoriais (SIA) do DATASUS via PySUS.
+2. **Transforma** em arquitetura Medallion (Bronze → Silver → Gold) com DuckDB + Parquet.
+3. **Enriquece** com dados demográficos do IBGE (localidades, coordenadas, população estimada via Tabela 6579 SIDRA).
+4. **Expõe** via API REST (FastAPI) para dashboards, mapas e indicadores relativos (taxa de mortalidade por 100 mil hab, custo per capita).
+5. **Prediz** tendências de 12 meses com o modelo de fundação TimesFM (Google Research).
+6. **Conversa** sobre os dados via chat com Ollama + MCP tools (linguagem natural → SQL).
 
-## Como rodar o projeto
+### Fontes de dados
 
-Para o passo a passo completo (instalacao de Python/Node, `uv`, setup de ambiente, comandos
-para gerar dados e subir backend/frontend/chat), use o guia dedicado:
+| Base | Sistema | Órgão | Campos principais |
+|------|---------|-------|-------------------|
+| **SIM** | Sistema de Informações sobre Mortalidade | DATASUS/SVS | `CAUSABAS` (CID-10), `DTOBITO`, `CODMUNOCOR`, `SEXO`, `IDADE` |
+| **SIA/PA** | Sistema de Informações Ambulatoriais — Produção Ambulatorial | DATASUS | `PA_CIDPRI` (CID-10), `PA_VALAPR` (valor aprovado R$), `PA_QTDAPR`, `PA_CODMUN`, `PA_DATREF` |
+| **IBGE** | Tabela 6579 SIDRA + API Localidades + Malhas GeoJSON | IBGE | População estimada, nome, UF, lat/lon |
 
-- **Guia completo de setup**: `docs/SETUP.md`
-
-Em resumo, o fluxo padrao de desenvolvimento e:
-
-1. **Instalar dependencias Python**  
-   ```bash
-   uv sync
-   ```
-2. **Instalar dependencias do frontend**  
-   ```bash
-   cd frontend
-   npm install
-   cd ..
-   ```
-3. **Gerar dados amostrais (rapido, sem internet)**  
-   ```bash
-   uv run python -m data-pipeline.run
-   ```
-4. **Rodar backend FastAPI**  
-   ```bash
-   uv run uvicorn backend.app:app --reload --port 8000
-   ```
-5. **Rodar frontend Next.js**  
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-URLs principais:
-
-- Backend: `http://localhost:8000` (health) e `http://localhost:8000/docs` (Swagger).
-- Frontend: `http://localhost:3000` (`/dashboard`, `/municipio`, `/mapa`, `/chat`).
+- **Filtro CID-10**: Capítulo XX — Acidentes de Transporte Terrestre, códigos **V01 a V89**.
+- **DTOBITO** (SIM): Campo de data do óbito. Nos dados reais do DATASUS, vem como string `DDMMYYYY` (ex: `"11042024"`). O pipeline converte automaticamente para DATE via `TRY_STRPTIME`.
+- **PA_DATREF** (SIA): Competência no formato `YYYYMM` (ex: `"202401"`).
+- **PA_VALAPR** (SIA): Valor **total aprovado** para o registro — **NÃO multiplicar** por `PA_QTDAPR`. Referência: tabela SIGTAP.
 
 ---
 
-## Documentacao relacionada
+### Como rodar
 
-- **`docs/SETUP.md`**: guia completo de configuracao local (Windows/macOS/Linux), comandos do dia a dia.
-- **`ARCHITECTURE.md`**: arquitetura do pipeline, modelo de dados Gold, integracao com IBGE (localidades, malhas, SIDRA).
-- **`FINANCEIRO.md`**: definicoes de custos, metodos de agregacao e referencias de calculos financeiros.
-- **`AGENTS.md`**: instrucoes especificas para uso com agentes (por exemplo, Cursor/LLMs) e comandos uteis.
-- **`mcp-server/server.py`**: implementacao do MCP Server (FastMCP) com tools como `query_obitos`, `query_custos`,
-  `query_taxa_mortalidade`, `query_serie_temporal` e `listar_municipios`.
+Guia completo (instalação, ambiente, comandos): **[docs/SETUP.md](docs/SETUP.md)**
+
+Resumo rápido:
+
+```bash
+uv sync                        # dependências Python
+cd frontend && npm install     # dependências frontend
+uv run python -m data-pipeline.run   # dados amostrais (offline, ~2s)
+uv run uvicorn backend.app:app --reload --port 8000  # backend
+cd frontend && npm run dev     # frontend em localhost:3000
+```
+
+Para dados reais do DATASUS (requer internet):
+
+```bash
+uv run python -m data-pipeline.run --real --ufs BA --anos 2024
+```
+
+### Serviços
+
+| Serviço | Porta | Comando |
+|---------|-------|---------|
+| Backend (FastAPI) | 8000 | `uv run uvicorn backend.app:app --reload --port 8000` |
+| Frontend (Next.js) | 3000 | `cd frontend && npm run dev` |
+| MCP Server (FastMCP) | stdio | `uv run python -m mcp-server.server` |
+
+### Páginas do frontend
+
+| Rota | Descrição |
+|------|-----------|
+| `/dashboard` | Painel geral — KPIs, séries temporais, distribuições |
+| `/municipio` | Visão por município — cards, detalhes |
+| `/mapa` | Mapa de calor Leaflet com circle markers |
+| `/previsao` | Previsão IA (TimesFM) — 12 meses com intervalo de confiança |
+| `/chat` | Chat IA — Ollama com MCP tools para consulta em linguagem natural |
+
+### Testes e qualidade
+
+```bash
+uv run pytest tests/ -v    # 27 testes (pipeline + API + stack)
+uv run ruff check .        # lint
+uv run ruff format .       # formatação
+```
 
 ---
 
-## Servicos principais
+### Documentação
 
-| Servico              | Porta | Comando                                                                 |
-|----------------------|-------|-------------------------------------------------------------------------|
-| Backend (FastAPI)    | 8000  | `uv run uvicorn backend.app:app --reload --port 8000`                  |
-| Frontend (Next.js)   | 3000  | `cd frontend && npm run dev`                                            |
-| MCP Server (FastMCP) | N/A   | `uv run python -m mcp-server.server`                                   |
+| Documento | Descrição |
+|-----------|-----------|
+| **[docs/SETUP.md](docs/SETUP.md)** | Guia completo de configuração local (Windows/macOS/Linux), comandos do dia a dia, solução de problemas |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Arquitetura do pipeline (Medallion), modelo de dados Gold, integração IBGE, MCP Server, diagramas Mermaid |
+| **[docs/FINANCEIRO.md](docs/FINANCEIRO.md)** | Metodologia de cálculos financeiros (SIA/PA), significado de `PA_VALAPR`, limitações conhecidas |
+| **[docs/PLANEJAMENTO.md](docs/PLANEJAMENTO.md)** | Plano de iterações, stack, referência CID-10, instruções por iteração |
+| **[docs/Thallys \[TCC I\] Súmula](docs/Thallys%20%5BTCC%20I%5D%20Súmula%20de%20Projeto%20de%20Pesquisa.docx.md)** | Pré-projeto de pesquisa com 22 referências acadêmicas/institucionais (NBR 6023:2018) |
+| **[AGENTS.md](AGENTS.md)** | Instruções para uso com agentes IA (Cursor/LLMs) e comandos úteis |
 
-Os caminhos de dados (Parquet) sao configurados via `.env` e documentados em `ARCHITECTURE.md`
-e em `docs/SETUP.md`.
+### Tecnologias
 
----
-
-## Testes e qualidade
-
-- **Rodar todos os testes**:
-  ```bash
-  uv run pytest tests/ -v
-  ```
-- **Lint Python (ruff)**:
-  ```bash
-  uv run ruff check .
-  ```
-- **Formatar Python (ruff format)**:
-  ```bash
-  uv run ruff format .
-  ```
-
-Todos os testes do pipeline, API e stack basica estao em `tests/`.
-
+| Camada | Tecnologia |
+|--------|------------|
+| Extração | PySUS (DATASUS FTP → Parquet) |
+| Processamento | DuckDB (OLAP in-process) + Apache Parquet (Medallion) |
+| Dados demográficos | IBGE API (Tabela 6579 SIDRA, Localidades, Malhas GeoJSON) |
+| Backend | FastAPI + Pydantic Settings + structlog |
+| IA Preditiva | TimesFM (Google Research, 200M params, CPU) |
+| IA Conversacional | FastMCP (MCP Server) + Ollama (Qwen2.5, tool calling) |
+| Frontend | Next.js 16, Tailwind CSS, Recharts, Leaflet |
+| Testes | pytest (27 testes: pipeline + API + stack) |
+| Lint | ruff (PEP8 + imports + security) |

@@ -18,6 +18,9 @@ dependencies = [
     "pydantic-settings>=2.7",
     "structlog>=25.1",
     "python-dotenv>=1.0",
+    "timesfm>=1.2",
+    "huggingface-hub>=0.25",
+    "torch>=2.0",
 ]
 
 [dependency-groups]

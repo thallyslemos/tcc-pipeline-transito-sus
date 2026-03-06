@@ -42,7 +42,9 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 - Dados `.parquet` ficam em `data/` (gitignored). Execute o pipeline ETL para gerar.
 - Requer `python3-dev` e `libffi-dev` no sistema para compilar `cffi` (dep do PySUS).
 - **Pipeline real (streaming)**: `run_real()` usa `baixar_sim_streaming()` / `baixar_sia_streaming()` que salvam cada arquivo PySUS individualmente em `data/bronze/sim_parts/` e `data/bronze/sia_parts/`, liberando memória entre downloads. O Silver lê via DuckDB glob (`*.parquet`). SIM e SIA são processados sequencialmente, nunca simultâneos em memória.
-- **Chat + MCP**: O chat usa Ollama tool calling para consultar dados via MCP bridge. Sem Ollama, usa consultas diretas na API.
+- **DTOBITO (SIM)**: Nos dados reais do DATASUS, `DTOBITO` vem como string `DDMMYYYY` (ex: `"11042024"`). O Silver converte via `TRY_STRPTIME(DTOBITO, '%d%m%Y')` com fallback `TRY_CAST(DTOBITO AS DATE)` para dados amostrais.
+- **Chat + MCP**: O chat usa Ollama tool calling para consultar dados via MCP bridge (`/api/mcp/*`). Sem Ollama, usa consultas diretas na API. Sim, é possível o Ollama consumir o MCP: o frontend define as 5 MCP tools como `tools` na request do Ollama, executa cada tool call via HTTP bridge, e retorna os resultados ao modelo.
+- **Previsão IA (TimesFM)**: Endpoint `/api/predict/{obitos|custos}/{cod_mun_ibge}` carrega o modelo `google/timesfm-1.0-200m-pytorch` (lazy, singleton). Primeiro request leva ~30s (download do modelo). Exige mínimo 24 meses de histórico.
 - Frontend usa Leaflet (client-only). O componente `MapView` usa `dynamic import` com `ssr: false`.
 - Sample data cobre 9 municipios em 3 estados (SP, MG, BA) com coordenadas lat/lon.
 - O `FilterBar` e desacoplado: recebe `filters[]` como prop, nao conhece o dominio.

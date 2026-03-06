@@ -46,8 +46,14 @@ def processar_silver_sim(bronze_path: Path) -> Path:
             SELECT
                 CAUSABAS                                         AS causabas,
                 LEFT(CAUSABAS, 3)                                AS cid_grupo,
-                CAST(DTOBITO AS DATE)                            AS dt_obito,
-                DATE_TRUNC('month', CAST(DTOBITO AS DATE))       AS competencia,
+                COALESCE(
+                    TRY_CAST(DTOBITO AS DATE),
+                    TRY_STRPTIME(CAST(DTOBITO AS VARCHAR), '%d%m%Y')
+                )                                                AS dt_obito,
+                DATE_TRUNC('month', COALESCE(
+                    TRY_CAST(DTOBITO AS DATE),
+                    TRY_STRPTIME(CAST(DTOBITO AS VARCHAR), '%d%m%Y')
+                ))                                               AS competencia,
                 CAST(CODMUNOCOR AS VARCHAR)                      AS cod_mun_ocorrencia,
                 CAST(CODMUNRES AS VARCHAR)                       AS cod_mun_residencia,
                 CAST(SEXO AS INTEGER)                            AS sexo,
