@@ -5,6 +5,22 @@ padroniza tipos e adiciona campos derivados.
 
 Suporta tanto arquivo Bronze unico quanto diretorio de partes
 (gerado pelo download streaming).
+
+Tratamento de tipos:
+    Dados amostrais (sample_data.py) usam tipos nativos Python (int, date).
+    Dados reais do PySUS vem como VARCHAR em todas as colunas.
+    Este modulo usa TRY_CAST para suportar ambos os cenarios.
+
+    IDADE (SIM): codigo DATASUS de 3 digitos.
+        1o digito = unidade (0=ignorada, 1=horas, 2=dias, 3=meses, 4=anos, 5=100+).
+        2o-3o digitos = quantidade.
+        Ex: "425" = 25 anos, "305" = 5 meses, "410" = 10 anos.
+        Dados amostrais usam inteiro simples (ex: 25).
+
+    DTOBITO (SIM): nos dados reais vem como string "DDMMYYYY" (ex: "11042024").
+        Dados amostrais usam datetime.
+
+    PA_IDADE (SIA): mesma logica de codificacao que o SIM.
 """
 
 from pathlib import Path
@@ -27,11 +43,50 @@ def _parquet_source(path: Path) -> str:
     return str(path)
 
 
+_DECODE_IDADE_SQL = """
+CASE
+    WHEN TRY_CAST({col} AS INTEGER) >= 400 AND TRY_CAST({col} AS INTEGER) < 500
+        THEN TRY_CAST({col} AS INTEGER) - 400
+    WHEN TRY_CAST({col} AS INTEGER) >= 500
+        THEN TRY_CAST({col} AS INTEGER) - 500 + 100
+    WHEN TRY_CAST({col} AS INTEGER) >= 100
+        THEN 0
+    ELSE COALESCE(TRY_CAST({col} AS INTEGER), 0)
+END
+"""
+
+_FAIXA_ETARIA_SQL = """
+CASE
+    WHEN {idade} BETWEEN  0 AND 14 THEN '0-14'
+    WHEN {idade} BETWEEN 15 AND 24 THEN '15-24'
+    WHEN {idade} BETWEEN 25 AND 34 THEN '25-34'
+    WHEN {idade} BETWEEN 35 AND 44 THEN '35-44'
+    WHEN {idade} BETWEEN 45 AND 54 THEN '45-54'
+    WHEN {idade} BETWEEN 55 AND 64 THEN '55-64'
+    ELSE '65+'
+END
+"""
+
+_TIPO_VEICULO_SQL = """
+CASE
+    WHEN LEFT({cid}, 3) BETWEEN 'V01' AND 'V09' THEN 'Pedestre'
+    WHEN LEFT({cid}, 3) BETWEEN 'V10' AND 'V19' THEN 'Ciclista'
+    WHEN LEFT({cid}, 3) BETWEEN 'V20' AND 'V29' THEN 'Motociclista'
+    WHEN LEFT({cid}, 3) BETWEEN 'V30' AND 'V39' THEN 'Triciclo'
+    WHEN LEFT({cid}, 3) BETWEEN 'V40' AND 'V49' THEN 'Automóvel'
+    WHEN LEFT({cid}, 3) BETWEEN 'V50' AND 'V59' THEN 'Caminhonete'
+    WHEN LEFT({cid}, 3) BETWEEN 'V60' AND 'V69' THEN 'Veículo pesado'
+    WHEN LEFT({cid}, 3) BETWEEN 'V70' AND 'V79' THEN 'Ônibus'
+    ELSE 'Outros'
+END
+"""
+
+
 def processar_silver_sim(bronze_path: Path) -> Path:
     """Processa SIM Bronze → Silver: filtra CID e padroniza campos.
 
     Args:
-        bronze_path: Caminho do Parquet Bronze do SIM.
+        bronze_path: Caminho do Parquet Bronze do SIM (arquivo ou diretório).
 
     Returns:
         Caminho do Parquet Silver gerado.
@@ -40,48 +95,42 @@ def processar_silver_sim(bronze_path: Path) -> Path:
     destino.parent.mkdir(parents=True, exist_ok=True)
 
     source = _parquet_source(bronze_path)
+    decode_idade = _DECODE_IDADE_SQL.format(col="IDADE")
+    faixa_etaria = _FAIXA_ETARIA_SQL.format(idade="idade_anos")
+    tipo_veiculo = _TIPO_VEICULO_SQL.format(cid="CAUSABAS")
+
     con = duckdb.connect(":memory:")
     con.sql(f"""
         COPY (
+            WITH parsed AS (
+                SELECT
+                    *,
+                    COALESCE(
+                        TRY_CAST(DTOBITO AS DATE),
+                        TRY_STRPTIME(CAST(DTOBITO AS VARCHAR), '%d%m%Y')
+                    )                                    AS _dt,
+                    ({decode_idade})                      AS idade_anos,
+                    COALESCE(TRY_CAST(SEXO AS INTEGER), 0) AS sexo_int
+                FROM read_parquet('{source}')
+                WHERE LEFT(CAST(CAUSABAS AS VARCHAR), 3) BETWEEN 'V01' AND 'V89'
+            )
             SELECT
-                CAUSABAS                                         AS causabas,
-                LEFT(CAUSABAS, 3)                                AS cid_grupo,
-                COALESCE(
-                    TRY_CAST(DTOBITO AS DATE),
-                    TRY_STRPTIME(CAST(DTOBITO AS VARCHAR), '%d%m%Y')
-                )                                                AS dt_obito,
-                DATE_TRUNC('month', COALESCE(
-                    TRY_CAST(DTOBITO AS DATE),
-                    TRY_STRPTIME(CAST(DTOBITO AS VARCHAR), '%d%m%Y')
-                ))                                               AS competencia,
-                CAST(CODMUNOCOR AS VARCHAR)                      AS cod_mun_ocorrencia,
-                CAST(CODMUNRES AS VARCHAR)                       AS cod_mun_residencia,
-                CAST(SEXO AS INTEGER)                            AS sexo,
-                CAST(IDADE AS INTEGER)                           AS idade,
-                UF                                               AS uf,
-                CASE
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V01' AND 'V09' THEN 'Pedestre'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V10' AND 'V19' THEN 'Ciclista'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V20' AND 'V29' THEN 'Motociclista'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V30' AND 'V39' THEN 'Triciclo'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V40' AND 'V49' THEN 'Automóvel'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V50' AND 'V59' THEN 'Caminhonete'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V60' AND 'V69' THEN 'Veículo pesado'
-                    WHEN LEFT(CAUSABAS, 3) BETWEEN 'V70' AND 'V79' THEN 'Ônibus'
-                    ELSE 'Outros'
-                END                                              AS tipo_veiculo,
-                CASE WHEN SEXO = 1 THEN 'Masculino' ELSE 'Feminino' END AS sexo_desc,
-                CASE
-                    WHEN IDADE BETWEEN  0 AND 14 THEN '0-14'
-                    WHEN IDADE BETWEEN 15 AND 24 THEN '15-24'
-                    WHEN IDADE BETWEEN 25 AND 34 THEN '25-34'
-                    WHEN IDADE BETWEEN 35 AND 44 THEN '35-44'
-                    WHEN IDADE BETWEEN 45 AND 54 THEN '45-54'
-                    WHEN IDADE BETWEEN 55 AND 64 THEN '55-64'
-                    ELSE '65+'
-                END                                              AS faixa_etaria
-            FROM read_parquet('{source}')
-            WHERE LEFT(CAUSABAS, 3) BETWEEN 'V01' AND 'V89'
+                CAST(CAUSABAS AS VARCHAR)                 AS causabas,
+                LEFT(CAST(CAUSABAS AS VARCHAR), 3)        AS cid_grupo,
+                _dt                                       AS dt_obito,
+                DATE_TRUNC('month', _dt)                  AS competencia,
+                CAST(CODMUNOCOR AS VARCHAR)               AS cod_mun_ocorrencia,
+                CAST(CODMUNRES AS VARCHAR)                AS cod_mun_residencia,
+                sexo_int                                  AS sexo,
+                idade_anos                                AS idade,
+                CAST(UF AS VARCHAR)                       AS uf,
+                {tipo_veiculo}                            AS tipo_veiculo,
+                CASE WHEN sexo_int = 1 THEN 'Masculino'
+                     ELSE 'Feminino'
+                END                                       AS sexo_desc,
+                {faixa_etaria}                            AS faixa_etaria
+            FROM parsed
+            WHERE _dt IS NOT NULL
         ) TO '{destino}' (FORMAT PARQUET)
     """)
     con.close()
@@ -97,7 +146,7 @@ def processar_silver_sia(bronze_path: Path) -> Path:
     """Processa SIA Bronze → Silver: filtra CID e padroniza campos.
 
     Args:
-        bronze_path: Caminho do Parquet Bronze do SIA.
+        bronze_path: Caminho do Parquet Bronze do SIA (arquivo ou diretório).
 
     Returns:
         Caminho do Parquet Silver gerado.
@@ -106,46 +155,39 @@ def processar_silver_sia(bronze_path: Path) -> Path:
     destino.parent.mkdir(parents=True, exist_ok=True)
 
     source = _parquet_source(bronze_path)
+    decode_idade = _DECODE_IDADE_SQL.format(col="PA_IDADE")
+    faixa_etaria = _FAIXA_ETARIA_SQL.format(idade="idade_anos")
+    tipo_veiculo = _TIPO_VEICULO_SQL.format(cid="PA_CIDPRI")
+
     con = duckdb.connect(":memory:")
     con.sql(f"""
         COPY (
+            WITH parsed AS (
+                SELECT
+                    *,
+                    ({decode_idade})                       AS idade_anos,
+                    CAST(PA_DATREF AS VARCHAR)              AS _datref
+                FROM read_parquet('{source}')
+                WHERE LEFT(CAST(PA_CIDPRI AS VARCHAR), 3) BETWEEN 'V01' AND 'V89'
+            )
             SELECT
-                PA_CIDPRI                                        AS cid_primario,
-                LEFT(PA_CIDPRI, 3)                               AS cid_grupo,
-                PA_CODMUN                                        AS cod_mun,
-                PA_DATREF                                        AS datref,
+                CAST(PA_CIDPRI AS VARCHAR)                AS cid_primario,
+                LEFT(CAST(PA_CIDPRI AS VARCHAR), 3)       AS cid_grupo,
+                CAST(PA_CODMUN AS VARCHAR)                AS cod_mun,
+                _datref                                    AS datref,
                 MAKE_DATE(
-                    CAST(LEFT(PA_DATREF, 4) AS INTEGER),
-                    CAST(RIGHT(PA_DATREF, 2) AS INTEGER),
+                    CAST(LEFT(_datref, 4) AS INTEGER),
+                    CAST(RIGHT(_datref, 2) AS INTEGER),
                     1
-                )                                                AS competencia,
-                CAST(PA_VALAPR AS DECIMAL(12,2))                 AS valor_aprovado,
-                CAST(PA_QTDAPR AS INTEGER)                       AS qtd_aprovada,
-                PA_SEXO                                          AS sexo,
-                CAST(PA_IDADE AS INTEGER)                        AS idade,
-                UF                                               AS uf,
-                CASE
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V01' AND 'V09' THEN 'Pedestre'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V10' AND 'V19' THEN 'Ciclista'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V20' AND 'V29' THEN 'Motociclista'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V30' AND 'V39' THEN 'Triciclo'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V40' AND 'V49' THEN 'Automóvel'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V50' AND 'V59' THEN 'Caminhonete'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V60' AND 'V69' THEN 'Veículo pesado'
-                    WHEN LEFT(PA_CIDPRI, 3) BETWEEN 'V70' AND 'V79' THEN 'Ônibus'
-                    ELSE 'Outros'
-                END                                              AS tipo_veiculo,
-                CASE
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN  0 AND 14 THEN '0-14'
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 15 AND 24 THEN '15-24'
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 25 AND 34 THEN '25-34'
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 35 AND 44 THEN '35-44'
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 45 AND 54 THEN '45-54'
-                    WHEN CAST(PA_IDADE AS INTEGER) BETWEEN 55 AND 64 THEN '55-64'
-                    ELSE '65+'
-                END                                              AS faixa_etaria
-            FROM read_parquet('{source}')
-            WHERE LEFT(PA_CIDPRI, 3) BETWEEN 'V01' AND 'V89'
+                )                                          AS competencia,
+                CAST(PA_VALAPR AS DECIMAL(12,2))           AS valor_aprovado,
+                COALESCE(TRY_CAST(PA_QTDAPR AS INTEGER), 0) AS qtd_aprovada,
+                CAST(PA_SEXO AS VARCHAR)                   AS sexo,
+                idade_anos                                 AS idade,
+                CAST(UF AS VARCHAR)                        AS uf,
+                {tipo_veiculo}                             AS tipo_veiculo,
+                {faixa_etaria}                             AS faixa_etaria
+            FROM parsed
         ) TO '{destino}' (FORMAT PARQUET)
     """)
     con.close()
