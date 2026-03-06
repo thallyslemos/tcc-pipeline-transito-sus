@@ -3,37 +3,33 @@
 Baixa microdados do SIM (mortalidade) e SIA (producao ambulatorial)
 diretamente do FTP do DATASUS, converte para Parquet.
 
+Cache do PySUS:
+    O PySUS armazena os arquivos baixados em ~/pysus/ (configurável
+    via variável PYSUS_CACHEPATH). Se o arquivo já existir localmente,
+    download() retorna instantaneamente sem acessar o FTP.
+
 Modos de download:
     - **Classico** (baixar_sim / baixar_sia): carrega tudo em memoria
       e retorna um DataFrame. Adequado para datasets pequenos.
     - **Streaming** (baixar_sim_streaming / baixar_sia_streaming): salva
-      cada arquivo diretamente em disco e libera a memoria antes de
-      baixar o proximo. Indispensavel para datasets grandes (ex: SIA
-      de um estado inteiro com varios anos).
+      cada arquivo diretamente em disco via DuckDB (sem carregar em pandas)
+      e libera a memoria. Indispensavel para datasets grandes.
+      Pula parts já existentes no bronze (idempotente).
 
 Uso:
-    from data-pipeline.datasus import baixar_sim, baixar_sia
+    from data-pipeline.datasus import baixar_sim_streaming
 
-    df_sim = baixar_sim(ufs=["BA"], anos=[2023])
-    df_sia = baixar_sia(ufs=["BA"], anos=[2023])
+    parts_dir = baixar_sim_streaming(ufs=["BA"], anos=[2024])
 
 Requisitos:
-    - Acesso ao FTP do DATASUS (ftp.datasus.gov.br)
-    - Pode nao funcionar em ambientes sandbox/CI sem acesso de rede
-
-Referencia:
-    - SIM: Sistema de Informacoes sobre Mortalidade
-      Campos: CAUSABAS (causa basica CID-10), DTOBITO, CODMUNOCOR, etc.
-      Manual: https://svs.aids.gov.br/daent/cgiae/sim/documentacao/
-
-    - SIA/PA: Sistema de Informacoes Ambulatoriais - Producao Ambulatorial
-      Campos: PA_CIDPRI, PA_VALAPR, PA_QTDAPR, PA_UFMUN, etc.
-      Manual: https://wiki.saude.gov.br/sia/index.php
+    - Acesso ao FTP do DATASUS (ftp.datasus.gov.br) para primeiro download
+    - Downloads subsequentes usam cache em ~/pysus/
 """
 
 import gc
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 
 from .config import settings
@@ -42,48 +38,15 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 UFS_BRASIL = [
-    "AC",
-    "AL",
-    "AM",
-    "AP",
-    "BA",
-    "CE",
-    "DF",
-    "ES",
-    "GO",
-    "MA",
-    "MG",
-    "MS",
-    "MT",
-    "PA",
-    "PB",
-    "PE",
-    "PI",
-    "PR",
-    "RJ",
-    "RN",
-    "RO",
-    "RR",
-    "RS",
-    "SC",
-    "SE",
-    "SP",
-    "TO",
+    "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MG", "MS", "MT", "PA", "PB", "PE", "PI", "PR", "RJ", "RN",
+    "RO", "RR", "RS", "SC", "SE", "SP", "TO",
 ]
 
 UFS_POR_ESTADO = {
-    "SP": ["SP"],
-    "MG": ["MG"],
-    "BA": ["BA"],
-    "RJ": ["RJ"],
-    "RS": ["RS"],
-    "PR": ["PR"],
-    "PE": ["PE"],
-    "CE": ["CE"],
-    "PA": ["PA"],
-    "MA": ["MA"],
-    "GO": ["GO"],
-    "SC": ["SC"],
+    "SP": ["SP"], "MG": ["MG"], "BA": ["BA"], "RJ": ["RJ"],
+    "RS": ["RS"], "PR": ["PR"], "PE": ["PE"], "CE": ["CE"],
+    "PA": ["PA"], "MA": ["MA"], "GO": ["GO"], "SC": ["SC"],
 }
 
 
@@ -152,19 +115,6 @@ def baixar_sia(
 
     Returns:
         DataFrame com microdados do SIA (PA).
-
-    Nota sobre campos financeiros:
-        - PA_VALAPR: Valor Aprovado (R$) - valor financeiro aprovado
-          pelo gestor para pagamento do procedimento ambulatorial.
-          Fonte: Tabela de Procedimentos do SUS (SIGTAP).
-        - PA_QTDAPR: Quantidade Aprovada - numero de procedimentos
-          aprovados para pagamento.
-        - O valor total de um registro e PA_VALAPR (ja e o total,
-          NAO deve ser multiplicado por PA_QTDAPR).
-
-    Referencia:
-        Layout SIA/PA: https://wiki.saude.gov.br/sia/index.php
-        SIGTAP: http://sigtap.datasus.gov.br
     """
     from pysus.online_data.SIA import SIA
 
@@ -215,15 +165,51 @@ def _liberar_memoria() -> None:
     gc.collect()
 
 
+def _pysus_to_bronze_duckdb(pysus_path: str, bronze_path: Path, uf: str) -> int:
+    """Converte parquet PySUS para bronze via DuckDB (streaming, sem pandas).
+
+    Adiciona coluna UF e retorna contagem de registros.
+    Usa DuckDB COPY que faz streaming disco→disco sem carregar em RAM.
+    """
+    con = duckdb.connect(":memory:")
+    con.sql(f"""
+        COPY (
+            SELECT *, '{uf}' AS UF
+            FROM read_parquet('{pysus_path}')
+        ) TO '{bronze_path}' (FORMAT PARQUET)
+    """)
+    count = con.sql(f"SELECT COUNT(*) FROM read_parquet('{bronze_path}')").fetchone()[0]
+    con.close()
+    return count
+
+
+def _resolve_pysus_parquet(pysus_data) -> str:
+    """Extrai o caminho do parquet de um objeto Data do PySUS.
+
+    PySUS retorna um objeto Data cuja str() é o caminho do arquivo.
+    O cache pode ser um diretório .parquet/ contendo part files,
+    ou um arquivo .parquet direto.
+    """
+    path = Path(str(pysus_data))
+    if path.is_dir():
+        inner = list(path.glob("*.parquet"))
+        if inner:
+            return str(inner[0])
+        return f"{path}/*.parquet"
+    return str(path)
+
+
 def baixar_sim_streaming(
     ufs: list[str] | None = None,
     anos: list[int] | None = None,
 ) -> Path:
-    """Baixa dados do SIM salvando cada arquivo diretamente em disco.
+    """Baixa dados do SIM salvando cada arquivo via DuckDB (sem pandas).
 
-    Diferente de baixar_sim(), nao acumula DataFrames em memoria.
-    Cada arquivo baixado e salvo como parquet individual e a memoria
-    e liberada antes de baixar o proximo.
+    O PySUS faz cache em ~/pysus/. Se o arquivo já existe localmente,
+    o download é instantâneo (leitura local). A conversão para bronze
+    usa DuckDB COPY (streaming disco→disco, sem carregar em RAM).
+
+    Parts de bronze já existentes são puladas (idempotente).
 
     Args:
         ufs: Lista de UFs (ex: ["BA","SP"]). None = ["BA","SP","MG"].
@@ -231,9 +217,6 @@ def baixar_sim_streaming(
 
     Returns:
         Path do diretorio contendo os parquets parciais.
-
-    Raises:
-        ConnectionError: Se nenhum dado foi baixado.
     """
     from pysus.online_data.SIM import SIM
 
@@ -257,21 +240,30 @@ def baixar_sim_streaming(
                     logger.warning("sim_sem_arquivos", uf=uf, ano=ano)
                     continue
                 for f in files:
-                    parquet = sim.download(f)
-                    df = parquet.to_dataframe()
-                    df["UF"] = uf
                     part_path = parts_dir / f"sim_{uf}_{ano}_{part_idx}.parquet"
-                    df.to_parquet(part_path, engine="pyarrow", index=False)
-                    n = len(df)
+
+                    if part_path.exists():
+                        con = duckdb.connect(":memory:")
+                        n = con.sql(
+                            f"SELECT COUNT(*) FROM read_parquet('{part_path}')"
+                        ).fetchone()[0]
+                        con.close()
+                        total_registros += n
+                        logger.info(
+                            "sim_parte_cache",
+                            uf=uf, ano=ano, registros=n, parte=part_idx,
+                        )
+                        part_idx += 1
+                        continue
+
+                    pysus_data = sim.download(f)
+                    pysus_path = _resolve_pysus_parquet(pysus_data)
+                    n = _pysus_to_bronze_duckdb(pysus_path, part_path, uf)
                     total_registros += n
                     logger.info(
                         "sim_parte_salva",
-                        uf=uf,
-                        ano=ano,
-                        registros=n,
-                        parte=part_idx,
+                        uf=uf, ano=ano, registros=n, parte=part_idx,
                     )
-                    del df, parquet
                     _liberar_memoria()
                     part_idx += 1
             except Exception as e:
@@ -290,12 +282,10 @@ def baixar_sia_streaming(
     anos: list[int] | None = None,
     meses: list[int] | None = None,
 ) -> Path:
-    """Baixa dados do SIA/PA salvando cada arquivo diretamente em disco.
+    """Baixa dados do SIA/PA via DuckDB (sem pandas, streaming).
 
-    Cada arquivo mensal (~1-5M linhas) e salvo individualmente e a
-    memoria e liberada antes de baixar o proximo. Isso permite processar
-    datasets muito grandes (ex: estado inteiro, varios anos) sem
-    estourar a RAM.
+    O PySUS faz cache em ~/pysus/. A conversão para bronze usa
+    DuckDB COPY (streaming disco→disco). Parts já existentes são puladas.
 
     Args:
         ufs: Lista de UFs. None = ["BA","SP","MG"].
@@ -304,9 +294,6 @@ def baixar_sia_streaming(
 
     Returns:
         Path do diretorio contendo os parquets parciais.
-
-    Raises:
-        ConnectionError: Se nenhum dado foi baixado.
     """
     from pysus.online_data.SIA import SIA
 
@@ -331,21 +318,30 @@ def baixar_sia_streaming(
                     logger.warning("sia_sem_arquivos", uf=uf, ano=ano)
                     continue
                 for f in files if isinstance(files, list) else [files]:
-                    parquet = sia.download(f)
-                    df = parquet.to_dataframe()
-                    df["UF"] = uf
                     part_path = parts_dir / f"sia_{uf}_{ano}_{part_idx}.parquet"
-                    df.to_parquet(part_path, engine="pyarrow", index=False)
-                    n = len(df)
+
+                    if part_path.exists():
+                        con = duckdb.connect(":memory:")
+                        n = con.sql(
+                            f"SELECT COUNT(*) FROM read_parquet('{part_path}')"
+                        ).fetchone()[0]
+                        con.close()
+                        total_registros += n
+                        logger.info(
+                            "sia_parte_cache",
+                            uf=uf, ano=ano, registros=n, parte=part_idx,
+                        )
+                        part_idx += 1
+                        continue
+
+                    pysus_data = sia.download(f)
+                    pysus_path = _resolve_pysus_parquet(pysus_data)
+                    n = _pysus_to_bronze_duckdb(pysus_path, part_path, uf)
                     total_registros += n
                     logger.info(
                         "sia_parte_salva",
-                        uf=uf,
-                        ano=ano,
-                        registros=n,
-                        parte=part_idx,
+                        uf=uf, ano=ano, registros=n, parte=part_idx,
                     )
-                    del df, parquet
                     _liberar_memoria()
                     part_idx += 1
             except Exception as e:
