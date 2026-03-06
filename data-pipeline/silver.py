@@ -142,8 +142,56 @@ def processar_silver_sim(bronze_path: Path) -> Path:
     return destino
 
 
+def _detect_sia_date_col(con: duckdb.DuckDBPyConnection, source: str) -> str:
+    """Detecta qual coluna de competência existe no Parquet SIA.
+
+    O layout do SIA/PA mudou ao longo dos anos:
+        - PA_CMP: competência (YYYYMM) — layout mais recente
+        - PA_DATREF: data de referência (YYYYMM) — layout antigo / documentação PySUS
+        - PA_MVM: mês de movimento (YYYYMM) — variante
+
+    Returns:
+        Expressão SQL que retorna a competência como VARCHAR YYYYMM.
+    """
+    cols = {
+        c[0]
+        for c in con.sql(f"DESCRIBE SELECT * FROM read_parquet('{source}') LIMIT 0").fetchall()
+    }
+
+    for candidate in ("PA_CMP", "PA_DATREF", "PA_MVM"):
+        if candidate in cols:
+            logger.info("sia_coluna_competencia", coluna=candidate)
+            return f"CAST({candidate} AS VARCHAR)"
+
+    logger.warning("sia_sem_coluna_competencia", colunas_disponiveis=sorted(cols))
+    msg = (
+        f"Nenhuma coluna de competencia encontrada no SIA (PA_CMP, PA_DATREF, PA_MVM). "
+        f"Colunas disponíveis: {sorted(cols)}"
+    )
+    raise ValueError(msg)
+
+
+def _detect_sia_mun_col(con: duckdb.DuckDBPyConnection, source: str) -> str:
+    """Detecta qual coluna de município existe no Parquet SIA.
+
+    Variantes: PA_CODMUN (preferido), PA_MUNPCN, PA_UFMUN.
+    """
+    cols = {
+        c[0]
+        for c in con.sql(f"DESCRIBE SELECT * FROM read_parquet('{source}') LIMIT 0").fetchall()
+    }
+    for candidate in ("PA_CODMUN", "PA_MUNPCN", "PA_UFMUN"):
+        if candidate in cols:
+            return candidate
+    msg = f"Nenhuma coluna de município encontrada no SIA. Colunas: {sorted(cols)}"
+    raise ValueError(msg)
+
+
 def processar_silver_sia(bronze_path: Path) -> Path:
     """Processa SIA Bronze → Silver: filtra CID e padroniza campos.
+
+    Detecta automaticamente as colunas de competência e município,
+    pois o layout do SIA/PA varia entre versões do DATASUS.
 
     Args:
         bronze_path: Caminho do Parquet Bronze do SIA (arquivo ou diretório).
@@ -160,20 +208,24 @@ def processar_silver_sia(bronze_path: Path) -> Path:
     tipo_veiculo = _TIPO_VEICULO_SQL.format(cid="PA_CIDPRI")
 
     con = duckdb.connect(":memory:")
+
+    date_expr = _detect_sia_date_col(con, source)
+    mun_col = _detect_sia_mun_col(con, source)
+
     con.sql(f"""
         COPY (
             WITH parsed AS (
                 SELECT
                     *,
                     ({decode_idade})                       AS idade_anos,
-                    CAST(PA_DATREF AS VARCHAR)              AS _datref
+                    {date_expr}                             AS _datref
                 FROM read_parquet('{source}')
                 WHERE LEFT(CAST(PA_CIDPRI AS VARCHAR), 3) BETWEEN 'V01' AND 'V89'
             )
             SELECT
                 CAST(PA_CIDPRI AS VARCHAR)                AS cid_primario,
                 LEFT(CAST(PA_CIDPRI AS VARCHAR), 3)       AS cid_grupo,
-                CAST(PA_CODMUN AS VARCHAR)                AS cod_mun,
+                CAST({mun_col} AS VARCHAR)                AS cod_mun,
                 _datref                                    AS datref,
                 MAKE_DATE(
                     CAST(LEFT(_datref, 4) AS INTEGER),
