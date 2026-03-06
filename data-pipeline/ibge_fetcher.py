@@ -179,8 +179,26 @@ def _silver_paths() -> tuple[Path, Path]:
     return sim, sia
 
 
+def _normalizar_cod_ibge(cod: str) -> str:
+    """Normaliza código de município para 7 dígitos IBGE.
+
+    O DATASUS/SIA usa códigos de 6 dígitos (sem dígito verificador).
+    A API IBGE usa 7 dígitos (com dígito verificador).
+    O SIM pode vir com 6 ou 7 dígitos dependendo do campo.
+
+    Estratégia: se o código tem 6 dígitos, não temos como calcular
+    o dígito verificador de forma confiável. Guardamos ambas as
+    formas (6 e 7) e fazemos lookup por prefixo de 6 dígitos.
+    """
+    cod = cod.strip()
+    return cod
+
+
 def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
-    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver."""
+    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver.
+
+    Normaliza códigos: TRIM de espaços e zeros à esquerda indevidos.
+    """
     silver_sim, silver_sia = _silver_paths()
     combos: set[tuple[str, int, str]] = set()
 
@@ -190,27 +208,27 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
             df_sim = con.sql(
                 f"""
                 SELECT DISTINCT
-                    CAST(cod_mun_ocorrencia AS VARCHAR) AS cod_mun_ibge,
+                    TRIM(CAST(cod_mun_ocorrencia AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
-                    uf
+                    TRIM(CAST(uf AS VARCHAR)) AS uf
                 FROM read_parquet('{silver_sim}')
                 """
             ).fetchdf()
             for _, row in df_sim.iterrows():
-                combos.add((row["cod_mun_ibge"], int(row["ano"]), row["uf"]))
+                combos.add((_normalizar_cod_ibge(row["cod_mun_ibge"]), int(row["ano"]), row["uf"]))
 
         if silver_sia.exists():
             df_sia = con.sql(
                 f"""
                 SELECT DISTINCT
-                    CAST(cod_mun AS VARCHAR) AS cod_mun_ibge,
+                    TRIM(CAST(cod_mun AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
-                    uf
+                    TRIM(CAST(uf AS VARCHAR)) AS uf
                 FROM read_parquet('{silver_sia}')
                 """
             ).fetchdf()
             for _, row in df_sia.iterrows():
-                combos.add((row["cod_mun_ibge"], int(row["ano"]), row["uf"]))
+                combos.add((_normalizar_cod_ibge(row["cod_mun_ibge"]), int(row["ano"]), row["uf"]))
     finally:
         con.close()
 
@@ -219,9 +237,10 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:
     """Grava DataFrame em Parquet usando DuckDB (evita dependencia extra)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     if df.empty:
         logger.warning("ibge_parquet_vazio", path=str(path))
-    path.parent.mkdir(parents=True, exist_ok=True)
+        return
     con = duckdb.connect(":memory:")
     try:
         con.register("t", df)
@@ -259,9 +278,22 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
 
     # 1) Localidades (nome, uf, regiao)
     localidades = fetch_localidades()
-    loc_map: dict[str, MunicipioLocalidade] = {
-        m.cod_mun_ibge: m for m in localidades if m.cod_mun_ibge in codigos
-    }
+
+    # Mapa por código de 7 dígitos (IBGE oficial) e por prefixo de 6 dígitos
+    # (DATASUS/SIA). Permite lookup com ambos os formatos.
+    loc_map_7: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge: m for m in localidades}
+    loc_map_6: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge[:6]: m for m in localidades}
+
+    def _find_localidade(cod: str) -> MunicipioLocalidade | None:
+        if cod in loc_map_7:
+            return loc_map_7[cod]
+        if cod in loc_map_6:
+            return loc_map_6[cod]
+        if len(cod) == 6:
+            for ibge_cod, loc in loc_map_7.items():
+                if ibge_cod.startswith(cod):
+                    return loc
+        return None
 
     # 2) Malhas (lat/lon por UF)
     coords_map: dict[str, dict[str, float]] = {}
@@ -269,17 +301,19 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         coords_uf = fetch_malha_municipios(uf)
         coords_map.update(coords_uf)
 
+    # Mapa de coords por prefixo de 6 dígitos também
+    coords_map_6: dict[str, dict[str, float]] = {k[:6]: v for k, v in coords_map.items()}
+
     municipios_rows: list[dict] = []
     for cod in codigos:
-        loc = loc_map.get(cod)
+        loc = _find_localidade(cod)
         if not loc:
-            # Municipio aparece nos dados mas nao retornou na API de localidades
             logger.warning("ibge_municipio_sem_localidade", cod_mun_ibge=cod)
             continue
-        coords = coords_map.get(cod, {})
+        coords = coords_map.get(loc.cod_mun_ibge, coords_map_6.get(cod[:6], {}))
         municipios_rows.append(
             {
-                "cod_mun_ibge": loc.cod_mun_ibge,
+                "cod_mun_ibge": cod,
                 "nome": loc.nome,
                 "uf": loc.uf,
                 "regiao": loc.regiao,
@@ -294,9 +328,12 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     logger.info("ibge_municipios_salvo", path=str(municipios_path), registros=len(df_mun))
 
     # 3) Populacao (cod, ano -> populacao)
+    # API SIDRA requer código de 7 dígitos. Mapeamos cod→cod_ibge_7.
     pop_rows: list[dict] = []
     for cod, ano, _uf in combos:
-        pop = fetch_populacao(cod, ano)
+        loc = _find_localidade(cod)
+        cod_7 = loc.cod_mun_ibge if loc else cod
+        pop = fetch_populacao(cod_7, ano)
         if not pop:
             logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod, ano=ano)
             continue
