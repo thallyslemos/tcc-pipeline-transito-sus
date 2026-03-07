@@ -69,30 +69,32 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 
 Metodologia: **test-first** — cada feature começa com teste unitário no backend antes da implementação. Ao final, Dockerizar a aplicação.
 
-#### Iteração 2.1 — Fixes de dados e backend (test-first)
+**Status**: ✅ = concluída | 🔧 = em progresso | ⬚ = não iniciada
+
+#### Iteração 2.1 — Fixes de dados e backend (test-first) 🔧
 
 **Objetivo**: corrigir dados incorretos antes de mexer na UI.
 
-1. **Fix lat/lon fora dos limites**
+1. **Fix lat/lon fora dos limites** ⬚
    - Teste: `test_ibge_lat_lon_bounds` — verificar que lat ∈ [-33.8, 5.3] e lon ∈ [-73.9, -34.8] (limites do Brasil)
    - Investigar: código 6↔7 causando centroide errado? API IBGE retornando lixo?
    - Fix no `ibge_fetcher.py`: validar bounds antes de persistir, logar warnings
 
-2. **Fix taxa mortalidade / custo per capita vazios**
+2. **Fix taxa mortalidade / custo per capita vazios** 🔧
    - Teste: `test_indicadores_municipio_populacao` — verificar que indicadores retornam valores quando fallback disponível
    - Fix: `backend/ibge.py` lookup por `LEFT(cod_mun_ibge, 6)` no fallback dict também
    - Fix: `backend/routers/indicadores.py` — garantir que queries usam `LEFT(,6)` consistente
+   - **Nota**: IDH, PIB per capita e Área NÃO existem no parquet `ibge_municipios.parquet` (só no fallback hardcoded para 9 municípios). Frontend agora exibe "N/D" quando indisponível.
 
-3. **Fix formatação de custos no mapa**
-   - Teste: verificar que `formatCurrency` e `formatCompact` formatam corretamente valores < R$ 1M
+3. **Fix formatação de custos no mapa** ✅
    - Fix em `frontend/src/lib/format.ts` e `MapView.tsx`
 
-4. **Endpoint GeoJSON** (novo)
+4. **Endpoint GeoJSON** (novo) ⬚
    - Teste: `test_geojson_municipios` — endpoint GET `/api/geo/municipios` retorna FeatureCollection válido
    - Implementar: `backend/routers/geo.py` — buscar polígonos IBGE v4 e cachear
    - Considerar: salvar GeoJSON como parquet/arquivo estático para evitar HTTP em runtime
 
-#### Iteração 2.2 — MapLibre + Camadas
+#### Iteração 2.2 — MapLibre + Camadas ⬚
 
 **Objetivo**: substituir Leaflet por MapLibre GL JS.
 
@@ -106,17 +108,21 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
    - Suporte 3D: pitch, bearing, navegação
 3. Manter `MapLegend.tsx` com cores do tema
 
-#### Iteração 2.3 — Design System (tema + ícones)
+#### Iteração 2.3 — Design System (tema + ícones) ✅
 
 **Objetivo**: tema claro/escuro + ícones animados.
 
-1. `globals.css`: CSS custom properties para cores (light/dark)
-2. `ThemeProvider` context com toggle + localStorage
-3. AppShell/Sidebar: toggle sun/moon no header
-4. `npm install @lucide-animated/react` — substituir SVGs inline nos ícones do sidebar e KPIs
-5. Padronizar paleta em `lib/theme.ts`
+1. ✅ `globals.css`: CSS custom properties para cores (light/dark) — ~40 tokens semânticos
+2. ✅ `ThemeProvider` context com toggle + localStorage + prefers-color-scheme
+3. ✅ AppShell/Sidebar: toggle sun/moon no rodapé do sidebar
+4. ✅ `npm install lucide-react` — substituiu SVGs inline nos ícones do sidebar e KPIs
+5. ✅ Paleta semântica: `--deaths` (vermelho), `--costs` (âmbar), `--health` (azul), `--success` (verde)
+6. ✅ KPI Cards narrativos com sparklines Recharts
+7. ✅ Donut charts com legendas externas (sem labels sobrepostos)
+8. ✅ Tooltips tema-aware (`itemStyle`, `labelStyle` com `var(--fg)`)
+9. ✅ Paginação na lista de municípios e tabela do mapa
 
-#### Iteração 2.4 — Chat melhorado
+#### Iteração 2.4 — Chat melhorado ⬚
 
 **Objetivo**: respostas mais úteis com tabelas e markdown.
 
@@ -125,12 +131,17 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 3. Pós-processamento: detectar dados tabulares nos resultados das tools e converter para markdown table antes de enviar ao modelo
 4. UI: renderizar `<ReactMarkdown>` em vez de `<pre>` nas mensagens do assistente
 
-#### Iteração 2.5 — Previsão IA (ajuste visual)
+#### Iteração 2.5 — Previsão IA (ajuste visual + filtros) ✅
 
-1. `ForecastChart.tsx`: cor do intervalo de confiança mais visível (opacidade 0.3 → 0.5, cor mais saturada)
-2. Tooltip com formatação melhor
+1. ✅ `ForecastChart.tsx`: cores do intervalo de confiança tema-aware (var(--deaths-glow) / var(--costs-glow))
+2. ✅ Tooltip com formatação tema-aware
+3. ✅ Card "Insight da IA" com ícone BrainCircuit e resumo textual
+4. ✅ **Filtro de período histórico**: ano_inicio / ano_fim no backend (`forecaster.py`) e frontend
+   - Permite excluir anos com subnotificação que afetam a média
 
-#### Iteração 2.6 — Dockerização
+**Nota sobre granularidade temporal**: Silver SIM mantém `dt_obito` (data completa, dia/mês/ano). Análise semanal é viável a partir do Silver, mas requer nova agregação no Gold ou query direta. Atualmente Gold agrega por mês (`competencia`).
+
+#### Iteração 2.6 — Dockerização ⬚
 
 **Objetivo**: `docker compose up` para rodar tudo localmente.
 

@@ -63,11 +63,16 @@ export default function MunicipioPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const tooltipStyle = {
-    backgroundColor: "var(--bg-card)",
-    border: "1px solid var(--border)",
-    borderRadius: 8,
-    color: "var(--fg)",
+  const tooltipProps = {
+    contentStyle: {
+      backgroundColor: "var(--bg-card)",
+      border: "1px solid var(--border)",
+      borderRadius: 8,
+      color: "var(--fg)",
+      boxShadow: "var(--shadow-md)",
+    },
+    itemStyle: { color: "var(--fg)" },
+    labelStyle: { color: "var(--fg)", fontWeight: 600 },
   };
 
   return (
@@ -180,13 +185,13 @@ export default function MunicipioPage() {
               <div>
                 <h2 className="text-lg font-bold">{data.municipio}</h2>
                 <p className="text-sm text-slate-300">
-                  {indicadores.uf} · {indicadores.regiao} · IBGE {data.cod_mun_ibge}
+                  {indicadores.uf} · {indicadores.regiao || "—"} · IBGE {data.cod_mun_ibge}
                 </p>
               </div>
               <div className="flex gap-4 text-right text-xs text-slate-300">
-                <div><span className="block text-white font-medium">{indicadores.idh}</span>IDH</div>
-                <div><span className="block text-white font-medium">R$ {formatNumber(indicadores.pib_per_capita)}</span>PIB per capita</div>
-                <div><span className="block text-white font-medium">{formatNumber(indicadores.area_km2)} km²</span>Área</div>
+                <div><span className="block text-white font-medium">{indicadores.idh ?? "N/D"}</span>IDH</div>
+                <div><span className="block text-white font-medium">{indicadores.pib_per_capita ? `R$ ${formatNumber(indicadores.pib_per_capita)}` : "N/D"}</span>PIB per capita</div>
+                <div><span className="block text-white font-medium">{indicadores.area_km2 ? `${formatNumber(indicadores.area_km2)} km²` : "N/D"}</span>Área</div>
               </div>
             </div>
           </div>
@@ -223,7 +228,7 @@ export default function MunicipioPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                     <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
                     <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [Number(v).toFixed(2), "por 100mil hab"]} />
+                    <Tooltip {...tooltipProps} formatter={(v) => [Number(v).toFixed(2), "por 100mil hab"]} />
                     <Line type="monotone" dataKey="taxa_obitos_100mil" stroke="var(--deaths)" strokeWidth={2} dot={{ r: 4, fill: "var(--deaths)" }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -235,7 +240,7 @@ export default function MunicipioPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                     <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
                     <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} tickFormatter={(v) => `R$${v.toFixed(0)}`} />
-                    <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`R$ ${Number(v).toFixed(2)}`, "per capita"]} />
+                    <Tooltip {...tooltipProps} formatter={(v) => [`R$ ${Number(v).toFixed(2)}`, "per capita"]} />
                     <Line type="monotone" dataKey="custo_per_capita" stroke="var(--costs)" strokeWidth={2} dot={{ r: 4, fill: "var(--costs)" }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -252,7 +257,7 @@ export default function MunicipioPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                   <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
+                  <Tooltip {...tooltipProps} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
                   <Area type="monotone" dataKey="valor" stroke="var(--deaths)" fill="url(#gMO)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -265,7 +270,7 @@ export default function MunicipioPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                   <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} tickFormatter={(v) => formatCompact(v)} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [formatCurrency(Number(v)), "Custo"]} />
+                  <Tooltip {...tooltipProps} formatter={(v) => [formatCurrency(Number(v)), "Custo"]} />
                   <Area type="monotone" dataKey="valor" stroke="var(--costs)" fill="url(#gMC)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -279,7 +284,7 @@ export default function MunicipioPage() {
                 <BarChart data={data.obitos_por_tipo_veiculo} layout="vertical">
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
                   <YAxis dataKey="tipo_veiculo" type="category" tick={{ fontSize: 9, fill: "var(--chart-text)" }} width={80} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
+                  <Tooltip {...tooltipProps} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
                   <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--deaths)" />
                 </BarChart>
               </ResponsiveContainer>
@@ -290,7 +295,7 @@ export default function MunicipioPage() {
                 <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
                   <YAxis dataKey="faixa_etaria" type="category" tick={{ fontSize: 10, fill: "var(--chart-text)" }} width={40} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
+                  <Tooltip {...tooltipProps} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
                   <Bar dataKey="total" radius={[0, 4, 4, 0]}>
                     {data.obitos_por_faixa_etaria.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Bar>
@@ -310,7 +315,7 @@ export default function MunicipioPage() {
                       <Cell key={i} fill={SEXO_COLORS[d.sexo] || PIE_COLORS[i]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
+                  <Tooltip {...tooltipProps} formatter={(v) => [formatNumber(Number(v)), "Óbitos"]} />
                 </PieChart>
               </ResponsiveContainer>
             </ChartCard>

@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Clock, TrendingUp, BarChart3, Sparkles, BrainCircuit } from "lucide-react";
+import { Clock, TrendingUp, BarChart3, Sparkles, BrainCircuit, Filter } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
 import ForecastChart from "@/components/charts/ForecastChart";
 import KpiCard from "@/components/charts/KpiCard";
-import { fetchMunicipios } from "@/lib/api";
+import { fetchAnos, fetchMunicipios } from "@/lib/api";
 import { formatCurrency, formatNumber } from "@/lib/format";
 import type { Municipio } from "@/lib/types";
 
@@ -31,15 +31,19 @@ interface ForecastResponse {
 
 export default function PrevisaoPage() {
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [anosDisponiveis, setAnosDisponiveis] = useState<number[]>([]);
   const [selectedMun, setSelectedMun] = useState("");
   const [metrica, setMetrica] = useState<"obitos" | "custos">("obitos");
+  const [anoInicio, setAnoInicio] = useState("");
+  const [anoFim, setAnoFim] = useState("");
   const [data, setData] = useState<ForecastResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMunicipios().then((m) => {
+    Promise.all([fetchMunicipios(), fetchAnos()]).then(([m, a]) => {
       setMunicipios(m.municipios);
+      setAnosDisponiveis(a.anos);
       if (m.municipios.length > 0) setSelectedMun(m.municipios[0].cod_mun_ibge);
     });
   }, []);
@@ -50,7 +54,11 @@ export default function PrevisaoPage() {
     setError(null);
     setData(null);
     try {
-      const res = await fetch(`${API_URL}/api/predict/${metrica}/${selectedMun}`, { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (anoInicio) params.set("ano_inicio", anoInicio);
+      if (anoFim) params.set("ano_fim", anoFim);
+      const qs = params.toString() ? `?${params}` : "";
+      const res = await fetch(`${API_URL}/api/predict/${metrica}/${selectedMun}${qs}`, { cache: "no-store" });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.detail || `Erro ${res.status}`);
@@ -61,7 +69,7 @@ export default function PrevisaoPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedMun, metrica]);
+  }, [selectedMun, metrica, anoInicio, anoFim]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -69,6 +77,12 @@ export default function PrevisaoPage() {
   const lastPred = data?.previsao[data.previsao.length - 1];
   const lastHist = data?.historico[data.historico.length - 1];
   const isCustos = metrica === "custos";
+
+  const selectStyle = {
+    backgroundColor: "var(--bg-card)",
+    border: "1px solid var(--border)",
+    color: "var(--fg)",
+  };
 
   return (
     <div className="space-y-5">
@@ -84,15 +98,13 @@ export default function PrevisaoPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select value={selectedMun} onChange={(e) => setSelectedMun(e.target.value)}
-            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}>
+            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2" style={selectStyle}>
             {municipios.map((m) => (
               <option key={m.cod_mun_ibge} value={m.cod_mun_ibge}>{m.municipio} ({m.uf})</option>
             ))}
           </select>
           <select value={metrica} onChange={(e) => setMetrica(e.target.value as "obitos" | "custos")}
-            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}>
+            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2" style={selectStyle}>
             <option value="obitos">Óbitos</option>
             <option value="custos">Custos (R$)</option>
           </select>
@@ -101,6 +113,52 @@ export default function PrevisaoPage() {
             style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}>
             {loading ? "Calculando..." : "Prever"}
           </button>
+        </div>
+      </div>
+
+      {/* Year Range Filter */}
+      <div className="rounded-xl p-4" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="h-4 w-4" style={{ color: "var(--fg-muted)" }} />
+          <span className="text-sm font-medium" style={{ color: "var(--fg)" }}>Filtro de Período Histórico</span>
+        </div>
+        <p className="text-xs mb-3" style={{ color: "var(--fg-muted)" }}>
+          Selecione os anos a incluir na análise. Útil para excluir períodos com subnotificação
+          ou dados inconsistentes que afetam a média histórica e a qualidade da previsão.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+              Ano Início
+            </label>
+            <select value={anoInicio} onChange={(e) => setAnoInicio(e.target.value)}
+              className="h-8 min-w-[100px] rounded-lg px-2.5 text-xs focus:outline-none focus:ring-2" style={selectStyle}>
+              <option value="">Todos</option>
+              {anosDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+              Ano Fim
+            </label>
+            <select value={anoFim} onChange={(e) => setAnoFim(e.target.value)}
+              className="h-8 min-w-[100px] rounded-lg px-2.5 text-xs focus:outline-none focus:ring-2" style={selectStyle}>
+              <option value="">Todos</option>
+              {anosDisponiveis.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          {(anoInicio || anoFim) && (
+            <button onClick={() => { setAnoInicio(""); setAnoFim(""); }}
+              className="h-8 rounded-lg px-3 text-xs font-medium"
+              style={{ border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
+              Limpar
+            </button>
+          )}
+          <span className="text-[11px]" style={{ color: "var(--fg-muted)" }}>
+            {anoInicio || anoFim
+              ? `Usando: ${anoInicio || anosDisponiveis[0] || "?"} – ${anoFim || anosDisponiveis.at(-1) || "?"}`
+              : "Usando todo o histórico disponível"}
+          </span>
         </div>
       </div>
 
@@ -121,9 +179,6 @@ export default function PrevisaoPage() {
             <p className="text-sm" style={{ color: "var(--fg-secondary)" }}>
               Carregando modelo TimesFM e executando previsão...
             </p>
-            <p className="mt-1 text-xs" style={{ color: "var(--fg-muted)" }}>
-              O primeiro carregamento pode levar alguns minutos
-            </p>
           </div>
         </div>
       )}
@@ -131,7 +186,6 @@ export default function PrevisaoPage() {
       {/* Results */}
       {data && !loading && (
         <>
-          {/* KPIs */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard title="Histórico" value={`${data.historico_meses} meses`}
               subtitle="Dados reais (DATASUS)" icon={<Clock className="h-4 w-4" />} semantic="health" />
@@ -145,9 +199,8 @@ export default function PrevisaoPage() {
               subtitle={lastPred?.competencia ?? ""} icon={<Sparkles className="h-4 w-4" />} semantic="deaths" />
           </div>
 
-          {/* AI Insight Card */}
-          <div className="rounded-xl p-4"
-            style={{ backgroundColor: "var(--primary-soft)", border: "1px solid var(--border)" }}>
+          {/* AI Insight */}
+          <div className="rounded-xl p-4" style={{ backgroundColor: "var(--primary-soft)", border: "1px solid var(--border)" }}>
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                 style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}>
@@ -157,9 +210,12 @@ export default function PrevisaoPage() {
                 <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Insight da IA</p>
                 <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--fg-secondary)" }}>
                   Modelo TimesFM (Google Research, 200M parâmetros) aplicado a{" "}
-                  <strong>{data.historico_meses} meses</strong> de dados históricos de {munLabel}.
-                  A previsão projeta {data.horizon} meses com intervalo de confiança P10–P90.
-                  {lastPred && lastHist && (
+                  <strong>{data.historico_meses} meses</strong> de dados históricos de {munLabel}
+                  {(anoInicio || anoFim) && (
+                    <> (filtrado: {anoInicio || "início"} – {anoFim || "fim"})</>
+                  )}
+                  . A previsão projeta {data.horizon} meses com intervalo de confiança P10–P90.
+                  {lastPred && (
                     <>{" "}Valor projetado para {lastPred.competencia}:{" "}
                     <strong>{isCustos ? formatCurrency(lastPred.valor) : formatNumber(lastPred.valor)}</strong>
                     {" "}(intervalo: {isCustos ? formatCurrency(lastPred.lower) : formatNumber(lastPred.lower)}
@@ -170,7 +226,6 @@ export default function PrevisaoPage() {
             </div>
           </div>
 
-          {/* Chart */}
           <ChartCard
             title={`${isCustos ? "Custos Ambulatoriais" : "Óbitos"} — ${munLabel}`}
             subtitle={`Série histórica + previsão TimesFM (${data.historico_meses} meses → +${data.horizon})`}
@@ -178,7 +233,6 @@ export default function PrevisaoPage() {
             <ForecastChart historico={data.historico} previsao={data.previsao} metrica={metrica} height={400} />
           </ChartCard>
 
-          {/* Forecast table */}
           <ChartCard title="Detalhamento da Previsão" subtitle="Próximos 12 meses com intervalo de confiança">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">

@@ -17,6 +17,36 @@ import type { DashboardData, Municipio } from "@/lib/types";
 const PIE_COLORS = ["#ef4444","#f97316","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#6366f1"];
 const SEXO_COLORS: Record<string, string> = { Masculino: "#3b82f6", Feminino: "#ec4899" };
 
+function ThemedTooltip(props: Record<string, unknown>) {
+  return (
+    <Tooltip
+      {...props}
+      contentStyle={{
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        color: "var(--fg)",
+        boxShadow: "var(--shadow-md)",
+      }}
+      itemStyle={{ color: "var(--fg)" }}
+      labelStyle={{ color: "var(--fg)", fontWeight: 600 }}
+    />
+  );
+}
+
+function SemanticLegend({ items }: { items: { name: string; color: string }[] }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
+      {items.map((item) => (
+        <div key={item.name} className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+          <span className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>{item.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [anos, setAnos] = useState<number[]>([]);
@@ -54,10 +84,8 @@ export default function DashboardPage() {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
-          <div
-            className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4"
-            style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }}
-          />
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4"
+            style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }} />
           <p className="text-sm" style={{ color: "var(--fg-muted)" }}>Carregando painel...</p>
         </div>
       </div>
@@ -66,6 +94,13 @@ export default function DashboardPage() {
 
   const sparkObitos = data.serie_temporal_obitos.map((s) => s.valor);
   const sparkCustos = data.serie_temporal_custos.map((s) => s.valor);
+
+  const veiculoLegend = data.obitos_por_tipo_veiculo.map((d, i) => ({
+    name: d.tipo_veiculo, color: PIE_COLORS[i % PIE_COLORS.length],
+  }));
+  const sexoLegend = data.obitos_por_sexo.map((d) => ({
+    name: d.sexo, color: SEXO_COLORS[d.sexo] || "#6b7280",
+  }));
 
   return (
     <div className="space-y-5">
@@ -87,36 +122,14 @@ export default function DashboardPage() {
 
       {/* Narrative KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          title="Óbitos"
-          value={formatNumber(data.total_obitos)}
-          subtitle={data.periodo}
-          icon={<AlertTriangle className="h-4 w-4" />}
-          semantic="deaths"
-          sparkData={sparkObitos}
-        />
-        <KpiCard
-          title="Custo SUS"
-          value={formatCurrency(data.total_custos)}
-          subtitle="Ambulatoriais"
-          icon={<DollarSign className="h-4 w-4" />}
-          semantic="costs"
-          sparkData={sparkCustos}
-        />
-        <KpiCard
-          title="Atendimentos"
-          value={formatNumber(data.total_atendimentos)}
-          subtitle="Registros SIA"
-          icon={<Activity className="h-4 w-4" />}
-          semantic="health"
-        />
-        <KpiCard
-          title="Municípios"
-          value={String(data.municipios)}
-          subtitle="Com registros"
-          icon={<Building2 className="h-4 w-4" />}
-          semantic="success"
-        />
+        <KpiCard title="Óbitos" value={formatNumber(data.total_obitos)} subtitle={data.periodo}
+          icon={<AlertTriangle className="h-4 w-4" />} semantic="deaths" sparkData={sparkObitos} />
+        <KpiCard title="Custo SUS" value={formatCurrency(data.total_custos)} subtitle="Ambulatoriais"
+          icon={<DollarSign className="h-4 w-4" />} semantic="costs" sparkData={sparkCustos} />
+        <KpiCard title="Atendimentos" value={formatNumber(data.total_atendimentos)} subtitle="Registros SIA"
+          icon={<Activity className="h-4 w-4" />} semantic="health" />
+        <KpiCard title="Municípios" value={String(data.municipios)} subtitle="Com registros"
+          icon={<Building2 className="h-4 w-4" />} semantic="success" />
       </div>
 
       {/* Time Series */}
@@ -133,10 +146,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
               <Area type="monotone" dataKey="valor" stroke="var(--deaths)" fill="url(#gO)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -154,34 +164,26 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} tickFormatter={(v) => formatCompact(v)} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatCurrency(Number(v)), "Custo"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatCurrency(Number(v)), "Custo"]} />
               <Area type="monotone" dataKey="valor" stroke="var(--costs)" fill="url(#gC)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Distributions */}
+      {/* Distributions — external legends, no overlapping labels */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ChartCard title="Óbitos por Tipo de Veículo">
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={data.obitos_por_tipo_veiculo} dataKey="total" nameKey="tipo_veiculo"
-                cx="50%" cy="50%" outerRadius={85} innerRadius={40} paddingAngle={2}
-                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
+                cx="50%" cy="50%" outerRadius={75} innerRadius={35} paddingAngle={2}>
                 {data.obitos_por_tipo_veiculo.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
             </PieChart>
           </ResponsiveContainer>
+          <SemanticLegend items={veiculoLegend} />
         </ChartCard>
 
         <ChartCard title="Óbitos por Faixa Etária">
@@ -190,10 +192,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
               <YAxis dataKey="faixa_etaria" type="category" tick={{ fontSize: 11, fill: "var(--chart-text)" }} width={45} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
               <Bar dataKey="total" radius={[0, 4, 4, 0]}>
                 {data.obitos_por_faixa_etaria.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Bar>
@@ -202,23 +201,18 @@ export default function DashboardPage() {
         </ChartCard>
 
         <ChartCard title="Distribuição por Sexo">
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={data.obitos_por_sexo} dataKey="total" nameKey="sexo"
-                cx="50%" cy="50%" outerRadius={85} innerRadius={45} paddingAngle={3}
-                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
+                cx="50%" cy="50%" outerRadius={75} innerRadius={35} paddingAngle={3}>
                 {data.obitos_por_sexo.map((d, i) => (
                   <Cell key={i} fill={SEXO_COLORS[d.sexo] || PIE_COLORS[i]} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
             </PieChart>
           </ResponsiveContainer>
+          <SemanticLegend items={sexoLegend} />
         </ChartCard>
       </div>
 
@@ -230,10 +224,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
               <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10, fill: "var(--chart-text)" }} width={110} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
               <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--deaths)" />
             </BarChart>
           </ResponsiveContainer>
@@ -245,10 +236,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} tickFormatter={(v) => formatCompact(v)} />
               <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10, fill: "var(--chart-text)" }} width={110} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-                formatter={(v) => [formatCurrency(Number(v)), "Custo"]}
-              />
+              <ThemedTooltip formatter={(v: number) => [formatCurrency(Number(v)), "Custo"]} />
               <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--costs)" />
             </BarChart>
           </ResponsiveContainer>
@@ -262,10 +250,7 @@ export default function DashboardPage() {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
             <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-            <Tooltip
-              contentStyle={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--fg)" }}
-              formatter={(v) => [formatNumber(Number(v)), "Óbitos"]}
-            />
+            <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
             <Legend wrapperStyle={{ color: "var(--fg-secondary)" }} />
             <Bar dataKey="total" name="Óbitos" fill="var(--deaths)" radius={[4, 4, 0, 0]} />
           </BarChart>
