@@ -65,26 +65,87 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 - Frontend usa Leaflet (client-only) com `dynamic import` + `ssr: false`.
 - `FilterBar` é desacoplado: recebe `filters[]` como prop.
 
-### Próxima fase — Backlog
+### Próxima fase — Plano de Iterações
 
-#### Mapa
-- [ ] Substituir Leaflet por **MapLibre GL JS** (3D pitch/bearing, camadas toggle)
-- [ ] Adicionar camada de **polígonos GeoJSON** dos municípios (IBGE v4) com hover/popup (óbitos, custos, atendimentos)
-- [ ] **Validar lat/lon**: alguns municípios aparecem fora dos limites estaduais — verificar se é erro no centroide da API IBGE ou código de município errado (6↔7 dígitos)
-- [ ] Formatar valores no mapa: custos mostram "R$ 0.07M" para valores que são milhares, não milhões — usar formatação adaptativa (K/M)
+Metodologia: **test-first** — cada feature começa com teste unitário no backend antes da implementação. Ao final, Dockerizar a aplicação.
 
-#### Página Municípios
-- [ ] **Taxa de mortalidade e custo per capita** aparecem vazios ("-") — provável que `ibge_populacao.parquet` não tem dados para os anos/municípios filtrados (IBGE Tabela 6579 sem 2022/2023). Verificar se o fallback para o dicionário embutido está funcionando no endpoint `/api/indicadores/municipio/{cod}`
+#### Iteração 2.1 — Fixes de dados e backend (test-first)
 
-#### Previsão IA
-- [ ] **Intervalo de confiança** (P10-P90) renderiza em cor quase invisível — trocar para cor mais contrastante com opacidade maior no `ForecastChart.tsx`
+**Objetivo**: corrigir dados incorretos antes de mexer na UI.
 
-#### Chat IA (MCP + Ollama)
-- [ ] **Melhorar qualidade das respostas**: o modelo qwen2.5:3b tem dificuldade em interpretar os resultados das tools e gerar respostas úteis. Considerar: modelo maior (7b), system prompt mais detalhado, ou pós-processamento dos resultados das tools
-- [ ] **Renderizar tabelas**: respostas do chat são só texto — implementar detecção de dados tabulares no resultado e renderizar como `<table>` HTML no frontend
-- [ ] **Markdown rendering**: suportar formatação markdown (negrito, listas, tabelas) nas respostas do assistente
+1. **Fix lat/lon fora dos limites**
+   - Teste: `test_ibge_lat_lon_bounds` — verificar que lat ∈ [-33.8, 5.3] e lon ∈ [-73.9, -34.8] (limites do Brasil)
+   - Investigar: código 6↔7 causando centroide errado? API IBGE retornando lixo?
+   - Fix no `ibge_fetcher.py`: validar bounds antes de persistir, logar warnings
 
-#### Design System
-- [ ] Implementar **tema claro/escuro** com CSS variables + Tailwind v4
-- [ ] Integrar **lucide-animated** para ícones animados no sidebar e KPIs
-- [ ] Padronizar paleta de cores em um módulo compartilhado (mapa, gráficos, KPIs)
+2. **Fix taxa mortalidade / custo per capita vazios**
+   - Teste: `test_indicadores_municipio_populacao` — verificar que indicadores retornam valores quando fallback disponível
+   - Fix: `backend/ibge.py` lookup por `LEFT(cod_mun_ibge, 6)` no fallback dict também
+   - Fix: `backend/routers/indicadores.py` — garantir que queries usam `LEFT(,6)` consistente
+
+3. **Fix formatação de custos no mapa**
+   - Teste: verificar que `formatCurrency` e `formatCompact` formatam corretamente valores < R$ 1M
+   - Fix em `frontend/src/lib/format.ts` e `MapView.tsx`
+
+4. **Endpoint GeoJSON** (novo)
+   - Teste: `test_geojson_municipios` — endpoint GET `/api/geo/municipios` retorna FeatureCollection válido
+   - Implementar: `backend/routers/geo.py` — buscar polígonos IBGE v4 e cachear
+   - Considerar: salvar GeoJSON como parquet/arquivo estático para evitar HTTP em runtime
+
+#### Iteração 2.2 — MapLibre + Camadas
+
+**Objetivo**: substituir Leaflet por MapLibre GL JS.
+
+1. `npm install maplibre-gl` (remover `leaflet`, `react-leaflet`, `@types/leaflet`)
+2. Reescrever `MapView.tsx` com MapLibre:
+   - Basemap: CARTO GL light/dark (tema-aware)
+   - Circle layer para pontos (dados existentes)
+   - Fill layer para polígonos (GeoJSON do endpoint)
+   - Popup no hover com óbitos, custos, atendimentos
+   - Controle de camadas (toggle circles/polígonos)
+   - Suporte 3D: pitch, bearing, navegação
+3. Manter `MapLegend.tsx` com cores do tema
+
+#### Iteração 2.3 — Design System (tema + ícones)
+
+**Objetivo**: tema claro/escuro + ícones animados.
+
+1. `globals.css`: CSS custom properties para cores (light/dark)
+2. `ThemeProvider` context com toggle + localStorage
+3. AppShell/Sidebar: toggle sun/moon no header
+4. `npm install @lucide-animated/react` — substituir SVGs inline nos ícones do sidebar e KPIs
+5. Padronizar paleta em `lib/theme.ts`
+
+#### Iteração 2.4 — Chat melhorado
+
+**Objetivo**: respostas mais úteis com tabelas e markdown.
+
+1. `npm install react-markdown` para renderizar markdown nas respostas
+2. Melhorar system prompt do Ollama: instruir a formatar dados em tabelas markdown
+3. Pós-processamento: detectar dados tabulares nos resultados das tools e converter para markdown table antes de enviar ao modelo
+4. UI: renderizar `<ReactMarkdown>` em vez de `<pre>` nas mensagens do assistente
+
+#### Iteração 2.5 — Previsão IA (ajuste visual)
+
+1. `ForecastChart.tsx`: cor do intervalo de confiança mais visível (opacidade 0.3 → 0.5, cor mais saturada)
+2. Tooltip com formatação melhor
+
+#### Iteração 2.6 — Dockerização
+
+**Objetivo**: `docker compose up` para rodar tudo localmente.
+
+1. `Dockerfile.backend`: Python 3.12 + uv + deps
+2. `Dockerfile.frontend`: Node 22 + npm + build
+3. `docker-compose.yml`:
+   - `backend`: porta 8000, volume `data/`
+   - `frontend`: porta 3000, depende do backend
+4. `.dockerignore`: node_modules, .venv, __pycache__, data/bronze, data/silver
+5. Documentar no `docs/SETUP.md` e `README.md`
+
+### Regras para próximas iterações
+
+- **Test-first**: escrever teste antes da implementação
+- **Não quebrar**: rodar `uv run pytest tests/ -v` após cada mudança
+- **Commits atômicos**: um commit por feature/fix lógico
+- **Samples reais**: usar `data/test_sample/` para testes end-to-end
+- **Lint sempre**: `uv run ruff check .` deve passar (exceto o erro pré-existente em `backend/ibge.py`)
