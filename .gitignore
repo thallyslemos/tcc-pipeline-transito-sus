@@ -1,6 +1,8 @@
 # Data files
-data/
-*.parquet
+data/bronze/
+data/silver/
+data/gold/
+
 *.dbc
 
 # Python
