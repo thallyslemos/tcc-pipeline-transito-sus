@@ -65,10 +65,26 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 - Frontend usa Leaflet (client-only) com `dynamic import` + `ssr: false`.
 - `FilterBar` é desacoplado: recebe `filters[]` como prop.
 
-### Próxima fase (UI/UX)
+### Próxima fase — Backlog
 
-Planejamento para próxima iteração:
-- Substituir Leaflet por **MapLibre GL JS** (3D, camadas, polígonos GeoJSON)
-- Implementar **tema claro/escuro** com CSS variables + Tailwind
-- Integrar **lucide-animated** para ícones animados no sidebar e KPIs
-- Adicionar camada de polígonos dos municípios (GeoJSON IBGE) com hover/popup
+#### Mapa
+- [ ] Substituir Leaflet por **MapLibre GL JS** (3D pitch/bearing, camadas toggle)
+- [ ] Adicionar camada de **polígonos GeoJSON** dos municípios (IBGE v4) com hover/popup (óbitos, custos, atendimentos)
+- [ ] **Validar lat/lon**: alguns municípios aparecem fora dos limites estaduais — verificar se é erro no centroide da API IBGE ou código de município errado (6↔7 dígitos)
+- [ ] Formatar valores no mapa: custos mostram "R$ 0.07M" para valores que são milhares, não milhões — usar formatação adaptativa (K/M)
+
+#### Página Municípios
+- [ ] **Taxa de mortalidade e custo per capita** aparecem vazios ("-") — provável que `ibge_populacao.parquet` não tem dados para os anos/municípios filtrados (IBGE Tabela 6579 sem 2022/2023). Verificar se o fallback para o dicionário embutido está funcionando no endpoint `/api/indicadores/municipio/{cod}`
+
+#### Previsão IA
+- [ ] **Intervalo de confiança** (P10-P90) renderiza em cor quase invisível — trocar para cor mais contrastante com opacidade maior no `ForecastChart.tsx`
+
+#### Chat IA (MCP + Ollama)
+- [ ] **Melhorar qualidade das respostas**: o modelo qwen2.5:3b tem dificuldade em interpretar os resultados das tools e gerar respostas úteis. Considerar: modelo maior (7b), system prompt mais detalhado, ou pós-processamento dos resultados das tools
+- [ ] **Renderizar tabelas**: respostas do chat são só texto — implementar detecção de dados tabulares no resultado e renderizar como `<table>` HTML no frontend
+- [ ] **Markdown rendering**: suportar formatação markdown (negrito, listas, tabelas) nas respostas do assistente
+
+#### Design System
+- [ ] Implementar **tema claro/escuro** com CSS variables + Tailwind v4
+- [ ] Integrar **lucide-animated** para ícones animados no sidebar e KPIs
+- [ ] Padronizar paleta de cores em um módulo compartilhado (mapa, gráficos, KPIs)
