@@ -19,12 +19,12 @@ de Dados (DuckDB), IA Preditiva (TimesFM) e interface conversacional (MCP + Olla
 | Base | Sistema | Órgão | Campos principais |
 |------|---------|-------|-------------------|
 | **SIM** | Sistema de Informações sobre Mortalidade | DATASUS/SVS | `CAUSABAS` (CID-10), `DTOBITO`, `CODMUNOCOR`, `SEXO`, `IDADE` |
-| **SIA/PA** | Sistema de Informações Ambulatoriais — Produção Ambulatorial | DATASUS | `PA_CIDPRI` (CID-10), `PA_VALAPR` (valor aprovado R$), `PA_QTDAPR`, `PA_CODMUN`, `PA_DATREF` |
+| **SIA/PA** | Sistema de Informações Ambulatoriais — Produção Ambulatorial | DATASUS | `PA_CIDPRI` (CID-10), `PA_VALAPR` (valor aprovado R$), `PA_QTDAPR`, `PA_MUNPCN`, `PA_CMP` |
 | **IBGE** | Tabela 6579 SIDRA + API Localidades + Malhas GeoJSON | IBGE | População estimada, nome, UF, lat/lon |
 
 - **Filtro CID-10**: Capítulo XX — Acidentes de Transporte Terrestre, códigos **V01 a V89**.
 - **DTOBITO** (SIM): Campo de data do óbito. Nos dados reais do DATASUS, vem como string `DDMMYYYY` (ex: `"11042024"`). O pipeline converte automaticamente para DATE via `TRY_STRPTIME`.
-- **PA_DATREF** (SIA): Competência no formato `YYYYMM` (ex: `"202401"`).
+- **PA_CMP** (SIA 2024+): Competência no formato `YYYYMM` (ex: `"202401"`). Versões anteriores usam `PA_DATREF` — o pipeline detecta automaticamente.
 - **PA_VALAPR** (SIA): Valor **total aprovado** para o registro — **NÃO multiplicar** por `PA_QTDAPR`. Referência: tabela SIGTAP.
 
 ---
@@ -70,7 +70,7 @@ uv run python -m data-pipeline.run --real --ufs BA --anos 2024
 ### Testes e qualidade
 
 ```bash
-uv run pytest tests/ -v    # 27 testes (pipeline + API + stack)
+uv run pytest tests/ -v    # 35 testes (pipeline + API + stack + dados reais)
 uv run ruff check .        # lint
 uv run ruff format .       # formatação
 ```
@@ -99,5 +99,5 @@ uv run ruff format .       # formatação
 | IA Preditiva | TimesFM (Google Research, 200M params, CPU) |
 | IA Conversacional | FastMCP (MCP Server) + Ollama (Qwen2.5, tool calling) |
 | Frontend | Next.js 16, Tailwind CSS, Recharts, Leaflet |
-| Testes | pytest (27 testes: pipeline + API + stack) |
+| Testes | pytest (35 testes: pipeline + API + stack + dados reais) |
 | Lint | ruff (PEP8 + imports + security) |
