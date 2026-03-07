@@ -91,7 +91,9 @@ def _reload_silver():
     from importlib import import_module, reload
     config_mod = import_module("data-pipeline.config")
     reload(config_mod)
-    return import_module("data-pipeline.silver")
+    silver_mod = import_module("data-pipeline.silver")
+    reload(silver_mod)
+    return silver_mod
 
 
 def test_silver_sim_real_dtobito(datasus_real_sim, tmp_path):

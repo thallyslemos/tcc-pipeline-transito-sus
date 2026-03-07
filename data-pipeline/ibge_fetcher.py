@@ -157,26 +157,8 @@ def _silver_paths() -> tuple[Path, Path]:
     return sim, sia
 
 
-def _normalizar_cod_ibge(cod: str) -> str:
-    """Normaliza código de município para 7 dígitos IBGE.
-
-    O DATASUS/SIA usa códigos de 6 dígitos (sem dígito verificador).
-    A API IBGE usa 7 dígitos (com dígito verificador).
-    O SIM pode vir com 6 ou 7 dígitos dependendo do campo.
-
-    Estratégia: se o código tem 6 dígitos, não temos como calcular
-    o dígito verificador de forma confiável. Guardamos ambas as
-    formas (6 e 7) e fazemos lookup por prefixo de 6 dígitos.
-    """
-    cod = cod.strip()
-    return cod
-
-
 def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
-    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver.
-
-    Normaliza códigos: TRIM de espaços e zeros à esquerda indevidos.
-    """
+    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver."""
     silver_sim, silver_sia = _silver_paths()
     combos: set[tuple[str, int, str]] = set()
 
@@ -193,7 +175,7 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
                 """
             ).fetchdf()
             for _, row in df_sim.iterrows():
-                combos.add((_normalizar_cod_ibge(row["cod_mun_ibge"]), int(row["ano"]), row["uf"]))
+                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
 
         if silver_sia.exists():
             df_sia = con.sql(
@@ -206,7 +188,7 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
                 """
             ).fetchdf()
             for _, row in df_sia.iterrows():
-                combos.add((_normalizar_cod_ibge(row["cod_mun_ibge"]), int(row["ano"]), row["uf"]))
+                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
     finally:
         con.close()
 
@@ -265,25 +247,28 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     def _find_localidade(cod: str) -> MunicipioLocalidade | None:
         if cod in loc_map_7:
             return loc_map_7[cod]
-        if cod in loc_map_6:
-            return loc_map_6[cod]
-        if len(cod) == 6:
-            for ibge_cod, loc in loc_map_7.items():
-                if ibge_cod.startswith(cod):
-                    return loc
+        prefix = cod[:6]
+        if prefix in loc_map_6:
+            return loc_map_6[prefix]
         return None
 
     # 2) Centroides (lat/lon) via API v4 metadados — por municipio
+    # Deduplica por prefixo de 6 dígitos para evitar duplicatas no JOIN
+    seen_prefixes: set[str] = set()
     municipios_rows: list[dict] = []
     for cod in codigos:
         loc = _find_localidade(cod)
         if not loc:
             logger.warning("ibge_municipio_sem_localidade", cod_mun_ibge=cod)
             continue
+        prefix = loc.cod_mun_ibge[:6]
+        if prefix in seen_prefixes:
+            continue
+        seen_prefixes.add(prefix)
         coords = fetch_centroide_municipio(loc.cod_mun_ibge) or {}
         municipios_rows.append(
             {
-                "cod_mun_ibge": cod,
+                "cod_mun_ibge": loc.cod_mun_ibge,
                 "nome": loc.nome,
                 "uf": loc.uf,
                 "regiao": loc.regiao,
@@ -300,16 +285,21 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     # 3) Populacao (cod, ano -> populacao)
     # API SIDRA requer código de 7 dígitos. Mapeamos cod→cod_ibge_7.
     pop_rows: list[dict] = []
+    seen_pop: set[tuple[str, int]] = set()
     for cod, ano, _uf in combos:
         loc = _find_localidade(cod)
         cod_7 = loc.cod_mun_ibge if loc else cod
+        prefix_ano = (cod_7[:6], ano)
+        if prefix_ano in seen_pop:
+            continue
+        seen_pop.add(prefix_ano)
         pop = fetch_populacao(cod_7, ano)
         if not pop:
-            logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod, ano=ano)
+            logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod_7, ano=ano)
             continue
         pop_rows.append(
             {
-                "cod_mun_ibge": cod,
+                "cod_mun_ibge": cod_7,
                 "ano": ano,
                 "populacao": int(pop),
             }

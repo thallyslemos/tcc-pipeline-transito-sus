@@ -68,25 +68,19 @@ def _query_series(
 
     cod6 = cod_mun_ibge[:6]
     if metrica == "obitos":
-        rows = con.sql(f"""
-            SELECT
-                competencia,
-                SUM(total_obitos) AS valor
+        rows = con.execute("""
+            SELECT competencia, SUM(total_obitos) AS valor
             FROM v_obitos
-            WHERE LEFT(cod_mun_ibge, 6) = '{cod6}'
-            GROUP BY competencia
-            ORDER BY competencia
-        """).fetchall()
+            WHERE LEFT(cod_mun_ibge, 6) = ?
+            GROUP BY competencia ORDER BY competencia
+        """, [cod6]).fetchall()
     else:
-        rows = con.sql(f"""
-            SELECT
-                competencia,
-                ROUND(SUM(custo_total), 2) AS valor
+        rows = con.execute("""
+            SELECT competencia, ROUND(SUM(custo_total), 2) AS valor
             FROM v_custos
-            WHERE LEFT(cod_mun_ibge, 6) = '{cod6}'
-            GROUP BY competencia
-            ORDER BY competencia
-        """).fetchall()
+            WHERE LEFT(cod_mun_ibge, 6) = ?
+            GROUP BY competencia ORDER BY competencia
+        """, [cod6]).fetchall()
 
     return [{"competencia": row[0], "valor": float(row[1])} for row in rows]
 
@@ -95,10 +89,10 @@ def _municipio_nome(cod_mun_ibge: str) -> str | None:
     """Retorna o nome do município a partir do DuckDB."""
     con = get_connection()
     cod6 = cod_mun_ibge[:6]
-    row = con.sql(f"""
-        SELECT DISTINCT municipio FROM v_obitos
-        WHERE LEFT(cod_mun_ibge, 6) = '{cod6}' LIMIT 1
-    """).fetchone()
+    row = con.execute(
+        "SELECT DISTINCT municipio FROM v_obitos WHERE LEFT(cod_mun_ibge, 6) = ? LIMIT 1",
+        [cod6],
+    ).fetchone()
     return row[0] if row else None
 
 

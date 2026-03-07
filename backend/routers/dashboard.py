@@ -251,28 +251,31 @@ async def listar_municipios():
 async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     """Dados detalhados de um municipio especifico."""
     con = get_connection()
+    cod6 = cod_mun[:6]
     wa = f"AND ano = {ano}" if ano is not None else ""
+    wc = f"LEFT(cod_mun_ibge, 6) = '{cod6}'"
+    wc_alias = f"LEFT(o.cod_mun_ibge, 6) = '{cod6}'"
 
     nome = con.sql(
-        f"SELECT DISTINCT municipio FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' LIMIT 1"
+        f"SELECT DISTINCT municipio FROM v_obitos WHERE {wc} LIMIT 1"
     ).fetchone()
 
     total_obitos = con.sql(f"""
-        SELECT COALESCE(SUM(total_obitos),0) FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' {wa}
+        SELECT COALESCE(SUM(total_obitos),0) FROM v_obitos WHERE {wc} {wa}
     """).fetchone()[0]
 
     total_custos = con.sql(f"""
-        SELECT COALESCE(SUM(custo_total),0) FROM v_custos WHERE cod_mun_ibge='{cod_mun}' {wa}
+        SELECT COALESCE(SUM(custo_total),0) FROM v_custos WHERE {wc} {wa}
     """).fetchone()[0]
 
     total_atend = con.sql(f"""
-        SELECT COALESCE(SUM(total_atendimentos),0) FROM v_custos WHERE cod_mun_ibge='{cod_mun}' {wa}
+        SELECT COALESCE(SUM(total_atendimentos),0) FROM v_custos WHERE {wc} {wa}
     """).fetchone()[0]
 
     serie_obitos = (
         con.sql(f"""
         SELECT STRFTIME(competencia,'%Y-%m') AS competencia, SUM(total_obitos) AS valor
-        FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' {wa} GROUP BY competencia ORDER BY competencia
+        FROM v_obitos WHERE {wc} {wa} GROUP BY competencia ORDER BY competencia
     """)
         .fetchdf()
         .to_dict(orient="records")
@@ -281,7 +284,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     serie_custos = (
         con.sql(f"""
         SELECT STRFTIME(competencia,'%Y-%m') AS competencia, ROUND(SUM(custo_total),2) AS valor
-        FROM v_custos WHERE cod_mun_ibge='{cod_mun}' {wa} GROUP BY competencia ORDER BY competencia
+        FROM v_custos WHERE {wc} {wa} GROUP BY competencia ORDER BY competencia
     """)
         .fetchdf()
         .to_dict(orient="records")
@@ -290,7 +293,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     por_tipo = (
         con.sql(f"""
         SELECT tipo_veiculo, SUM(total_obitos) AS total
-        FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' {wa} GROUP BY tipo_veiculo ORDER BY total DESC
+        FROM v_obitos WHERE {wc} {wa} GROUP BY tipo_veiculo ORDER BY total DESC
     """)
         .fetchdf()
         .to_dict(orient="records")
@@ -299,7 +302,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     por_faixa = (
         con.sql(f"""
         SELECT faixa_etaria, SUM(total_obitos) AS total
-        FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' {wa} GROUP BY faixa_etaria
+        FROM v_obitos WHERE {wc} {wa} GROUP BY faixa_etaria
         ORDER BY CASE faixa_etaria
             WHEN '0-14' THEN 1 WHEN '15-24' THEN 2 WHEN '25-34' THEN 3
             WHEN '35-44' THEN 4 WHEN '45-54' THEN 5 WHEN '55-64' THEN 6 ELSE 7
@@ -312,7 +315,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     por_sexo = (
         con.sql(f"""
         SELECT sexo, SUM(total_obitos) AS total
-        FROM v_obitos WHERE cod_mun_ibge='{cod_mun}' {wa} GROUP BY sexo ORDER BY total DESC
+        FROM v_obitos WHERE {wc} {wa} GROUP BY sexo ORDER BY total DESC
     """)
         .fetchdf()
         .to_dict(orient="records")
@@ -324,7 +327,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
         f"""SELECT o.uf, MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM v_obitos o
             {join_ibge}
-            WHERE o.cod_mun_ibge='{cod_mun}'
+            WHERE {wc_alias}
             GROUP BY o.uf
             LIMIT 1"""
     ).fetchone()
