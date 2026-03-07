@@ -1,5 +1,7 @@
 "use client";
 
+import { X } from "lucide-react";
+
 interface FilterOption {
   value: string;
   label: string;
@@ -28,7 +30,8 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
         <div key={f.key} className="flex flex-col gap-1">
           <label
             htmlFor={`filter-${f.key}`}
-            className="text-[11px] font-medium uppercase tracking-wider text-slate-400"
+            className="text-[11px] font-medium uppercase tracking-wider"
+            style={{ color: "var(--fg-muted)" }}
           >
             {f.label}
           </label>
@@ -36,7 +39,13 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
             id={`filter-${f.key}`}
             value={values[f.key] || ""}
             onChange={(e) => onChange(f.key, e.target.value)}
-            className="h-9 min-w-[140px] rounded-lg border border-slate-200 bg-white px-2.5 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              border: "1px solid var(--border)",
+              color: "var(--fg)",
+              "--tw-ring-color": "var(--primary)",
+            } as React.CSSProperties}
           >
             <option value="">{f.placeholder || "Todos"}</option>
             {f.options.map((o) => (
@@ -50,11 +59,13 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
       {hasActive && onReset && (
         <button
           onClick={onReset}
-          className="mt-5 flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 text-xs text-slate-500 hover:bg-slate-100"
+          className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors"
+          style={{
+            border: "1px solid var(--border)",
+            color: "var(--fg-secondary)",
+          }}
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="h-3.5 w-3.5" />
           Limpar
         </button>
       )}

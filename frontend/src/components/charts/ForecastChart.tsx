@@ -1,15 +1,8 @@
 "use client";
 
 import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+  Area, CartesianGrid, ComposedChart, Legend, Line,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
 interface HistoricoPoint {
@@ -84,15 +77,15 @@ export default function ForecastChart({ historico, previsao, metrica, height = 3
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
         <XAxis
           dataKey="competencia"
-          tick={{ fontSize: 10, fill: "#94a3b8" }}
+          tick={{ fontSize: 10, fill: "var(--chart-text)" }}
           tickLine={false}
           interval={Math.max(0, Math.floor(data.length / 10))}
         />
         <YAxis
-          tick={{ fontSize: 10, fill: "#94a3b8" }}
+          tick={{ fontSize: 10, fill: "var(--chart-text)" }}
           tickLine={false}
           tickFormatter={fmtTick}
           width={55}
@@ -100,18 +93,20 @@ export default function ForecastChart({ historico, previsao, metrica, height = 3
         <Tooltip
           contentStyle={{
             borderRadius: 8,
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--border)",
+            backgroundColor: "var(--bg-card)",
+            color: "var(--fg)",
             fontSize: 12,
-            boxShadow: "0 4px 6px -1px rgba(0,0,0,.1)",
+            boxShadow: "var(--shadow-md)",
           }}
           formatter={(value, name) => {
             if (name === "band" || value == null) return [null, null];
             return [fmtValue(Number(value)), name === "real" ? "Dados Reais" : "Previsão IA"];
           }}
-          labelStyle={{ fontWeight: 600, color: "#334155" }}
+          labelStyle={{ fontWeight: 600, color: "var(--fg)" }}
         />
         <Legend
-          wrapperStyle={{ fontSize: 12 }}
+          wrapperStyle={{ fontSize: 12, color: "var(--fg-secondary)" }}
           formatter={(value: string) => {
             if (value === "real") return "Dados Reais";
             if (value === "previsao") return "Previsão IA (TimesFM)";
@@ -122,24 +117,17 @@ export default function ForecastChart({ historico, previsao, metrica, height = 3
 
         <Area
           dataKey="band"
-          fill={isCurrency ? "#fef3c7" : "#dbeafe"}
+          fill={isCurrency ? "var(--costs-glow)" : "var(--deaths-glow)"}
           stroke="none"
-          fillOpacity={0.5}
+          fillOpacity={0.6}
           name="band"
           connectNulls={false}
         />
 
-        <Line
-          dataKey="real"
-          stroke="#3b82f6"
-          strokeWidth={2}
-          dot={false}
-          name="real"
-          connectNulls={false}
-        />
+        <Line dataKey="real" stroke="var(--primary)" strokeWidth={2} dot={false} name="real" connectNulls={false} />
         <Line
           dataKey="previsao"
-          stroke={isCurrency ? "#f59e0b" : "#ef4444"}
+          stroke={isCurrency ? "var(--costs)" : "var(--deaths)"}
           strokeWidth={2}
           strokeDasharray="6 3"
           dot={false}

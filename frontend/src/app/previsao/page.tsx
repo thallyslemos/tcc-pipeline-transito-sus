@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Clock, TrendingUp, BarChart3, Sparkles, BrainCircuit } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
 import ForecastChart from "@/components/charts/ForecastChart";
@@ -39,9 +40,7 @@ export default function PrevisaoPage() {
   useEffect(() => {
     fetchMunicipios().then((m) => {
       setMunicipios(m.municipios);
-      if (m.municipios.length > 0) {
-        setSelectedMun(m.municipios[0].cod_mun_ibge);
-      }
+      if (m.municipios.length > 0) setSelectedMun(m.municipios[0].cod_mun_ibge);
     });
   }, []);
 
@@ -51,10 +50,7 @@ export default function PrevisaoPage() {
     setError(null);
     setData(null);
     try {
-      const res = await fetch(
-        `${API_URL}/api/predict/${metrica}/${selectedMun}`,
-        { cache: "no-store" }
-      );
+      const res = await fetch(`${API_URL}/api/predict/${metrica}/${selectedMun}`, { cache: "no-store" });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.detail || `Erro ${res.status}`);
@@ -67,55 +63,42 @@ export default function PrevisaoPage() {
     }
   }, [selectedMun, metrica]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  const munLabel =
-    municipios.find((m) => m.cod_mun_ibge === selectedMun)?.municipio ??
-    selectedMun;
-
+  const munLabel = municipios.find((m) => m.cod_mun_ibge === selectedMun)?.municipio ?? selectedMun;
   const lastPred = data?.previsao[data.previsao.length - 1];
-  const firstPred = data?.previsao[0];
   const lastHist = data?.historico[data.historico.length - 1];
+  const isCustos = metrica === "custos";
 
   return (
     <div className="space-y-5">
-      {/* Header + Filters */}
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-slate-800">
+          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
             Previsão IA — TimesFM
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
             Modelo de fundação Google Research · Previsão de 12 meses
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedMun}
-            onChange={(e) => setSelectedMun(e.target.value)}
-            className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-          >
+          <select value={selectedMun} onChange={(e) => setSelectedMun(e.target.value)}
+            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2"
+            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}>
             {municipios.map((m) => (
-              <option key={m.cod_mun_ibge} value={m.cod_mun_ibge}>
-                {m.municipio} ({m.uf})
-              </option>
+              <option key={m.cod_mun_ibge} value={m.cod_mun_ibge}>{m.municipio} ({m.uf})</option>
             ))}
           </select>
-          <select
-            value={metrica}
-            onChange={(e) => setMetrica(e.target.value as "obitos" | "custos")}
-            className="h-8 rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-          >
+          <select value={metrica} onChange={(e) => setMetrica(e.target.value as "obitos" | "custos")}
+            className="h-8 rounded-lg px-3 text-xs focus:outline-none focus:ring-2"
+            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}>
             <option value="obitos">Óbitos</option>
             <option value="custos">Custos (R$)</option>
           </select>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="h-8 rounded-lg bg-blue-600 px-4 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-slate-300"
-          >
+          <button onClick={load} disabled={loading}
+            className="h-8 rounded-lg px-4 text-xs font-medium transition-colors disabled:opacity-50"
+            style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}>
             {loading ? "Calculando..." : "Prever"}
           </button>
         </div>
@@ -123,7 +106,8 @@ export default function PrevisaoPage() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl px-4 py-3 text-sm"
+          style={{ backgroundColor: "var(--deaths-soft)", border: "1px solid var(--deaths)", color: "var(--deaths)" }}>
           {error}
         </div>
       )}
@@ -132,9 +116,14 @@ export default function PrevisaoPage() {
       {loading && (
         <div className="flex h-96 items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
-            <p className="text-sm text-slate-500">Carregando modelo TimesFM e executando previsão...</p>
-            <p className="mt-1 text-xs text-slate-400">O primeiro carregamento pode levar alguns minutos</p>
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4"
+              style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }} />
+            <p className="text-sm" style={{ color: "var(--fg-secondary)" }}>
+              Carregando modelo TimesFM e executando previsão...
+            </p>
+            <p className="mt-1 text-xs" style={{ color: "var(--fg-muted)" }}>
+              O primeiro carregamento pode levar alguns minutos
+            </p>
           </div>
         </div>
       )}
@@ -144,59 +133,49 @@ export default function PrevisaoPage() {
         <>
           {/* KPIs */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard
-              title="Histórico"
-              value={`${data.historico_meses} meses`}
-              subtitle="Dados reais (DATASUS)"
-              icon={<ClockIcon />}
-              color="blue"
-            />
-            <KpiCard
-              title="Horizonte"
-              value={`${data.horizon} meses`}
-              subtitle="Previsão futura"
-              icon={<TrendIcon />}
-              color="emerald"
-            />
-            <KpiCard
-              title={metrica === "obitos" ? "Último Real" : "Último Real"}
-              value={
-                lastHist
-                  ? metrica === "custos"
-                    ? formatCurrency(lastHist.valor)
-                    : formatNumber(lastHist.valor)
-                  : "—"
-              }
-              subtitle={lastHist?.competencia ?? ""}
-              icon={<ChartIcon />}
-              color="amber"
-            />
-            <KpiCard
-              title="Previsão Final"
-              value={
-                lastPred
-                  ? metrica === "custos"
-                    ? formatCurrency(lastPred.valor)
-                    : formatNumber(lastPred.valor)
-                  : "—"
-              }
-              subtitle={lastPred?.competencia ?? ""}
-              icon={<SparkleIcon />}
-              color="red"
-            />
+            <KpiCard title="Histórico" value={`${data.historico_meses} meses`}
+              subtitle="Dados reais (DATASUS)" icon={<Clock className="h-4 w-4" />} semantic="health" />
+            <KpiCard title="Horizonte" value={`${data.horizon} meses`}
+              subtitle="Previsão futura" icon={<TrendingUp className="h-4 w-4" />} semantic="success" />
+            <KpiCard title="Último Real"
+              value={lastHist ? (isCustos ? formatCurrency(lastHist.valor) : formatNumber(lastHist.valor)) : "—"}
+              subtitle={lastHist?.competencia ?? ""} icon={<BarChart3 className="h-4 w-4" />} semantic="costs" />
+            <KpiCard title="Previsão Final"
+              value={lastPred ? (isCustos ? formatCurrency(lastPred.valor) : formatNumber(lastPred.valor)) : "—"}
+              subtitle={lastPred?.competencia ?? ""} icon={<Sparkles className="h-4 w-4" />} semantic="deaths" />
+          </div>
+
+          {/* AI Insight Card */}
+          <div className="rounded-xl p-4"
+            style={{ backgroundColor: "var(--primary-soft)", border: "1px solid var(--border)" }}>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}>
+                <BrainCircuit className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Insight da IA</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--fg-secondary)" }}>
+                  Modelo TimesFM (Google Research, 200M parâmetros) aplicado a{" "}
+                  <strong>{data.historico_meses} meses</strong> de dados históricos de {munLabel}.
+                  A previsão projeta {data.horizon} meses com intervalo de confiança P10–P90.
+                  {lastPred && lastHist && (
+                    <>{" "}Valor projetado para {lastPred.competencia}:{" "}
+                    <strong>{isCustos ? formatCurrency(lastPred.valor) : formatNumber(lastPred.valor)}</strong>
+                    {" "}(intervalo: {isCustos ? formatCurrency(lastPred.lower) : formatNumber(lastPred.lower)}
+                    {" "}– {isCustos ? formatCurrency(lastPred.upper) : formatNumber(lastPred.upper)}).</>
+                  )}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Chart */}
           <ChartCard
-            title={`${metrica === "obitos" ? "Óbitos" : "Custos Ambulatoriais"} — ${munLabel}`}
+            title={`${isCustos ? "Custos Ambulatoriais" : "Óbitos"} — ${munLabel}`}
             subtitle={`Série histórica + previsão TimesFM (${data.historico_meses} meses → +${data.horizon})`}
           >
-            <ForecastChart
-              historico={data.historico}
-              previsao={data.previsao}
-              metrica={metrica}
-              height={400}
-            />
+            <ForecastChart historico={data.historico} previsao={data.previsao} metrica={metrica} height={400} />
           </ChartCard>
 
           {/* Forecast table */}
@@ -204,25 +183,25 @@ export default function PrevisaoPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-3 py-2 font-medium">Mês</th>
-                    <th className="px-3 py-2 font-medium text-right">Previsão</th>
-                    <th className="px-3 py-2 font-medium text-right">P10 (otimista)</th>
-                    <th className="px-3 py-2 font-medium text-right">P90 (pessimista)</th>
+                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--fg-muted)" }}>
+                    <th className="px-3 py-2 text-left font-medium">Mês</th>
+                    <th className="px-3 py-2 text-right font-medium">Previsão</th>
+                    <th className="px-3 py-2 text-right font-medium">P10 (otimista)</th>
+                    <th className="px-3 py-2 text-right font-medium">P90 (pessimista)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.previsao.map((p, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="px-3 py-2 font-medium text-slate-700">{p.competencia}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-slate-800">
-                        {metrica === "custos" ? formatCurrency(p.valor) : formatNumber(p.valor)}
+                    <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td className="px-3 py-2 font-medium" style={{ color: "var(--fg)" }}>{p.competencia}</td>
+                      <td className="px-3 py-2 text-right font-semibold" style={{ color: "var(--fg)" }}>
+                        {isCustos ? formatCurrency(p.valor) : formatNumber(p.valor)}
                       </td>
-                      <td className="px-3 py-2 text-right text-emerald-600">
-                        {metrica === "custos" ? formatCurrency(p.lower) : formatNumber(p.lower)}
+                      <td className="px-3 py-2 text-right" style={{ color: "var(--success)" }}>
+                        {isCustos ? formatCurrency(p.lower) : formatNumber(p.lower)}
                       </td>
-                      <td className="px-3 py-2 text-right text-red-600">
-                        {metrica === "custos" ? formatCurrency(p.upper) : formatNumber(p.upper)}
+                      <td className="px-3 py-2 text-right" style={{ color: "var(--deaths)" }}>
+                        {isCustos ? formatCurrency(p.upper) : formatNumber(p.upper)}
                       </td>
                     </tr>
                   ))}
@@ -233,34 +212,5 @@ export default function PrevisaoPage() {
         </>
       )}
     </div>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-function TrendIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.281m5.94 2.28l-2.28 5.941" />
-    </svg>
-  );
-}
-function ChartIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
-    </svg>
-  );
-}
-function SparkleIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-    </svg>
   );
 }
