@@ -136,14 +136,14 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Obitos por Municipio">
+        <ChartCard title="Top 10 Municipios — Obitos">
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={data.obitos_por_municipio}>
+            <BarChart data={data.obitos_por_municipio} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="municipio" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis type="number" tick={{ fontSize: 10 }} />
+              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10 }} width={110} />
               <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
-              <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
                 {data.obitos_por_municipio.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
             </BarChart>
@@ -153,14 +153,14 @@ export default function DashboardPage() {
 
       {/* Annual + costs by municipality */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Custos por Municipio" subtitle="Impacto financeiro ao SUS">
+        <ChartCard title="Top 10 Municipios — Custos" subtitle="Impacto financeiro ao SUS">
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={data.custos_por_municipio}>
+            <BarChart data={data.custos_por_municipio} layout="vertical" margin={{ left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="municipio" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCompact(v)} />
+              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} />
+              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10 }} width={110} />
               <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Custo"]} />
-              <Bar dataKey="total" radius={[4, 4, 0, 0]} fill="#f59e0b" />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="#f59e0b" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

@@ -28,6 +28,10 @@ def gerar_gold_obitos(silver_sim: Path) -> Path:
     Se existirem ibge_municipios.parquet e ibge_populacao.parquet,
     enriquece com lat, lon, municipio (nome IBGE) e populacao.
     """
+    if not silver_sim.exists():
+        msg = f"Silver SIM nao encontrado: {silver_sim}. Execute o pipeline ETL antes."
+        raise FileNotFoundError(msg)
+
     destino = settings.resolve(settings.gold_dir) / "obitos_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
     ibge_mun_path, ibge_pop_path = _ibge_paths()
@@ -76,9 +80,10 @@ def gerar_gold_obitos(silver_sim: Path) -> Path:
                     pop.populacao AS populacao_estimada
                 FROM ({base_sql}) base
                 LEFT JOIN read_parquet('{ibge_mun_path}') ibge
-                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)
                 LEFT JOIN read_parquet('{ibge_pop_path}') pop
-                    ON base.cod_mun_ibge = pop.cod_mun_ibge AND base.ano = pop.ano
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
+                    AND base.ano = pop.ano
                 ORDER BY base.competencia, base.cod_mun_ibge
             ) TO '{destino}' (FORMAT PARQUET)
         """)
@@ -101,7 +106,7 @@ def gerar_gold_obitos(silver_sim: Path) -> Path:
                     CAST(NULL AS INTEGER) AS populacao_estimada
                 FROM ({base_sql}) base
                 LEFT JOIN read_parquet('{ibge_mun_path}') ibge
-                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)
                 ORDER BY base.competencia, base.cod_mun_ibge
             ) TO '{destino}' (FORMAT PARQUET)
         """)
@@ -166,6 +171,10 @@ def gerar_gold_custos(silver_sia: Path) -> Path:
         DATASUS - SIA/PA Layout: https://wiki.saude.gov.br/sia/index.php
         Informe Tecnico SIA: Ministerio da Saude, 2019
     """
+    if not silver_sia.exists():
+        msg = f"Silver SIA nao encontrado: {silver_sia}. Execute o pipeline ETL antes."
+        raise FileNotFoundError(msg)
+
     destino = settings.resolve(settings.gold_dir) / "custos_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
     ibge_mun_path, _ = _ibge_paths()
@@ -214,7 +223,7 @@ def gerar_gold_custos(silver_sia: Path) -> Path:
                     ibge.lon
                 FROM ({base_sql}) base
                 LEFT JOIN read_parquet('{ibge_mun_path}') ibge
-                    ON base.cod_mun_ibge = ibge.cod_mun_ibge
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)
                 ORDER BY base.competencia, base.cod_mun_ibge
             ) TO '{destino}' (FORMAT PARQUET)
         """)

@@ -9,7 +9,6 @@ Responsavel por:
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,8 +22,8 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
-MALHA_UF_URL = (
-    "https://servicodados.ibge.gov.br/api/v3/malhas/estados/{uf}/municipios"
+METADADOS_MUN_URL = (
+    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
 )
 SIDRA_BASE_URL = "https://apisidra.ibge.gov.br/values"
 SIDRA_TABELA = "6579"
@@ -61,7 +60,14 @@ def fetch_localidades() -> list[MunicipioLocalidade]:
         try:
             cod = str(item["id"])
             nome = item["nome"]
-            uf_info = item["microrregiao"]["mesorregiao"]["UF"]
+            micro = item.get("microrregiao")
+            regiao_imediata = item.get("regiao-imediata")
+            if micro and micro.get("mesorregiao"):
+                uf_info = micro["mesorregiao"]["UF"]
+            elif regiao_imediata and regiao_imediata.get("regiao-intermediaria"):
+                uf_info = regiao_imediata["regiao-intermediaria"]["UF"]
+            else:
+                continue
             uf_sigla = uf_info["sigla"]
             regiao_nome = uf_info["regiao"]["nome"]
             municipios.append(
@@ -80,58 +86,30 @@ def fetch_localidades() -> list[MunicipioLocalidade]:
     return municipios
 
 
-def _iter_coords(obj) -> Iterable[tuple[float, float]]:
-    """Itera recursivamente por todas as coordenadas [lon, lat] em um GeoJSON."""
-    if isinstance(obj, (list, tuple)):
-        if (
-            len(obj) == 2
-            and all(isinstance(x, (int, float)) for x in obj)
-        ):
-            # Coordenada [lon, lat]
-            yield float(obj[0]), float(obj[1])
-        else:
-            for child in obj:
-                yield from _iter_coords(child)
+def fetch_centroide_municipio(cod_mun: str) -> dict[str, float] | None:
+    """Busca centroide de um municipio via API v4 de metadados de malhas.
 
-
-def fetch_malha_municipios(uf: str) -> dict[str, dict[str, float]]:
-    """Busca malha GeoJSON para uma UF e calcula centroid por municipio.
-
-    Retorna dict {cod_mun_ibge: {\"lat\": float, \"lon\": float}}.
+    URL: /api/v4/malhas/municipios/{cod}/metadados
+    Retorna: {"lat": float, "lon": float} ou None.
     """
-    url = MALHA_UF_URL.format(uf=uf)
-    params = {"formato": "application/vnd.geo+json"}
-    logger.info("ibge_malha_busca", uf=uf, url=url)
+    url = METADADOS_MUN_URL.format(cod=cod_mun)
     try:
-        resp = _http_get(url, params=params, timeout=60.0)
+        resp = _http_get(url, timeout=15.0)
     except httpx.HTTPError:
-        # Ja logado em _http_get
-        return {}
+        return None
 
-    data = resp.json()
-    features = data.get("features", [])
+    try:
+        data = resp.json()
+    except ValueError:
+        return None
 
-    coords_por_mun: dict[str, dict[str, float]] = {}
-    for feat in features:
-        props = feat.get("properties", {}) or {}
-        cod = str(props.get("codarea") or props.get("id") or feat.get("id") or "")
-        if not cod:
-            continue
-
-        geom = feat.get("geometry") or {}
-        coords = list(_iter_coords(geom.get("coordinates")))
-        if not coords:
-            continue
-
-        # Centroid aproximado: media simples das coordenadas
-        lons = [c[0] for c in coords]
-        lats = [c[1] for c in coords]
-        lon_c = sum(lons) / len(lons)
-        lat_c = sum(lats) / len(lats)
-        coords_por_mun[cod] = {"lat": lat_c, "lon": lon_c}
-
-    logger.info("ibge_malha_processada", uf=uf, municipios=len(coords_por_mun))
-    return coords_por_mun
+    if isinstance(data, list) and data:
+        centroide = data[0].get("centroide", {})
+        lat = centroide.get("latitude")
+        lon = centroide.get("longitude")
+        if lat is not None and lon is not None:
+            return {"lat": float(lat), "lon": float(lon)}
+    return None
 
 
 def fetch_populacao(cod_mun: str, ano: int) -> int | None:
@@ -190,27 +168,27 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
             df_sim = con.sql(
                 f"""
                 SELECT DISTINCT
-                    CAST(cod_mun_ocorrencia AS VARCHAR) AS cod_mun_ibge,
+                    TRIM(CAST(cod_mun_ocorrencia AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
-                    uf
+                    TRIM(CAST(uf AS VARCHAR)) AS uf
                 FROM read_parquet('{silver_sim}')
                 """
             ).fetchdf()
             for _, row in df_sim.iterrows():
-                combos.add((row["cod_mun_ibge"], int(row["ano"]), row["uf"]))
+                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
 
         if silver_sia.exists():
             df_sia = con.sql(
                 f"""
                 SELECT DISTINCT
-                    CAST(cod_mun AS VARCHAR) AS cod_mun_ibge,
+                    TRIM(CAST(cod_mun AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
-                    uf
+                    TRIM(CAST(uf AS VARCHAR)) AS uf
                 FROM read_parquet('{silver_sia}')
                 """
             ).fetchdf()
             for _, row in df_sia.iterrows():
-                combos.add((row["cod_mun_ibge"], int(row["ano"]), row["uf"]))
+                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
     finally:
         con.close()
 
@@ -219,9 +197,10 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:
     """Grava DataFrame em Parquet usando DuckDB (evita dependencia extra)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     if df.empty:
         logger.warning("ibge_parquet_vazio", path=str(path))
-    path.parent.mkdir(parents=True, exist_ok=True)
+        return
     con = duckdb.connect(":memory:")
     try:
         con.register("t", df)
@@ -259,24 +238,34 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
 
     # 1) Localidades (nome, uf, regiao)
     localidades = fetch_localidades()
-    loc_map: dict[str, MunicipioLocalidade] = {
-        m.cod_mun_ibge: m for m in localidades if m.cod_mun_ibge in codigos
-    }
 
-    # 2) Malhas (lat/lon por UF)
-    coords_map: dict[str, dict[str, float]] = {}
-    for uf in ufs:
-        coords_uf = fetch_malha_municipios(uf)
-        coords_map.update(coords_uf)
+    # Mapa por código de 7 dígitos (IBGE oficial) e por prefixo de 6 dígitos
+    # (DATASUS/SIA). Permite lookup com ambos os formatos.
+    loc_map_7: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge: m for m in localidades}
+    loc_map_6: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge[:6]: m for m in localidades}
 
+    def _find_localidade(cod: str) -> MunicipioLocalidade | None:
+        if cod in loc_map_7:
+            return loc_map_7[cod]
+        prefix = cod[:6]
+        if prefix in loc_map_6:
+            return loc_map_6[prefix]
+        return None
+
+    # 2) Centroides (lat/lon) via API v4 metadados — por municipio
+    # Deduplica por prefixo de 6 dígitos para evitar duplicatas no JOIN
+    seen_prefixes: set[str] = set()
     municipios_rows: list[dict] = []
     for cod in codigos:
-        loc = loc_map.get(cod)
+        loc = _find_localidade(cod)
         if not loc:
-            # Municipio aparece nos dados mas nao retornou na API de localidades
             logger.warning("ibge_municipio_sem_localidade", cod_mun_ibge=cod)
             continue
-        coords = coords_map.get(cod, {})
+        prefix = loc.cod_mun_ibge[:6]
+        if prefix in seen_prefixes:
+            continue
+        seen_prefixes.add(prefix)
+        coords = fetch_centroide_municipio(loc.cod_mun_ibge) or {}
         municipios_rows.append(
             {
                 "cod_mun_ibge": loc.cod_mun_ibge,
@@ -294,15 +283,23 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     logger.info("ibge_municipios_salvo", path=str(municipios_path), registros=len(df_mun))
 
     # 3) Populacao (cod, ano -> populacao)
+    # API SIDRA requer código de 7 dígitos. Mapeamos cod→cod_ibge_7.
     pop_rows: list[dict] = []
+    seen_pop: set[tuple[str, int]] = set()
     for cod, ano, _uf in combos:
-        pop = fetch_populacao(cod, ano)
+        loc = _find_localidade(cod)
+        cod_7 = loc.cod_mun_ibge if loc else cod
+        prefix_ano = (cod_7[:6], ano)
+        if prefix_ano in seen_pop:
+            continue
+        seen_pop.add(prefix_ano)
+        pop = fetch_populacao(cod_7, ano)
         if not pop:
-            logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod, ano=ano)
+            logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod_7, ano=ano)
             continue
         pop_rows.append(
             {
-                "cod_mun_ibge": cod,
+                "cod_mun_ibge": cod_7,
                 "ano": ano,
                 "populacao": int(pop),
             }

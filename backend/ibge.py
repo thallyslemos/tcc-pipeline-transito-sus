@@ -32,7 +32,8 @@ def get_populacao(cod_mun: str, ano: int) -> int | None:
     try:
         con = get_connection()
         row = con.execute(
-            "SELECT populacao FROM v_ibge_populacao WHERE cod_mun_ibge = ? AND ano = ? LIMIT 1",
+            "SELECT populacao FROM v_ibge_populacao "
+            "WHERE LEFT(cod_mun_ibge, 6) = LEFT(?, 6) AND ano = ? LIMIT 1",
             [cod_mun, ano],
         ).fetchone()
         if row:
@@ -48,15 +49,10 @@ def get_info(cod_mun: str) -> dict | None:
     try:
         con = get_connection()
         row = con.execute(
-            """SELECT
-                nome,
-                uf,
-                regiao,
-                lat,
-                lon
-            FROM v_ibge_municipios
-            WHERE cod_mun_ibge = :cod_mun LIMIT 1""",
-            {"cod_mun": cod_mun},
+            "SELECT nome, uf, regiao, lat, lon "
+            "FROM v_ibge_municipios "
+            "WHERE LEFT(cod_mun_ibge, 6) = LEFT(?, 6) LIMIT 1",
+            [cod_mun],
         ).fetchone()
         if row:
             return {
