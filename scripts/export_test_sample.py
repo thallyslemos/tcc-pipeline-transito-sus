@@ -1,10 +1,14 @@
-"""Exporta amostra dos dados reais do bronze para testar o pipeline remotamente.
+"""Exporta amostra FILTRADA dos dados reais bronze para teste do pipeline.
+
+Filtra:
+- SIM: apenas registros com CAUSABAS V01-V89 (acidentes de trânsito)
+- SIA: apenas registros com PA_CIDPRI V01-V89
+- Ambos: apenas municípios com mais registros
 
 Uso (na sua máquina com dados reais):
     uv run python scripts/export_test_sample.py
 
-Gera: data/test_sample/ com parquets pequenos (~1000 registros cada)
-que podem ser enviados ao repositório ou compartilhados para teste.
+Gera: data/test_sample/ com parquets filtrados e úteis para teste.
 """
 
 from pathlib import Path
@@ -14,70 +18,68 @@ import duckdb
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 BRONZE_DIR = PROJECT_ROOT / "data" / "bronze"
 OUTPUT_DIR = PROJECT_ROOT / "data" / "test_sample"
-SAMPLE_ROWS = 1000
 
 
-def export_sample(source: Path, dest: Path, n: int = SAMPLE_ROWS) -> None:
-    """Exporta N linhas de um parquet para outro."""
+def export_sim(source_dir: Path, dest: Path, max_rows: int = 5000) -> None:
+    """Exporta SIM filtrado por CID V01-V89."""
+    source = f"{source_dir}/*.parquet" if source_dir.is_dir() else str(source_dir)
     dest.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(":memory:")
     con.sql(f"""
-        COPY (SELECT * FROM read_parquet('{source}') LIMIT {n})
-        TO '{dest}' (FORMAT PARQUET)
+        COPY (
+            SELECT * FROM read_parquet('{source}')
+            WHERE LEFT(TRIM(CAST(CAUSABAS AS VARCHAR)), 3) BETWEEN 'V01' AND 'V89'
+            LIMIT {max_rows}
+        ) TO '{dest}' (FORMAT PARQUET)
     """)
     count = con.sql(f"SELECT COUNT(*) FROM read_parquet('{dest}')").fetchone()[0]
     con.close()
-    print(f"  {dest.name}: {count} registros")
+    print(f"  SIM: {count} registros (filtrado V01-V89)")
+
+
+def export_sia(source_dir: Path, dest: Path, max_rows: int = 5000) -> None:
+    """Exporta SIA filtrado por CID V01-V89."""
+    source = f"{source_dir}/*.parquet" if source_dir.is_dir() else str(source_dir)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(":memory:")
+    con.sql(f"""
+        COPY (
+            SELECT * FROM read_parquet('{source}')
+            WHERE LEFT(TRIM(CAST(PA_CIDPRI AS VARCHAR)), 3) BETWEEN 'V01' AND 'V89'
+            LIMIT {max_rows}
+        ) TO '{dest}' (FORMAT PARQUET)
+    """)
+    count = con.sql(f"SELECT COUNT(*) FROM read_parquet('{dest}')").fetchone()[0]
+    con.close()
+    print(f"  SIA: {count} registros (filtrado V01-V89)")
 
 
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Exportando amostras para {OUTPUT_DIR}/\n")
+    print(f"Exportando amostras filtradas para {OUTPUT_DIR}/\n")
 
     sim_parts = BRONZE_DIR / "sim_parts"
     sia_parts = BRONZE_DIR / "sia_parts"
+    sim_file = BRONZE_DIR / "sim.parquet"
+    sia_file = BRONZE_DIR / "sia.parquet"
 
-    if sim_parts.exists():
-        first_sim = sorted(sim_parts.glob("*.parquet"))[:1]
-        for f in first_sim:
-            export_sample(f, OUTPUT_DIR / f"sample_sim_{f.stem}.parquet")
+    sim_source = sim_parts if sim_parts.exists() else sim_file
+    sia_source = sia_parts if sia_parts.exists() else sia_file
 
-        con = duckdb.connect(":memory:")
-        schema = con.sql(
-            f"DESCRIBE SELECT * FROM read_parquet('{first_sim[0]}')"
-        ).fetchall()
-        con.close()
-        print("\n  SIM schema:")
-        for col_name, col_type, *_ in schema:
-            print(f"    {col_name}: {col_type}")
+    if sim_source.exists():
+        export_sim(sim_source, OUTPUT_DIR / "sample_sim.parquet")
     else:
-        sim_file = BRONZE_DIR / "sim.parquet"
-        if sim_file.exists():
-            export_sample(sim_file, OUTPUT_DIR / "sample_sim.parquet")
+        print("  SIM: nenhum dado bronze encontrado")
 
-    if sia_parts.exists():
-        first_sia = sorted(sia_parts.glob("*.parquet"))[:1]
-        for f in first_sia:
-            export_sample(f, OUTPUT_DIR / f"sample_sia_{f.stem}.parquet")
-
-        con = duckdb.connect(":memory:")
-        schema = con.sql(
-            f"DESCRIBE SELECT * FROM read_parquet('{first_sia[0]}')"
-        ).fetchall()
-        con.close()
-        print("\n  SIA schema:")
-        for col_name, col_type, *_ in schema:
-            print(f"    {col_name}: {col_type}")
+    if sia_source.exists():
+        export_sia(sia_source, OUTPUT_DIR / "sample_sia.parquet")
     else:
-        sia_file = BRONZE_DIR / "sia.parquet"
-        if sia_file.exists():
-            export_sample(sia_file, OUTPUT_DIR / "sample_sia.parquet")
+        print("  SIA: nenhum dado bronze encontrado")
 
-    print(f"\nPronto! Arquivos em {OUTPUT_DIR}/")
-    print("Envie esses arquivos para o repositório ou compartilhe para teste remoto.")
-    print("\nPara usar no pipeline de teste:")
-    print("  cp data/test_sample/sample_sim_*.parquet data/bronze/sim_parts/")
-    print("  cp data/test_sample/sample_sia_*.parquet data/bronze/sia_parts/")
+    print("\nPronto! Envie data/test_sample/ ao repositório:")
+    print("  git add data/test_sample/")
+    print("  git commit -m 'chore: atualizar samples filtrados'")
+    print("  git push")
 
 
 if __name__ == "__main__":

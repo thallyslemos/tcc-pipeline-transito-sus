@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 _model = None
 _model_loading = False
 
-MIN_HISTORY_MONTHS = 24
+MIN_HISTORY_MONTHS = 12
 HORIZON = 12
 QUANTILES = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 
@@ -66,13 +66,14 @@ def _query_series(
     """Extrai série histórica mensal do DuckDB para um município."""
     con = get_connection()
 
+    cod6 = cod_mun_ibge[:6]
     if metrica == "obitos":
         rows = con.sql(f"""
             SELECT
                 competencia,
                 SUM(total_obitos) AS valor
             FROM v_obitos
-            WHERE cod_mun_ibge = '{cod_mun_ibge}'
+            WHERE LEFT(cod_mun_ibge, 6) = '{cod6}'
             GROUP BY competencia
             ORDER BY competencia
         """).fetchall()
@@ -82,7 +83,7 @@ def _query_series(
                 competencia,
                 ROUND(SUM(custo_total), 2) AS valor
             FROM v_custos
-            WHERE cod_mun_ibge = '{cod_mun_ibge}'
+            WHERE LEFT(cod_mun_ibge, 6) = '{cod6}'
             GROUP BY competencia
             ORDER BY competencia
         """).fetchall()
@@ -93,9 +94,10 @@ def _query_series(
 def _municipio_nome(cod_mun_ibge: str) -> str | None:
     """Retorna o nome do município a partir do DuckDB."""
     con = get_connection()
+    cod6 = cod_mun_ibge[:6]
     row = con.sql(f"""
         SELECT DISTINCT municipio FROM v_obitos
-        WHERE cod_mun_ibge = '{cod_mun_ibge}' LIMIT 1
+        WHERE LEFT(cod_mun_ibge, 6) = '{cod6}' LIMIT 1
     """).fetchone()
     return row[0] if row else None
 
