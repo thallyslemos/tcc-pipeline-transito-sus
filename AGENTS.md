@@ -142,6 +142,13 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 4. `.dockerignore`: node_modules, .venv, __pycache__, data/bronze, data/silver
 5. Documentar no `docs/SETUP.md` e `README.md`
 
+### Caveats do ambiente Cloud
+
+- **Pipeline sample demora ~5min** por causa das chamadas HTTP ao IBGE (metadados + SIDRA para ~586 municípios). Se `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet` já existem, gere Gold diretamente: `uv run python -c "from importlib import import_module; g = import_module('data-pipeline.gold'); g.gerar_gold_obitos(Path('data/silver/sim.parquet')); g.gerar_gold_custos(Path('data/silver/sia.parquet'))"` (substitua `Path` por `from pathlib import Path`).
+- **`python -m data-pipeline.run`** não funciona com `python` direto porque `-m` não suporta hyphens. Use sempre `uv run python -c "from importlib import import_module; mod = import_module('data-pipeline.run'); mod.main()"` ou espere que o diretório seja renomeado.
+- **Testes pré-existentes falhando**: 4 testes em `test_api.py` falham porque assertions estão hardcoded com `== 9` municípios, mas os dados sample geram 586. São falhas pré-existentes, não causadas pelo setup.
+- **`uv` no PATH**: O update script instala `uv` em `~/.local/bin`. Se o shell não encontrar `uv`, execute `export PATH="$HOME/.local/bin:$PATH"`.
+
 ### Regras para próximas iterações
 
 - **Test-first**: escrever teste antes da implementação
