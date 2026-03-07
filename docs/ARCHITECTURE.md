@@ -95,7 +95,8 @@ flowchart LR
 - **sample_data.py**: Dados amostrais; usa `ibge_municipios.parquet` se existir, senao 9 municipios fixos
 - **bronze.py**: Ingestao bruta para Parquet
 - **silver.py**: Filtragem CID + enriquecimento (tipo veiculo, faixa etaria, sexo)
-- **ibge_fetcher.py**: Integracao com APIs IBGE (localidades, malhas GeoJSON, SIDRA populacao); gera `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
+- **datasus.py**: Download streaming via PySUS (SIM/SIA) com DuckDB COPY (disco→disco, sem pandas). Cache PySUS em `~/pysus/`. Bronze parts idempotentes.
+- **ibge_fetcher.py**: Integracao com APIs IBGE (localidades v1, metadados v4 para centroide lat/lon, SIDRA populacao). Gera `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
 - **gold.py**: Agregacoes por municipio/competencia; enriquecimento com JOIN nos Parquets IBGE (nome, lat, lon, populacao)
 - **ibge.py**: Leitura de populacao/info a partir dos Parquets IBGE (ou dicionarios fallback) + funcoes de taxa (taxa_por_100mil, custo_per_capita)
 - **config.py**: Pydantic Settings (`.env`)
@@ -118,12 +119,20 @@ flowchart LR
   - `query_serie_temporal` - series mensais
   - `listar_municipios` - municipios disponiveis
 
-### 3.4 Frontend (`frontend/`)
+### 3.4 Previsão IA (`backend/services/`)
 
-- **Next.js 16** + Tailwind CSS + Recharts
+- **TimesFM** (Google Research, 200M params, PyTorch CPU)
+- Endpoint `/api/predict/{obitos|custos}/{cod_mun_ibge}`
+- Horizonte: 12 meses com intervalos de confianca (P10-P90)
+- Modelo carregado lazy (singleton, ~30s no primeiro request)
+
+### 3.5 Frontend (`frontend/`)
+
+- **Next.js 16** + Tailwind CSS v4 + Recharts
 - **Leaflet** para mapas com circle markers proporcionais
-- 3 paginas: Dashboard, Municipios, Mapa
+- 5 paginas: Dashboard, Municipios, Mapa, Previsao IA, Chat IA
 - FilterBar reutilizavel e desacoplado
+- ForecastChart com serie historica + previsao + intervalo de confianca
 
 ## 4. Modelo de Dados (Gold)
 
@@ -237,7 +246,8 @@ sequenceDiagram
 | Armazenamento | Parquet | Bronze/Silver/Gold (colunar) |
 | Dados demograficos | IBGE API (Tabela 6579) | Populacao estimada |
 | Backend | FastAPI + Pydantic Settings | API REST + config |
-| IA | FastMCP + Ollama | MCP Server + LLM local |
+| IA Conversacional | FastMCP + Ollama | MCP Server + LLM local |
+| IA Preditiva | TimesFM (Google Research) | Previsao de series temporais |
 | Frontend | Next.js 16, Tailwind, Recharts | Dashboards |
 | Mapas | Leaflet | Circle markers, tooltips |
 | Logging | structlog | JSON (prod) / console (dev) |
