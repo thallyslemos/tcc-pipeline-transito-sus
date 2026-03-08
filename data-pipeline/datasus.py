@@ -192,9 +192,6 @@ def _resolve_pysus_parquet(pysus_data) -> str:
     """
     path = Path(str(pysus_data))
     if path.is_dir():
-        inner = list(path.glob("*.parquet"))
-        if inner:
-            return str(inner[0])
         return f"{path}/*.parquet"
     return str(path)
 

@@ -38,7 +38,11 @@ import gc
 
 from .bronze import salvar_bronze
 from .config import settings
-from .gold import gerar_gold_custos, gerar_gold_obitos
+from .gold import (
+    gerar_gold_custos,
+    gerar_gold_obitos_ocorrencia,
+    gerar_gold_obitos_residencia,
+)
 from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
 
@@ -84,13 +88,15 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     run_ibge()
 
     logger.info("etapa", camada="gold", status="iniciando")
-    gold_obitos = gerar_gold_obitos(silver_sim)
+    gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
         "pipeline_concluido",
-        gold_obitos=str(gold_obitos),
+        gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
+        gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
     )
 
@@ -143,13 +149,15 @@ def run_gold() -> None:
         return
 
     logger.info("etapa", camada="gold", status="iniciando")
-    gold_obitos = gerar_gold_obitos(silver_sim)
+    gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
         "pipeline_concluido",
-        gold_obitos=str(gold_obitos),
+        gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
+        gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
     )
 
@@ -169,13 +177,15 @@ def _executar_etl(df_sim, df_sia) -> None:
     run_ibge()
 
     logger.info("etapa", camada="gold", status="iniciando")
-    gold_obitos = gerar_gold_obitos(silver_sim)
+    gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
         "pipeline_concluido",
-        gold_obitos=str(gold_obitos),
+        gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
+        gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
     )
 

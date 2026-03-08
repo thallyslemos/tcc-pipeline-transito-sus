@@ -22,8 +22,8 @@ def _ibge_paths() -> tuple[Path, Path]:
     return data_dir / "ibge_municipios.parquet", data_dir / "ibge_populacao.parquet"
 
 
-def gerar_gold_obitos(silver_sim: Path) -> Path:
-    """Gera tabela Gold de obitos agregados por municipio/mes.
+def gerar_gold_obitos_ocorrencia(silver_sim: Path) -> Path:
+    """Gera tabela Gold de obitos agregados por municipio/mes de OCORRENCIA.
 
     Se existirem ibge_municipios.parquet e ibge_populacao.parquet,
     enriquece com lat, lon, municipio (nome IBGE) e populacao.
@@ -32,7 +32,9 @@ def gerar_gold_obitos(silver_sim: Path) -> Path:
         msg = f"Silver SIM nao encontrado: {silver_sim}. Execute o pipeline ETL antes."
         raise FileNotFoundError(msg)
 
-    destino = settings.resolve(settings.gold_dir) / "obitos_municipio_mes.parquet"
+    destino = (
+        settings.resolve(settings.gold_dir) / "obitos_ocorrencia_municipio_mes.parquet"
+    )
     destino.parent.mkdir(parents=True, exist_ok=True)
     ibge_mun_path, ibge_pop_path = _ibge_paths()
     has_ibge_mun = ibge_mun_path.exists()
@@ -138,7 +140,7 @@ def gerar_gold_obitos(silver_sim: Path) -> Path:
     total = con2.sql(f"SELECT COUNT(*) FROM '{destino}'").fetchone()[0]
     con2.close()
     logger.info(
-        "gold_obitos_gerado",
+        "gold_obitos_ocorrencia_gerado",
         registros=total,
         caminho=str(destino),
         enriquecido_ibge=has_ibge_mun,
@@ -256,6 +258,132 @@ def gerar_gold_custos(silver_sia: Path) -> Path:
     con2.close()
     logger.info(
         "gold_custos_gerado",
+        registros=total,
+        caminho=str(destino),
+        enriquecido_ibge=has_ibge_mun,
+    )
+    return destino
+
+
+def gerar_gold_obitos_residencia(silver_sim: Path) -> Path:
+    """Gera tabela Gold de obitos agregados por municipio/mes de RESIDENCIA.
+
+    Se existirem ibge_municipios.parquet e ibge_populacao.parquet,
+    enriquece com lat, lon, municipio (nome IBGE) e populacao.
+    """
+    if not silver_sim.exists():
+        msg = f"Silver SIM nao encontrado: {silver_sim}. Execute o pipeline ETL antes."
+        raise FileNotFoundError(msg)
+
+    destino = (
+        settings.resolve(settings.gold_dir) / "obitos_residencia_municipio_mes.parquet"
+    )
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    ibge_mun_path, ibge_pop_path = _ibge_paths()
+    has_ibge_mun = ibge_mun_path.exists()
+    has_ibge_pop = ibge_pop_path.exists()
+
+    con = duckdb.connect(":memory:")
+
+    # NOTE: We use cod_mun_residencia here, but the 'municipio' column in silver
+    # is based on ocorrencia. So we default to the code.
+    municipio_expr = "cod_mun_residencia"
+
+    base_sql = f"""
+        SELECT
+            cod_mun_residencia      AS cod_mun_ibge,
+            {municipio_expr}        AS municipio,
+            uf,
+            competencia,
+            YEAR(competencia)       AS ano,
+            MONTH(competencia)      AS mes,
+            COUNT(*)                AS total_obitos,
+            tipo_veiculo,
+            faixa_etaria,
+            sexo_desc               AS sexo
+        FROM read_parquet('{silver_sim}')
+        GROUP BY cod_mun_residencia, {municipio_expr}, uf, competencia,
+                 tipo_veiculo, faixa_etaria, sexo_desc
+    """
+
+    if has_ibge_mun and has_ibge_pop:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    COALESCE(ibge.nome, base.municipio) AS municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    ibge.lat,
+                    ibge.lon,
+                    pop.populacao AS populacao_estimada
+                FROM ({base_sql}) base
+                LEFT JOIN read_parquet('{ibge_mun_path}') ibge
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)
+                LEFT JOIN read_parquet('{ibge_pop_path}') pop
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
+                    AND base.ano = pop.ano
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    elif has_ibge_mun:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    COALESCE(ibge.nome, base.municipio) AS municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    ibge.lat,
+                    ibge.lon,
+                    CAST(NULL AS INTEGER) AS populacao_estimada
+                FROM ({base_sql}) base
+                LEFT JOIN read_parquet('{ibge_mun_path}') ibge
+                    ON LEFT(base.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    else:
+        con.sql(f"""
+            COPY (
+                SELECT
+                    base.cod_mun_ibge,
+                    base.municipio,
+                    base.uf,
+                    base.competencia,
+                    base.ano,
+                    base.mes,
+                    base.total_obitos,
+                    base.tipo_veiculo,
+                    base.faixa_etaria,
+                    base.sexo,
+                    CAST(NULL AS DOUBLE) AS lat,
+                    CAST(NULL AS DOUBLE) AS lon,
+                    CAST(NULL AS INTEGER) AS populacao_estimada
+                FROM ({base_sql}) base
+                ORDER BY base.competencia, base.cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+
+    con.close()
+
+    con2 = duckdb.connect(":memory:")
+    total = con2.sql(f"SELECT COUNT(*) FROM '{destino}'").fetchone()[0]
+    con2.close()
+    logger.info(
+        "gold_obitos_residencia_gerado",
         registros=total,
         caminho=str(destino),
         enriquecido_ibge=has_ibge_mun,
