@@ -25,6 +25,10 @@ LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipio
 METADADOS_MUN_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
 )
+MALHAS_BR_URL = (
+    "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
+    "?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=municipio"
+)
 SIDRA_BASE_URL = "https://apisidra.ibge.gov.br/values"
 SIDRA_TABELA = "6579"
 SIDRA_VARIAVEL_POP = "9324"
@@ -309,4 +313,43 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     pop_path = dest_dir / "ibge_populacao.parquet"
     _write_parquet(df_pop, pop_path)
     logger.info("ibge_populacao_salvo", path=str(pop_path), registros=len(df_pop))
+
+    # 4) Malhas GeoJSON (polígonos de todos os municípios)
+    malhas_path = dest_dir / "ibge_malhas_municipios.geojson"
+    baixar_malhas_geojson(malhas_path)
+
+
+def baixar_malhas_geojson(dest: Path | None = None) -> Path:
+    """Baixa GeoJSON de malhas de TODOS os municípios do Brasil (IBGE v4).
+
+    URL: /api/v4/malhas/paises/BR?formato=application/vnd.geo+json
+         &qualidade=minima&intrarregiao=municipio
+
+    Retorna FeatureCollection com ~5571 polígonos (~3.7MB qualidade mínima).
+    Cada Feature tem properties.codarea (código IBGE 7 dígitos).
+
+    Args:
+        dest: Caminho para salvar o arquivo. Se None, usa data/ibge_malhas_municipios.geojson.
+    """
+    import json
+
+    if dest is None:
+        dest = settings.resolve(settings.data_dir) / "ibge_malhas_municipios.geojson"
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    if dest.exists():
+        logger.info("ibge_malhas_cache", path=str(dest), msg="Arquivo já existe, pulando download")
+        return dest
+
+    logger.info("ibge_malhas_download", url=MALHAS_BR_URL)
+    resp = _http_get(MALHAS_BR_URL, timeout=60.0)
+    geojson = resp.json()
+
+    n_features = len(geojson.get("features", []))
+    logger.info("ibge_malhas_recebido", features=n_features)
+
+    dest.write_text(json.dumps(geojson, ensure_ascii=False), encoding="utf-8")
+    logger.info("ibge_malhas_salvo", path=str(dest), size_kb=round(dest.stat().st_size / 1024))
+    return dest
 

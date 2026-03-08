@@ -40,9 +40,13 @@ class TestIbgeLatLonBounds:
         assert fc["type"] == "FeatureCollection"
         assert len(fc["features"]) > 0
         for f in fc["features"]:
-            lon, lat = f["geometry"]["coordinates"]
-            assert self.BRASIL_LAT[0] <= lat <= self.BRASIL_LAT[1]
-            assert self.BRASIL_LON[0] <= lon <= self.BRASIL_LON[1]
+            geom_type = f["geometry"]["type"]
+            if geom_type == "Point":
+                lon, lat = f["geometry"]["coordinates"]
+                assert self.BRASIL_LAT[0] <= lat <= self.BRASIL_LAT[1]
+                assert self.BRASIL_LON[0] <= lon <= self.BRASIL_LON[1]
+            else:
+                assert geom_type in ("Polygon", "MultiPolygon")
 
 
 class TestIndicadoresMunicipio:
@@ -87,8 +91,7 @@ class TestGeoJsonEndpoint:
         fc = r.json()
         f = fc["features"][0]
         assert f["type"] == "Feature"
-        assert f["geometry"]["type"] == "Point"
-        assert len(f["geometry"]["coordinates"]) == 2
+        assert f["geometry"]["type"] in ("Point", "Polygon", "MultiPolygon")
         assert "municipio" in f["properties"]
         assert "valor" in f["properties"]
         assert "uf" in f["properties"]

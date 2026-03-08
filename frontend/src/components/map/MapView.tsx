@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "@/components/ThemeProvider";
@@ -46,7 +46,7 @@ function getRadius(ratio: number): number {
   return 6 + ratio * 28;
 }
 
-function buildGeoJSON(data: MapPoint[]): GeoJSON.FeatureCollection {
+function buildCircleGeoJSON(data: MapPoint[]): GeoJSON.FeatureCollection {
   const valid = data.filter((d) => d.lat != null && d.lon != null);
   const max = Math.max(...valid.map((d) => d.valor), 1);
   return {
@@ -57,17 +57,16 @@ function buildGeoJSON(data: MapPoint[]): GeoJSON.FeatureCollection {
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [d.lon!, d.lat!] },
         properties: {
-          municipio: d.municipio,
-          uf: d.uf,
-          valor: d.valor,
+          municipio: d.municipio, uf: d.uf, valor: d.valor,
           atendimentos: d.atendimentos ?? 0,
-          color: getColor(ratio),
-          radius: getRadius(ratio),
+          color: getColor(ratio), radius: getRadius(ratio),
         },
       };
     }),
   };
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function MapView({ data, metrica }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,55 +74,118 @@ export default function MapView({ data, metrica }: Props) {
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const layerReady = useRef(false);
   const { theme } = useTheme();
+  const [mode, setMode] = useState<"circles" | "polygons">("polygons");
+  const [geoData, setGeoData] = useState<GeoJSON.FeatureCollection | null>(null);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
 
-  const ensureLayer = useCallback((map: maplibregl.Map, pts: MapPoint[], met: string) => {
-    const geojson = buildGeoJSON(pts);
+  useEffect(() => {
+    const params = new URLSearchParams({ metrica });
+    fetch(`${API_URL}/api/geo/municipios?${params}`)
+      .then((r) => r.json())
+      .then((fc) => {
+        const hasPolygons = fc.features?.some(
+          (f: GeoJSON.Feature) => f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon"
+        );
+        setGeoData(fc);
+        if (!hasPolygons) setMode("circles");
+      })
+      .catch(() => setMode("circles"));
+  }, [metrica]);
 
-    if (map.getLayer("pontos-circle")) map.removeLayer("pontos-circle");
-    if (map.getSource("pontos")) map.removeSource("pontos");
+  const isCustos = metrica === "custos";
+  const fmt = useCallback((v: number) => isCustos ? formatCurrency(v) : formatNumber(v), [isCustos]);
 
-    map.addSource("pontos", { type: "geojson", data: geojson });
-    map.addLayer({
-      id: "pontos-circle",
-      type: "circle",
-      source: "pontos",
-      paint: {
-        "circle-radius": ["get", "radius"],
-        "circle-color": ["get", "color"],
-        "circle-opacity": 0.65,
-        "circle-stroke-width": 1.5,
-        "circle-stroke-color": ["get", "color"],
-        "circle-stroke-opacity": 0.9,
-      },
-    });
-
-    const isCustos = met === "custos";
-    const fmt = (v: number) => isCustos ? formatCurrency(v) : formatNumber(v);
-
-    map.on("mouseenter", "pontos-circle", () => { map.getCanvas().style.cursor = "pointer"; });
-    map.on("mouseleave", "pontos-circle", () => { map.getCanvas().style.cursor = ""; popupRef.current?.remove(); });
-    map.on("mousemove", "pontos-circle", (e) => {
+  const setupPopup = useCallback((map: maplibregl.Map, layerId: string) => {
+    map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+    map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; popupRef.current?.remove(); });
+    map.on("mousemove", layerId, (e) => {
       if (!e.features?.length) return;
       const p = e.features[0].properties!;
-      const coords = (e.features[0].geometry as GeoJSON.Point).coordinates.slice() as [number, number];
-      const atend = p.atendimentos ? `<br/><span style="opacity:.7">Atendimentos:</span> <b>${formatNumber(p.atendimentos)}</b>` : "";
+      const atend = p.atendimentos
+        ? `<br/><span style="opacity:.7">Atendimentos:</span> <b>${formatNumber(p.atendimentos)}</b>`
+        : "";
+      const isCust = modeRef.current === "circles" ? isCustos : isCustos;
       popupRef.current
-        ?.setLngLat(coords)
+        ?.setLngLat(e.lngLat)
         .setHTML(
           `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6">
             <b style="font-size:13px">${p.municipio}</b>
             <span style="opacity:.6;margin-left:4px">${p.uf}</span><br/>
-            <span style="opacity:.7">${isCustos ? "Custo" : "Óbitos"}:</span> <b>${fmt(p.valor)}</b>${atend}
+            <span style="opacity:.7">${isCust ? "Custo" : "Óbitos"}:</span> <b>${fmt(p.valor)}</b>${atend}
           </div>`
         )
         .addTo(map);
     });
+  }, [isCustos, fmt]);
+
+  const addLayers = useCallback((map: maplibregl.Map) => {
+    ["pontos-circle", "poly-fill", "poly-outline"].forEach((id) => {
+      if (map.getLayer(id)) map.removeLayer(id);
+    });
+    ["pontos", "polygons"].forEach((id) => {
+      if (map.getSource(id)) map.removeSource(id);
+    });
+
+    if (modeRef.current === "polygons" && geoData) {
+      const vals = geoData.features.map((f) => f.properties?.valor ?? 0);
+      const max = Math.max(...vals, 1);
+
+      const enriched: GeoJSON.FeatureCollection = {
+        type: "FeatureCollection",
+        features: geoData.features.map((f) => ({
+          ...f,
+          properties: {
+            ...f.properties,
+            fillColor: getColor((f.properties?.valor ?? 0) / max),
+          },
+        })),
+      };
+
+      map.addSource("polygons", { type: "geojson", data: enriched });
+      map.addLayer({
+        id: "poly-fill",
+        type: "fill",
+        source: "polygons",
+        paint: {
+          "fill-color": ["get", "fillColor"],
+          "fill-opacity": 0.6,
+        },
+      });
+      map.addLayer({
+        id: "poly-outline",
+        type: "line",
+        source: "polygons",
+        paint: {
+          "line-color": ["get", "fillColor"],
+          "line-width": 0.5,
+          "line-opacity": 0.8,
+        },
+      });
+      setupPopup(map, "poly-fill");
+    } else {
+      const geojson = buildCircleGeoJSON(data);
+      map.addSource("pontos", { type: "geojson", data: geojson });
+      map.addLayer({
+        id: "pontos-circle",
+        type: "circle",
+        source: "pontos",
+        paint: {
+          "circle-radius": ["get", "radius"],
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.65,
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": ["get", "color"],
+          "circle-stroke-opacity": 0.9,
+        },
+      });
+      setupPopup(map, "pontos-circle");
+    }
     layerReady.current = true;
-  }, []);
+  }, [data, geoData, setupPopup]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: initStyle(theme === "dark"),
@@ -134,11 +196,7 @@ export default function MapView({ data, metrica }: Props) {
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     popupRef.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "280px" });
-
-    map.on("load", () => {
-      if (data.length) ensureLayer(map, data, metrica);
-    });
-
+    map.on("load", () => addLayers(map));
     mapRef.current = map;
     return () => { popupRef.current?.remove(); map.remove(); mapRef.current = null; layerReady.current = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,28 +205,48 @@ export default function MapView({ data, metrica }: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const src = map.getSource("carto") as maplibregl.RasterTileSource | undefined;
-    if (src) {
-      src.setTiles(tileUrl(theme === "dark"));
-    }
+    (map.getSource("carto") as maplibregl.RasterTileSource | undefined)?.setTiles(tileUrl(theme === "dark"));
   }, [theme]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !data.length) return;
+    if (!map || !map.isStyleLoaded()) return;
+    addLayers(map);
+  }, [mode, geoData, data, metrica, addLayers]);
 
-    if (!map.isStyleLoaded()) {
-      map.once("load", () => ensureLayer(map, data, metrica));
-      return;
-    }
+  const hasPolygons = geoData?.features?.some(
+    (f) => f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon"
+  );
 
-    const src = map.getSource("pontos") as maplibregl.GeoJSONSource | undefined;
-    if (src && layerReady.current) {
-      src.setData(buildGeoJSON(data));
-    } else {
-      ensureLayer(map, data, metrica);
-    }
-  }, [data, metrica, ensureLayer]);
-
-  return <div ref={containerRef} className="h-full w-full" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className="h-full w-full" />
+      {hasPolygons && (
+        <div className="absolute top-3 left-3 z-10 flex rounded-lg overflow-hidden"
+          style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}>
+          <button
+            onClick={() => setMode("polygons")}
+            className="px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{
+              backgroundColor: mode === "polygons" ? "var(--primary)" : "var(--bg-card)",
+              color: mode === "polygons" ? "var(--primary-fg)" : "var(--fg-secondary)",
+            }}
+          >
+            Polígonos
+          </button>
+          <button
+            onClick={() => setMode("circles")}
+            className="px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{
+              backgroundColor: mode === "circles" ? "var(--primary)" : "var(--bg-card)",
+              color: mode === "circles" ? "var(--primary-fg)" : "var(--fg-secondary)",
+              borderLeft: "1px solid var(--border)",
+            }}
+          >
+            Círculos
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

@@ -109,8 +109,13 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
    - Suporte 3D: pitch e drag rotate habilitados
    - **Troca de tema sem perda de dados**: usa `setTiles()` em vez de `setStyle()` para preservar layers
 3. ✅ `MapLegend.tsx` mantido com cores do tema
-4. ⬚ Fill layer para polígonos (requer GeoJSON de malhas — futuro)
-5. ⬚ Controle de camadas toggle circles/polígonos (depende de #4)
+4. ✅ Fill layer para polígonos (GeoJSON de malhas IBGE v4 — 5571 municípios)
+5. ✅ Controle de camadas toggle Polígonos/Círculos (botão no mapa)
+   - Pipeline: `ibge_fetcher.baixar_malhas_geojson()` baixa bulk do IBGE v4 (~3.6MB qualidade mínima)
+   - Persistido em `data/ibge_malhas_municipios.geojson`
+   - Backend mescla geometrias com métricas (cod6 matching)
+   - URL IBGE: `/api/v4/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=municipio`
+   - Docs: https://servicodados.ibge.gov.br/api/docs/malhas?versao=4
 
 #### Iteração 2.3 — Design System (tema + ícones) ✅
 
