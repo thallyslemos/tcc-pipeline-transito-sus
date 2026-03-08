@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import close_connection, get_connection
-from .routers import dashboard, indicadores, mcp_bridge, predict
+from .routers import dashboard, geo, indicadores, mcp_bridge, predict
 
 
 def _setup_logging() -> None:
@@ -87,6 +87,7 @@ app.add_middleware(
 )
 
 app.include_router(dashboard.router)
+app.include_router(geo.router)
 app.include_router(indicadores.router)
 app.include_router(mcp_bridge.router)
 app.include_router(predict.router)

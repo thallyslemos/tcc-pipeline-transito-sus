@@ -71,42 +71,46 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 
 **Status**: ✅ = concluída | 🔧 = em progresso | ⬚ = não iniciada
 
-#### Iteração 2.1 — Fixes de dados e backend (test-first) 🔧
+#### Iteração 2.1 — Fixes de dados e backend (test-first) ✅
 
 **Objetivo**: corrigir dados incorretos antes de mexer na UI.
 
-1. **Fix lat/lon fora dos limites** ⬚
-   - Teste: `test_ibge_lat_lon_bounds` — verificar que lat ∈ [-33.8, 5.3] e lon ∈ [-73.9, -34.8] (limites do Brasil)
-   - Investigar: código 6↔7 causando centroide errado? API IBGE retornando lixo?
-   - Fix no `ibge_fetcher.py`: validar bounds antes de persistir, logar warnings
+1. **Fix lat/lon fora dos limites** ✅
+   - Teste: `test_ibge_lat_lon_bounds` — coordenadas validadas nos limites do Brasil
+   - GeoJSON endpoint filtra pontos fora dos bounds automaticamente (`backend/routers/geo.py`)
+   - Pipeline (`ibge_fetcher.py`): não modificado — validação feita no backend/endpoint
 
-2. **Fix taxa mortalidade / custo per capita vazios** 🔧
-   - Teste: `test_indicadores_municipio_populacao` — verificar que indicadores retornam valores quando fallback disponível
-   - Fix: `backend/ibge.py` lookup por `LEFT(cod_mun_ibge, 6)` no fallback dict também
-   - Fix: `backend/routers/indicadores.py` — garantir que queries usam `LEFT(,6)` consistente
-   - **Nota**: IDH, PIB per capita e Área NÃO existem no parquet `ibge_municipios.parquet` (só no fallback hardcoded para 9 municípios). Frontend agora exibe "N/D" quando indisponível.
+2. **Fix taxa mortalidade / custo per capita vazios** ✅
+   - Teste: `test_indicadores_municipio_populacao` — indicadores retornam valores
+   - `backend/ibge.py` usa `LEFT(cod_mun_ibge, 6)` para match 6↔7 dígitos
+   - **Nota**: IDH, PIB per capita e Área NÃO existem no parquet `ibge_municipios.parquet` (só no fallback hardcoded para 9 municípios). Frontend exibe "N/D" quando indisponível.
 
 3. **Fix formatação de custos no mapa** ✅
-   - Fix em `frontend/src/lib/format.ts` e `MapView.tsx`
+   - MapView popup agora usa `formatCurrency()` / `formatNumber()` do `lib/format.ts`
+   - Tooltips tema-aware com CSS vars
 
-4. **Endpoint GeoJSON** (novo) ⬚
-   - Teste: `test_geojson_municipios` — endpoint GET `/api/geo/municipios` retorna FeatureCollection válido
-   - Implementar: `backend/routers/geo.py` — buscar polígonos IBGE v4 e cachear
-   - Considerar: salvar GeoJSON como parquet/arquivo estático para evitar HTTP em runtime
+4. **Endpoint GeoJSON** ✅
+   - Teste: `test_geojson_municipios` (8 testes em `tests/test_iter21.py`) — todos passam
+   - `backend/routers/geo.py`: GET `/api/geo/municipios` retorna FeatureCollection válido
+   - Pontos (centroides) com propriedades (valor, municipio, uf, atendimentos)
+   - Filtra coordenadas fora dos limites do Brasil automaticamente
+   - **Nota**: Não há polígonos/malhas — IBGE v3 retorna 404, v4 retorna metadados/SVG. Polígonos requerem download bulk de GeoJSON do IBGE (futuro).
 
-#### Iteração 2.2 — MapLibre + Camadas ⬚
+#### Iteração 2.2 — MapLibre + Camadas ✅
 
 **Objetivo**: substituir Leaflet por MapLibre GL JS.
 
-1. `npm install maplibre-gl` (remover `leaflet`, `react-leaflet`, `@types/leaflet`)
-2. Reescrever `MapView.tsx` com MapLibre:
-   - Basemap: CARTO GL light/dark (tema-aware)
-   - Circle layer para pontos (dados existentes)
-   - Fill layer para polígonos (GeoJSON do endpoint)
-   - Popup no hover com óbitos, custos, atendimentos
-   - Controle de camadas (toggle circles/polígonos)
-   - Suporte 3D: pitch, bearing, navegação
-3. Manter `MapLegend.tsx` com cores do tema
+1. ✅ `npm install maplibre-gl` + removido `leaflet`, `react-leaflet`, `@types/leaflet`
+2. ✅ `MapView.tsx` reescrito com MapLibre:
+   - Basemap: CARTO raster light/dark (tema-aware via `src.setTiles()`)
+   - Circle layer para pontos (GeoJSON source)
+   - Popup no hover com formatação correta (formatCurrency/formatNumber)
+   - Controle de navegação (compass, zoom, pitch)
+   - Suporte 3D: pitch e drag rotate habilitados
+   - **Troca de tema sem perda de dados**: usa `setTiles()` em vez de `setStyle()` para preservar layers
+3. ✅ `MapLegend.tsx` mantido com cores do tema
+4. ⬚ Fill layer para polígonos (requer GeoJSON de malhas — futuro)
+5. ⬚ Controle de camadas toggle circles/polígonos (depende de #4)
 
 #### Iteração 2.3 — Design System (tema + ícones) ✅
 

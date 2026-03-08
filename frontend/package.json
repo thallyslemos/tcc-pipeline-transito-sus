@@ -9,14 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@types/leaflet": "^1.9.21",
     "clsx": "^2.1.1",
-    "leaflet": "^1.9.4",
     "lucide-react": "^0.577.0",
+    "maplibre-gl": "^5.19.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "react-leaflet": "^5.0.0",
     "recharts": "latest",
     "tailwind-merge": "^3.5.0"
   },
