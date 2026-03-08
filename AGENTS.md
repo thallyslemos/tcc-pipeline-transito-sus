@@ -26,6 +26,9 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 | Testes | `uv run pytest tests/ -v` |
 | Pipeline sample (offline) | `uv run python -m data-pipeline.run` |
 | Pipeline real (requer FTP) | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
+| Apenas IBGE (localidades+pop+malhas) | `uv run python -m data-pipeline.run --ibge` |
+| Apenas malhas GeoJSON (~3s) | `uv run python -m data-pipeline.run --malhas` |
+| Apenas Gold (requer Silver) | `uv run python -m data-pipeline.run --gold` |
 | Inspecionar schema PySUS | `uv run python scripts/inspect_pysus_schema.py` |
 | Exportar samples filtrados | `uv run python scripts/export_test_sample.py` |
 | Build frontend | `cd frontend && npx next build` |
@@ -69,54 +72,69 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 
 Metodologia: **test-first** — cada feature começa com teste unitário no backend antes da implementação. Ao final, Dockerizar a aplicação.
 
-#### Iteração 2.1 — Fixes de dados e backend (test-first)
+**Status**: ✅ = concluída | 🔧 = em progresso | ⬚ = não iniciada
+
+#### Iteração 2.1 — Fixes de dados e backend (test-first) ✅
 
 **Objetivo**: corrigir dados incorretos antes de mexer na UI.
 
-1. **Fix lat/lon fora dos limites**
-   - Teste: `test_ibge_lat_lon_bounds` — verificar que lat ∈ [-33.8, 5.3] e lon ∈ [-73.9, -34.8] (limites do Brasil)
-   - Investigar: código 6↔7 causando centroide errado? API IBGE retornando lixo?
-   - Fix no `ibge_fetcher.py`: validar bounds antes de persistir, logar warnings
+1. **Fix lat/lon fora dos limites** ✅
+   - Teste: `test_ibge_lat_lon_bounds` — coordenadas validadas nos limites do Brasil
+   - GeoJSON endpoint filtra pontos fora dos bounds automaticamente (`backend/routers/geo.py`)
+   - Pipeline (`ibge_fetcher.py`): não modificado — validação feita no backend/endpoint
 
-2. **Fix taxa mortalidade / custo per capita vazios**
-   - Teste: `test_indicadores_municipio_populacao` — verificar que indicadores retornam valores quando fallback disponível
-   - Fix: `backend/ibge.py` lookup por `LEFT(cod_mun_ibge, 6)` no fallback dict também
-   - Fix: `backend/routers/indicadores.py` — garantir que queries usam `LEFT(,6)` consistente
+2. **Fix taxa mortalidade / custo per capita vazios** ✅
+   - Teste: `test_indicadores_municipio_populacao` — indicadores retornam valores
+   - `backend/ibge.py` usa `LEFT(cod_mun_ibge, 6)` para match 6↔7 dígitos
+   - **Nota**: IDH, PIB per capita e Área NÃO existem no parquet `ibge_municipios.parquet` (só no fallback hardcoded para 9 municípios). Frontend exibe "N/D" quando indisponível.
 
-3. **Fix formatação de custos no mapa**
-   - Teste: verificar que `formatCurrency` e `formatCompact` formatam corretamente valores < R$ 1M
-   - Fix em `frontend/src/lib/format.ts` e `MapView.tsx`
+3. **Fix formatação de custos no mapa** ✅
+   - MapView popup agora usa `formatCurrency()` / `formatNumber()` do `lib/format.ts`
+   - Tooltips tema-aware com CSS vars
 
-4. **Endpoint GeoJSON** (novo)
-   - Teste: `test_geojson_municipios` — endpoint GET `/api/geo/municipios` retorna FeatureCollection válido
-   - Implementar: `backend/routers/geo.py` — buscar polígonos IBGE v4 e cachear
-   - Considerar: salvar GeoJSON como parquet/arquivo estático para evitar HTTP em runtime
+4. **Endpoint GeoJSON** ✅
+   - Teste: `test_geojson_municipios` (8 testes em `tests/test_iter21.py`) — todos passam
+   - `backend/routers/geo.py`: GET `/api/geo/municipios` retorna FeatureCollection válido
+   - Pontos (centroides) com propriedades (valor, municipio, uf, atendimentos)
+   - Filtra coordenadas fora dos limites do Brasil automaticamente
+   - **Nota**: Não há polígonos/malhas — IBGE v3 retorna 404, v4 retorna metadados/SVG. Polígonos requerem download bulk de GeoJSON do IBGE (futuro).
 
-#### Iteração 2.2 — MapLibre + Camadas
+#### Iteração 2.2 — MapLibre + Camadas ✅
 
 **Objetivo**: substituir Leaflet por MapLibre GL JS.
 
-1. `npm install maplibre-gl` (remover `leaflet`, `react-leaflet`, `@types/leaflet`)
-2. Reescrever `MapView.tsx` com MapLibre:
-   - Basemap: CARTO GL light/dark (tema-aware)
-   - Circle layer para pontos (dados existentes)
-   - Fill layer para polígonos (GeoJSON do endpoint)
-   - Popup no hover com óbitos, custos, atendimentos
-   - Controle de camadas (toggle circles/polígonos)
-   - Suporte 3D: pitch, bearing, navegação
-3. Manter `MapLegend.tsx` com cores do tema
+1. ✅ `npm install maplibre-gl` + removido `leaflet`, `react-leaflet`, `@types/leaflet`
+2. ✅ `MapView.tsx` reescrito com MapLibre:
+   - Basemap: CARTO raster light/dark (tema-aware via `src.setTiles()`)
+   - Circle layer para pontos (GeoJSON source)
+   - Popup no hover com formatação correta (formatCurrency/formatNumber)
+   - Controle de navegação (compass, zoom, pitch)
+   - Suporte 3D: pitch e drag rotate habilitados
+   - **Troca de tema sem perda de dados**: usa `setTiles()` em vez de `setStyle()` para preservar layers
+3. ✅ `MapLegend.tsx` mantido com cores do tema
+4. ✅ Fill layer para polígonos (GeoJSON de malhas IBGE v4 — 5571 municípios)
+5. ✅ Controle de camadas toggle Polígonos/Círculos (botão no mapa)
+   - Pipeline: `ibge_fetcher.baixar_malhas_geojson()` baixa bulk do IBGE v4 (~3.6MB qualidade mínima)
+   - Persistido em `data/ibge_malhas_municipios.geojson`
+   - Backend mescla geometrias com métricas (cod6 matching)
+   - URL IBGE: `/api/v4/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=municipio`
+   - Docs: https://servicodados.ibge.gov.br/api/docs/malhas?versao=4
 
-#### Iteração 2.3 — Design System (tema + ícones)
+#### Iteração 2.3 — Design System (tema + ícones) ✅
 
 **Objetivo**: tema claro/escuro + ícones animados.
 
-1. `globals.css`: CSS custom properties para cores (light/dark)
-2. `ThemeProvider` context com toggle + localStorage
-3. AppShell/Sidebar: toggle sun/moon no header
-4. `npm install @lucide-animated/react` — substituir SVGs inline nos ícones do sidebar e KPIs
-5. Padronizar paleta em `lib/theme.ts`
+1. ✅ `globals.css`: CSS custom properties para cores (light/dark) — ~40 tokens semânticos
+2. ✅ `ThemeProvider` context com toggle + localStorage + prefers-color-scheme
+3. ✅ AppShell/Sidebar: toggle sun/moon no rodapé do sidebar
+4. ✅ `npm install lucide-react` — substituiu SVGs inline nos ícones do sidebar e KPIs
+5. ✅ Paleta semântica: `--deaths` (vermelho), `--costs` (âmbar), `--health` (azul), `--success` (verde)
+6. ✅ KPI Cards narrativos com sparklines Recharts
+7. ✅ Donut charts com legendas externas (sem labels sobrepostos)
+8. ✅ Tooltips tema-aware (`itemStyle`, `labelStyle` com `var(--fg)`)
+9. ✅ Paginação na lista de municípios e tabela do mapa
 
-#### Iteração 2.4 — Chat melhorado
+#### Iteração 2.4 — Chat melhorado ⬚
 
 **Objetivo**: respostas mais úteis com tabelas e markdown.
 
@@ -125,12 +143,17 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 3. Pós-processamento: detectar dados tabulares nos resultados das tools e converter para markdown table antes de enviar ao modelo
 4. UI: renderizar `<ReactMarkdown>` em vez de `<pre>` nas mensagens do assistente
 
-#### Iteração 2.5 — Previsão IA (ajuste visual)
+#### Iteração 2.5 — Previsão IA (ajuste visual + filtros) ✅
 
-1. `ForecastChart.tsx`: cor do intervalo de confiança mais visível (opacidade 0.3 → 0.5, cor mais saturada)
-2. Tooltip com formatação melhor
+1. ✅ `ForecastChart.tsx`: cores do intervalo de confiança tema-aware (var(--deaths-glow) / var(--costs-glow))
+2. ✅ Tooltip com formatação tema-aware
+3. ✅ Card "Insight da IA" com ícone BrainCircuit e resumo textual
+4. ✅ **Filtro de período histórico**: ano_inicio / ano_fim no backend (`forecaster.py`) e frontend
+   - Permite excluir anos com subnotificação que afetam a média
 
-#### Iteração 2.6 — Dockerização
+**Nota sobre granularidade temporal**: Silver SIM mantém `dt_obito` (data completa, dia/mês/ano). Análise semanal é viável a partir do Silver, mas requer nova agregação no Gold ou query direta. Atualmente Gold agrega por mês (`competencia`).
+
+#### Iteração 2.6 — Dockerização ⬚
 
 **Objetivo**: `docker compose up` para rodar tudo localmente.
 
@@ -141,6 +164,13 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
    - `frontend`: porta 3000, depende do backend
 4. `.dockerignore`: node_modules, .venv, __pycache__, data/bronze, data/silver
 5. Documentar no `docs/SETUP.md` e `README.md`
+
+### Caveats do ambiente Cloud
+
+- **Pipeline sample demora ~5min** por causa das chamadas HTTP ao IBGE (metadados + SIDRA para ~586 municípios). Se `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet` já existem, gere Gold diretamente: `uv run python -c "from importlib import import_module; g = import_module('data-pipeline.gold'); g.gerar_gold_obitos(Path('data/silver/sim.parquet')); g.gerar_gold_custos(Path('data/silver/sia.parquet'))"` (substitua `Path` por `from pathlib import Path`).
+- **`python -m data-pipeline.run`** não funciona com `python` direto porque `-m` não suporta hyphens. Use sempre `uv run python -c "from importlib import import_module; mod = import_module('data-pipeline.run'); mod.main()"` ou espere que o diretório seja renomeado.
+- **Testes pré-existentes falhando**: 4 testes em `test_api.py` falham porque assertions estão hardcoded com `== 9` municípios, mas os dados sample geram 586. São falhas pré-existentes, não causadas pelo setup.
+- **`uv` no PATH**: O update script instala `uv` em `~/.local/bin`. Se o shell não encontrar `uv`, execute `export PATH="$HOME/.local/bin:$PATH"`.
 
 ### Regras para próximas iterações
 

@@ -7,8 +7,14 @@ Modos de operacao:
     2. Real (PySUS): Baixa dados reais do DATASUS via FTP.
        uv run python -m data-pipeline.run --real --ufs BA SP --anos 2022 2023
 
-    3. Estado completo: Todas as cidades de um estado.
-       uv run python -m data-pipeline.run --real --ufs BA --anos 2023
+    3. Apenas IBGE (localidades, populacao, malhas GeoJSON):
+       uv run python -m data-pipeline.run --ibge
+
+    4. Apenas malhas GeoJSON:
+       uv run python -m data-pipeline.run --malhas
+
+    5. Apenas Gold (requer Silver existente):
+       uv run python -m data-pipeline.run --gold
 
 Exemplos:
     # Dados amostrais (rapido, sem internet)
@@ -17,11 +23,14 @@ Exemplos:
     # Bahia 2023 (dados reais do DATASUS)
     uv run python -m data-pipeline.run --real --ufs BA --anos 2023
 
-    # SP + MG + BA, 2019-2023 (dados reais completos)
-    uv run python -m data-pipeline.run --real --ufs SP MG BA --anos 2019 2020 2021 2022 2023
+    # Só IBGE (localidades + populacao + malhas GeoJSON)
+    uv run python -m data-pipeline.run --ibge
 
-    # Todos os estados do Brasil, 2023
-    uv run python -m data-pipeline.run --real --ufs ALL --anos 2023
+    # Só malhas GeoJSON (download rapido ~3s)
+    uv run python -m data-pipeline.run --malhas
+
+    # Só Gold (quando Silver ja existe)
+    uv run python -m data-pipeline.run --gold
 """
 
 import argparse
@@ -47,17 +56,7 @@ def run_sample() -> None:
 
 
 def run_real(ufs: list[str], anos: list[int]) -> None:
-    """Pipeline com dados reais do DATASUS (requer FTP).
-
-    Usa download streaming para evitar estouro de memoria:
-    cada arquivo e salvo diretamente em disco e a memoria e
-    liberada antes de baixar o proximo. SIM e SIA sao processados
-    sequencialmente (nunca simultaneos em memoria).
-
-    Args:
-        ufs: Lista de UFs ou ["ALL"] para todos os estados.
-        anos: Lista de anos para download.
-    """
+    """Pipeline com dados reais do DATASUS (requer FTP)."""
     from .datasus import UFS_BRASIL, baixar_sia_streaming, baixar_sim_streaming
 
     if ufs == ["ALL"]:
@@ -66,7 +65,6 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     else:
         logger.info("modo", tipo="real", ufs=ufs, anos=anos)
 
-    # ── SIM: download streaming → bronze (partes) → silver ──────
     logger.info("etapa", sistema="sim", status="download_streaming")
     sim_bronze_dir = baixar_sim_streaming(ufs=ufs, anos=anos)
 
@@ -75,7 +73,6 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     logger.info("etapa", camada="silver_sim", status="concluido")
     gc.collect()
 
-    # ── SIA: download streaming → bronze (partes) → silver ──────
     logger.info("etapa", sistema="sia", status="download_streaming")
     sia_bronze_dir = baixar_sia_streaming(ufs=ufs, anos=anos)
 
@@ -84,15 +81,67 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     logger.info("etapa", camada="silver_sia", status="concluido")
     gc.collect()
 
-    # ── IBGE ────────────────────────────────────────────────────
-    logger.info("etapa", camada="ibge", status="iniciando")
+    run_ibge()
+
+    logger.info("etapa", camada="gold", status="iniciando")
+    gold_obitos = gerar_gold_obitos(silver_sim)
+    gold_custos = gerar_gold_custos(silver_sia)
+    logger.info("etapa", camada="gold", status="concluido")
+
+    logger.info(
+        "pipeline_concluido",
+        gold_obitos=str(gold_obitos),
+        gold_custos=str(gold_custos),
+    )
+
+
+def run_ibge() -> None:
+    """Baixa dados IBGE (localidades, populacao, malhas GeoJSON).
+
+    Pode ser executado independentemente:
+        uv run python -m data-pipeline.run --ibge
+    """
     from .ibge_fetcher import salvar_ibge_parquet
 
+    logger.info("etapa", camada="ibge", status="iniciando")
     ibge_dir = settings.resolve(settings.data_dir)
     salvar_ibge_parquet(ibge_dir)
     logger.info("etapa", camada="ibge", status="concluido")
 
-    # ── Gold ────────────────────────────────────────────────────
+
+def run_malhas() -> None:
+    """Baixa apenas malhas GeoJSON do IBGE (~3.6MB, ~3s).
+
+    Pode ser executado independentemente:
+        uv run python -m data-pipeline.run --malhas
+    """
+    from .ibge_fetcher import baixar_malhas_geojson
+
+    logger.info("etapa", camada="malhas_geojson", status="iniciando")
+    dest = settings.resolve(settings.data_dir) / "ibge_malhas_municipios.geojson"
+    path = baixar_malhas_geojson(dest)
+    logger.info("etapa", camada="malhas_geojson", status="concluido", path=str(path))
+
+
+def run_gold() -> None:
+    """Gera apenas a camada Gold (requer Silver existente).
+
+    Pode ser executado independentemente:
+        uv run python -m data-pipeline.run --gold
+    """
+    silver_dir = settings.resolve(settings.silver_dir)
+    silver_sim = silver_dir / "sim.parquet"
+    silver_sia = silver_dir / "sia.parquet"
+
+    if not silver_sim.exists() or not silver_sia.exists():
+        logger.error(
+            "silver_nao_encontrado",
+            sim=str(silver_sim),
+            sia=str(silver_sia),
+            msg="Execute o pipeline completo primeiro",
+        )
+        return
+
     logger.info("etapa", camada="gold", status="iniciando")
     gold_obitos = gerar_gold_obitos(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
@@ -117,12 +166,7 @@ def _executar_etl(df_sim, df_sia) -> None:
     silver_sia = processar_silver_sia(bronze_sia)
     logger.info("etapa", camada="silver", status="concluido")
 
-    logger.info("etapa", camada="ibge", status="iniciando")
-    from .ibge_fetcher import salvar_ibge_parquet
-
-    ibge_dir = settings.resolve(settings.data_dir)
-    salvar_ibge_parquet(ibge_dir)
-    logger.info("etapa", camada="ibge", status="concluido")
+    run_ibge()
 
     logger.info("etapa", camada="gold", status="iniciando")
     gold_obitos = gerar_gold_obitos(silver_sim)
@@ -150,6 +194,21 @@ def main() -> None:
         help="Usar dados reais do DATASUS (requer acesso FTP)",
     )
     parser.add_argument(
+        "--ibge",
+        action="store_true",
+        help="Apenas IBGE: localidades + populacao + malhas GeoJSON",
+    )
+    parser.add_argument(
+        "--malhas",
+        action="store_true",
+        help="Apenas malhas GeoJSON do IBGE (download rapido ~3s)",
+    )
+    parser.add_argument(
+        "--gold",
+        action="store_true",
+        help="Apenas Gold (requer Silver existente)",
+    )
+    parser.add_argument(
         "--ufs",
         nargs="+",
         default=["BA", "SP", "MG"],
@@ -165,7 +224,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.real:
+    if args.ibge:
+        run_ibge()
+    elif args.malhas:
+        run_malhas()
+    elif args.gold:
+        run_gold()
+    elif args.real:
         run_real(ufs=args.ufs, anos=args.anos)
     else:
         run_sample()

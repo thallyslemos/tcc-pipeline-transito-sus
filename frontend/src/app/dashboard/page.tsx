@@ -5,6 +5,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
   Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { AlertTriangle, DollarSign, Building2, Activity } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
 import KpiCard from "@/components/charts/KpiCard";
@@ -13,7 +14,38 @@ import { fetchAnos, fetchMunicipios, fetchSummary, fetchTiposVeiculo } from "@/l
 import { formatCompact, formatCurrency, formatNumber } from "@/lib/format";
 import type { DashboardData, Municipio } from "@/lib/types";
 
-const COLORS = ["#3b82f6","#ef4444","#f59e0b","#10b981","#8b5cf6","#ec4899","#06b6d4","#f97316","#6366f1"];
+const PIE_COLORS = ["#ef4444","#f97316","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#06b6d4","#6366f1"];
+const SEXO_COLORS: Record<string, string> = { Masculino: "#3b82f6", Feminino: "#ec4899" };
+
+function ThemedTooltip(props: Record<string, unknown>) {
+  return (
+    <Tooltip
+      {...props}
+      contentStyle={{
+        backgroundColor: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        color: "var(--fg)",
+        boxShadow: "var(--shadow-md)",
+      }}
+      itemStyle={{ color: "var(--fg)" }}
+      labelStyle={{ color: "var(--fg)", fontWeight: 600 }}
+    />
+  );
+}
+
+function SemanticLegend({ items }: { items: { name: string; color: string }[] }) {
+  return (
+    <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-2">
+      {items.map((item) => (
+        <div key={item.name} className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+          <span className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>{item.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -44,24 +76,41 @@ export default function DashboardPage() {
 
   const filterDefs = [
     { key: "ano", label: "Ano", options: anos.map((a) => ({ value: String(a), label: String(a) })) },
-    { key: "municipio", label: "Municipio", options: municipios.map((m) => ({ value: m.cod_mun_ibge, label: m.municipio })), placeholder: "Todos os municipios" },
-    { key: "tipo_veiculo", label: "Tipo Veiculo", options: tipos.map((t) => ({ value: t, label: t })) },
+    { key: "municipio", label: "Município", options: municipios.map((m) => ({ value: m.cod_mun_ibge, label: m.municipio })), placeholder: "Todos os municípios" },
+    { key: "tipo_veiculo", label: "Tipo Veículo", options: tipos.map((t) => ({ value: t, label: t })) },
   ];
 
   if (loading || !data) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+        <div className="text-center">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4"
+            style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }} />
+          <p className="text-sm" style={{ color: "var(--fg-muted)" }}>Carregando painel...</p>
+        </div>
       </div>
     );
   }
 
+  const sparkObitos = data.serie_temporal_obitos.map((s) => s.valor);
+  const sparkCustos = data.serie_temporal_custos.map((s) => s.valor);
+
+  const veiculoLegend = data.obitos_por_tipo_veiculo.map((d, i) => ({
+    name: d.tipo_veiculo, color: PIE_COLORS[i % PIE_COLORS.length],
+  }));
+  const sexoLegend = data.obitos_por_sexo.map((d) => ({
+    name: d.sexo, color: SEXO_COLORS[d.sexo] || "#6b7280",
+  }));
+
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-slate-800">Painel Geral</h1>
-          <p className="text-xs text-slate-400">DATASUS (SIM + SIA) - {data.periodo}</p>
+          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Painel Geral</h1>
+          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            DATASUS (SIM + SIA) · {data.periodo}
+          </p>
         </div>
         <FilterBar
           filters={filterDefs}
@@ -71,118 +120,142 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* KPIs */}
+      {/* Narrative KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard title="Obitos" value={formatNumber(data.total_obitos)} subtitle={data.periodo} icon={<AlertIcon />} color="red" />
-        <KpiCard title="Custo SUS" value={formatCurrency(data.total_custos)} subtitle="Ambulatoriais" icon={<DollarIcon />} color="amber" />
-        <KpiCard title="Atendimentos" value={formatNumber(data.total_atendimentos)} subtitle="Registros SIA" icon={<HospitalIcon />} color="blue" />
-        <KpiCard title="Municipios" value={String(data.municipios)} subtitle="Com registros" icon={<PinIcon />} color="emerald" />
+        <KpiCard title="Óbitos" value={formatNumber(data.total_obitos)} subtitle={data.periodo}
+          icon={<AlertTriangle className="h-4 w-4" />} semantic="deaths" sparkData={sparkObitos} />
+        <KpiCard title="Custo SUS" value={formatCurrency(data.total_custos)} subtitle="Ambulatoriais"
+          icon={<DollarSign className="h-4 w-4" />} semantic="costs" sparkData={sparkCustos} />
+        <KpiCard title="Atendimentos" value={formatNumber(data.total_atendimentos)} subtitle="Registros SIA"
+          icon={<Activity className="h-4 w-4" />} semantic="health" />
+        <KpiCard title="Municípios" value={String(data.municipios)} subtitle="Com registros"
+          icon={<Building2 className="h-4 w-4" />} semantic="success" />
       </div>
 
-      {/* Series */}
+      {/* Time Series */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Evolucao de Obitos" subtitle="Serie mensal">
+        <ChartCard title="Evolução de Óbitos" subtitle="Série mensal">
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={data.serie_temporal_obitos}>
-              <defs><linearGradient id="gO" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/><stop offset="95%" stopColor="#ef4444" stopOpacity={0}/></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="competencia" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
-              <Area type="monotone" dataKey="valor" stroke="#ef4444" fill="url(#gO)" strokeWidth={2} />
+              <defs>
+                <linearGradient id="gO" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--deaths)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--deaths)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
+              <Area type="monotone" dataKey="valor" stroke="var(--deaths)" fill="url(#gO)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Evolucao de Custos (R$)" subtitle="Serie mensal">
+        <ChartCard title="Evolução de Custos (R$)" subtitle="Série mensal">
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={data.serie_temporal_custos}>
-              <defs><linearGradient id="gC" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/><stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="competencia" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCompact(v)} />
-              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Custo"]} />
-              <Area type="monotone" dataKey="valor" stroke="#f59e0b" fill="url(#gC)" strokeWidth={2} />
+              <defs>
+                <linearGradient id="gC" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--costs)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--costs)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} tickFormatter={(v) => formatCompact(v)} />
+              <ThemedTooltip formatter={(v: number) => [formatCurrency(Number(v)), "Custo"]} />
+              <Area type="monotone" dataKey="valor" stroke="var(--costs)" fill="url(#gC)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      {/* Distributions */}
+      {/* Distributions — external legends, no overlapping labels */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <ChartCard title="Obitos por Tipo de Veiculo">
-          <ResponsiveContainer width="100%" height={240}>
+        <ChartCard title="Óbitos por Tipo de Veículo">
+          <ResponsiveContainer width="100%" height={200}>
             <PieChart>
-              <Pie data={data.obitos_por_tipo_veiculo} dataKey="total" nameKey="tipo_veiculo" cx="50%" cy="50%" outerRadius={85} innerRadius={40} paddingAngle={2}
-                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                {data.obitos_por_tipo_veiculo.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              <Pie data={data.obitos_por_tipo_veiculo} dataKey="total" nameKey="tipo_veiculo"
+                cx="50%" cy="50%" outerRadius={75} innerRadius={35} paddingAngle={2}>
+                {data.obitos_por_tipo_veiculo.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
             </PieChart>
           </ResponsiveContainer>
+          <SemanticLegend items={veiculoLegend} />
         </ChartCard>
 
-        <ChartCard title="Obitos por Faixa Etaria">
+        <ChartCard title="Óbitos por Faixa Etária">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis type="number" tick={{ fontSize: 11 }} />
-              <YAxis dataKey="faixa_etaria" type="category" tick={{ fontSize: 11 }} width={45} />
-              <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+              <YAxis dataKey="faixa_etaria" type="category" tick={{ fontSize: 11, fill: "var(--chart-text)" }} width={45} />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
               <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                {data.obitos_por_faixa_etaria.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                {data.obitos_por_faixa_etaria.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Top 10 Municipios — Obitos">
+        <ChartCard title="Distribuição por Sexo">
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie data={data.obitos_por_sexo} dataKey="total" nameKey="sexo"
+                cx="50%" cy="50%" outerRadius={75} innerRadius={35} paddingAngle={3}>
+                {data.obitos_por_sexo.map((d, i) => (
+                  <Cell key={i} fill={SEXO_COLORS[d.sexo] || PIE_COLORS[i]} />
+                ))}
+              </Pie>
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
+            </PieChart>
+          </ResponsiveContainer>
+          <SemanticLegend items={sexoLegend} />
+        </ChartCard>
+      </div>
+
+      {/* Rankings */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ChartCard title="Top 10 Municípios — Óbitos" subtitle="Maior impacto em vidas">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_municipio} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis type="number" tick={{ fontSize: 10 }} />
-              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10 }} width={110} />
-              <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                {data.obitos_por_municipio.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Bar>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
+              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10, fill: "var(--chart-text)" }} width={110} />
+              <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--deaths)" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-      </div>
 
-      {/* Annual + costs by municipality */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Top 10 Municipios — Custos" subtitle="Impacto financeiro ao SUS">
+        <ChartCard title="Top 10 Municípios — Custos" subtitle="Impacto financeiro ao SUS">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.custos_por_municipio} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => formatCompact(v)} />
-              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10 }} width={110} />
-              <Tooltip formatter={(v) => [formatCurrency(Number(v)), "Custo"]} />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="#f59e0b" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Evolucao Anual">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={data.obitos_por_ano}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="ano" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => [formatNumber(Number(v)), "Obitos"]} />
-              <Legend />
-              <Bar dataKey="total" name="Obitos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} tickFormatter={(v) => formatCompact(v)} />
+              <YAxis dataKey="municipio" type="category" tick={{ fontSize: 10, fill: "var(--chart-text)" }} width={110} />
+              <ThemedTooltip formatter={(v: number) => [formatCurrency(Number(v)), "Custo"]} />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--costs)" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      {/* Annual Evolution */}
+      <ChartCard title="Evolução Anual" subtitle="Comparativo por ano">
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={data.obitos_por_ano}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+            <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+            <ThemedTooltip formatter={(v: number) => [formatNumber(Number(v)), "Óbitos"]} />
+            <Legend wrapperStyle={{ color: "var(--fg-secondary)" }} />
+            <Bar dataKey="total" name="Óbitos" fill="var(--deaths)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
     </div>
   );
 }
-
-function AlertIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" /></svg>; }
-function DollarIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>; }
-function HospitalIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" /></svg>; }
-function PinIcon() { return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 0115 0z" /></svg>; }

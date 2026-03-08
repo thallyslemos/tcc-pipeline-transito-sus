@@ -33,41 +33,51 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
     if not info:
         return {"error": "Municipio nao encontrado"}
 
+    cod6 = cod_mun[:6]
+
     anos_disponveis = [2019, 2020, 2021, 2022, 2023]
     if ano:
         anos_disponveis = [ano]
 
     indicadores_anuais = []
+    last_pop = None
     for a in anos_disponveis:
         pop = get_populacao(cod_mun, a)
-        if not pop:
+        if pop:
+            last_pop = pop
+
+        effective_pop = pop or last_pop
+        if not effective_pop:
             continue
 
-        obitos = con.sql(f"""
-            SELECT COALESCE(SUM(total_obitos), 0)
-            FROM v_obitos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {a}
-        """).fetchone()[0]
+        obitos = con.execute(
+            "SELECT COALESCE(SUM(total_obitos), 0) FROM v_obitos "
+            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            [cod6, a],
+        ).fetchone()[0]
 
-        custos = con.sql(f"""
-            SELECT COALESCE(SUM(custo_total), 0)
-            FROM v_custos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {a}
-        """).fetchone()[0]
+        custos = con.execute(
+            "SELECT COALESCE(SUM(custo_total), 0) FROM v_custos "
+            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            [cod6, a],
+        ).fetchone()[0]
 
-        atend = con.sql(f"""
-            SELECT COALESCE(SUM(total_atendimentos), 0)
-            FROM v_custos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {a}
-        """).fetchone()[0]
+        atend = con.execute(
+            "SELECT COALESCE(SUM(total_atendimentos), 0) FROM v_custos "
+            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            [cod6, a],
+        ).fetchone()[0]
 
         indicadores_anuais.append(
             {
                 "ano": a,
-                "populacao": pop,
+                "populacao": effective_pop,
                 "obitos": int(obitos),
-                "taxa_obitos_100mil": taxa_por_100mil(float(obitos), pop),
+                "taxa_obitos_100mil": taxa_por_100mil(float(obitos), effective_pop),
                 "custo_total": float(custos),
-                "custo_per_capita": custo_per_capita(float(custos), pop),
+                "custo_per_capita": custo_per_capita(float(custos), effective_pop),
                 "atendimentos": int(atend),
-                "taxa_atend_100mil": taxa_por_100mil(float(atend), pop),
+                "taxa_atend_100mil": taxa_por_100mil(float(atend), effective_pop),
             }
         )
 
@@ -92,32 +102,39 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
 
 @router.get("/ranking")
 async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mil"):
-    """Ranking comparativo de municipios por indicador relativo (muns distintos de v_obitos)."""
+    """Ranking comparativo de municipios por indicador relativo."""
     con = get_connection()
     codigos = con.sql(
-        f"SELECT DISTINCT cod_mun_ibge FROM v_obitos WHERE ano = {ano}"
-    ).fetchdf()["cod_mun_ibge"].tolist()
+        f"SELECT DISTINCT LEFT(cod_mun_ibge, 6) AS cod6 FROM v_obitos WHERE ano = {ano}"
+    ).fetchdf()["cod6"].tolist()
     resultados = []
 
-    for cod_mun in codigos:
-        pop = get_populacao(cod_mun, ano)
-        info = get_info(cod_mun)
+    for cod6 in codigos:
+        pop = get_populacao(cod6, ano)
+        if not pop:
+            for fallback_ano in [ano - 1, ano - 2, ano - 3]:
+                pop = get_populacao(cod6, fallback_ano)
+                if pop:
+                    break
+        info = get_info(cod6)
         if not pop or not info:
             continue
 
-        obitos = con.sql(f"""
-            SELECT COALESCE(SUM(total_obitos), 0)
-            FROM v_obitos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {ano}
-        """).fetchone()[0]
+        obitos = con.execute(
+            "SELECT COALESCE(SUM(total_obitos), 0) FROM v_obitos "
+            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            [cod6, ano],
+        ).fetchone()[0]
 
-        custos = con.sql(f"""
-            SELECT COALESCE(SUM(custo_total), 0)
-            FROM v_custos WHERE cod_mun_ibge = '{cod_mun}' AND ano = {ano}
-        """).fetchone()[0]
+        custos = con.execute(
+            "SELECT COALESCE(SUM(custo_total), 0) FROM v_custos "
+            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            [cod6, ano],
+        ).fetchone()[0]
 
         resultados.append(
             {
-                "cod_mun_ibge": cod_mun,
+                "cod_mun_ibge": cod6,
                 "municipio": info["nome"],
                 "uf": info["uf"],
                 "populacao": pop,
@@ -128,7 +145,11 @@ async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mi
             }
         )
 
-    key = metrica if metrica in ("taxa_obitos_100mil", "custo_per_capita") else "taxa_obitos_100mil"
+    key = (
+        metrica
+        if metrica in ("taxa_obitos_100mil", "custo_per_capita")
+        else "taxa_obitos_100mil"
+    )
     resultados.sort(key=lambda x: x[key], reverse=True)
 
     return {

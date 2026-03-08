@@ -33,3 +33,4 @@ frontend/out/
 # OS
 .DS_Store
 Thumbs.db
+data/ibge_malhas_municipios.geojson

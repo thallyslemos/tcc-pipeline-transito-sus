@@ -96,6 +96,14 @@ def _municipio_nome(cod_mun_ibge: str) -> str | None:
     return row[0] if row else None
 
 
+def _extract_year(competencia) -> int:
+    """Extrai o ano de uma competência (date, datetime ou string)."""
+    if isinstance(competencia, (date,)):
+        return competencia.year
+    s = str(competencia)[:4]
+    return int(s)
+
+
 def _next_months(last_date: date, n: int) -> list[str]:
     """Gera as próximas n competências mensais a partir de last_date."""
     result = []
@@ -112,8 +120,16 @@ def _next_months(last_date: date, n: int) -> list[str]:
 def forecast(
     metrica: Literal["obitos", "custos"],
     cod_mun_ibge: str,
+    ano_inicio: int | None = None,
+    ano_fim: int | None = None,
 ) -> dict:
     """Executa previsão TimesFM para um município.
+
+    Args:
+        metrica: "obitos" ou "custos".
+        cod_mun_ibge: Código IBGE do município.
+        ano_inicio: Ano inicial do histórico (inclusive). Se None, usa todo o histórico.
+        ano_fim: Ano final do histórico (inclusive). Se None, usa todo o histórico.
 
     Returns:
         dict com historico, previsao, intervalos de confiança e metadados.
@@ -122,6 +138,13 @@ def forecast(
         ValueError: se não houver dados históricos suficientes.
     """
     series = _query_series(metrica, cod_mun_ibge)
+
+    if ano_inicio or ano_fim:
+        series = [
+            s for s in series
+            if (ano_inicio is None or _extract_year(s["competencia"]) >= ano_inicio)
+            and (ano_fim is None or _extract_year(s["competencia"]) <= ano_fim)
+        ]
 
     if len(series) < MIN_HISTORY_MONTHS:
         msg = (
