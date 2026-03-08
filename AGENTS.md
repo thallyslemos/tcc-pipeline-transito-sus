@@ -26,6 +26,9 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 | Testes | `uv run pytest tests/ -v` |
 | Pipeline sample (offline) | `uv run python -m data-pipeline.run` |
 | Pipeline real (requer FTP) | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
+| Apenas IBGE (localidades+pop+malhas) | `uv run python -m data-pipeline.run --ibge` |
+| Apenas malhas GeoJSON (~3s) | `uv run python -m data-pipeline.run --malhas` |
+| Apenas Gold (requer Silver) | `uv run python -m data-pipeline.run --gold` |
 | Inspecionar schema PySUS | `uv run python scripts/inspect_pysus_schema.py` |
 | Exportar samples filtrados | `uv run python scripts/export_test_sample.py` |
 | Build frontend | `cd frontend && npx next build` |
