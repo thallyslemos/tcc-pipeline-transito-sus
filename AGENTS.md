@@ -6,6 +6,13 @@
 
 Pipeline analitico de acidentes de transito no SUS (DATASUS). Monorepo Python + Next.js com DuckDB, FastAPI e PySUS. Consulte `README.md` para stack completa e `ARCHITECTURE.md` para fluxo de dados Medallion.
 
+### Premissa ética e técnica
+
+- **Rigor de dados**: nenhum indicador ou insight deve ser usado em decisão de política pública sem validação cruzada com as fontes oficiais (SIM/DATASUS, SIASUS, IBGE) e benchmarks externos (SIMU/Cidades, ONSV).
+- **Município ≠ conceito único**: diferenciar sempre **município de residência** (CODMUNRES / PA_MUNPCN) de **município de ocorrência/atendimento** (CODMUNOCOR / PA_UFMUN/PA_CODUNI), conforme `docs/Estrutura_do_SIM_2025.md` e `docs/Informe_Tecnico_SIASUS_2019_07.md`.
+- **Cross-check obrigatório**: antes de alterar filtros ou agregações, comparar contagens anuais com painéis oficiais (SIMU e ONSV) e documentar divergências em `docs/PAC_AUDITORIA_SIM_SIA.md`.
+- **Documentação viva**: qualquer decisão sobre modelagem de municípios, UF ou filtros CID-10 deve ser refletida em `docs/DADOS_MUNICIPIO.md`, `docs/BACKLOG_TAREFAS.md` e `docs/PAC_AUDITORIA_SIM_SIA.md`.
+
 ### Servicos
 
 | Servico | Porta | Comando |
