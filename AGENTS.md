@@ -60,6 +60,7 @@ O backend deve estar rodando antes do frontend (o frontend consome a API).
 - **IBGE lat/lon**: API v4 metadados (`/api/v4/malhas/municipios/{cod}/metadados`) retorna centroide. A v3 malhas GeoJSON retorna 404.
 - **IBGE Tabela 6579**: Sem dados para 2022 (ano do Censo) e 2023+ (pode não ter estimativas). Fallback: dicionário embutido em `data-pipeline/ibge.py`.
 - **IBGE localidades**: Município "Boa Esperança do Norte" tem `microrregiao: null`. Parse faz fallback para `regiao-imediata`.
+- **UF incorreta (Fortaleza/Joinville como BA)**: O pipeline usa a coluna `UF` bruta do SIM/SIA, que reflete a UF do *arquivo*, não do município. UF deve ser derivada do `cod_mun_ibge` (IBGE lookup ou 2 primeiros dígitos). Ver `docs/DADOS_MUNICIPIO.md`.
 
 ### Caveats do frontend
 
@@ -153,6 +154,19 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 
 **Nota sobre granularidade temporal**: Silver SIM mantém `dt_obito` (data completa, dia/mês/ano). Análise semanal é viável a partir do Silver, mas requer nova agregação no Gold ou query direta. Atualmente Gold agrega por mês (`competencia`).
 
+#### Iteração 2.7 — Correção UF e município ⬚ (Alta prioridade)
+
+**Objetivo**: Corrigir Fortaleza/Joinville exibidos como BA. Derivar UF do código IBGE, nunca da coluna raw.
+
+- Ver tarefas detalhadas em `docs/BACKLOG_TAREFAS.md` (2.7.1, 2.7.2).
+- Referência: `docs/DADOS_MUNICIPIO.md`.
+
+#### Iteração 2.8 — GeoJSON qualidade alta ⬚ (Média prioridade)
+
+**Objetivo**: Melhorar malhas do mapa (municípios faltando, geometria). Usar `qualidade=intermediaria` ou `qualidade=maxima` na URL IBGE.
+
+- Ver `docs/BACKLOG_TAREFAS.md` (2.8.1, 2.8.2).
+
 #### Iteração 2.6 — Dockerização ⬚
 
 **Objetivo**: `docker compose up` para rodar tudo localmente.
@@ -179,3 +193,22 @@ Metodologia: **test-first** — cada feature começa com teste unitário no back
 - **Commits atômicos**: um commit por feature/fix lógico
 - **Samples reais**: usar `data/test_sample/` para testes end-to-end
 - **Lint sempre**: `uv run ruff check .` deve passar (exceto o erro pré-existente em `backend/ibge.py`)
+
+### Recomendações de PR (code review)
+
+Ao revisar ou propor mudanças, verificar:
+
+- Testes passam; não introduzir regressões
+- Lint e formatação aplicados
+- Documentação atualizada quando a mudança altera comportamento ou API
+- Dados sensíveis não commitados; usar variáveis de ambiente
+- Tarefas de backlog referenciadas no commit/PR quando aplicável
+- Guia completo para agentes: `docs/GUIA_AGENTES.md`
+
+### Documentação adicional
+
+| Documento | Uso |
+|-----------|-----|
+| `docs/DADOS_MUNICIPIO.md` | Semântica de município/UF, correção Fortaleza/Joinville |
+| `docs/BACKLOG_TAREFAS.md` | Tarefas priorizadas com critérios de aceite |
+| `docs/GUIA_AGENTES.md` | Instruções para agentes IA e fluxo de trabalho |
