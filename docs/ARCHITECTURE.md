@@ -1,25 +1,25 @@
-# Arquitetura — Pipeline Analitico de Acidentes de Transito no SUS
+# Arquitetura — Pipeline Analítico de Acidentes de Trânsito no SUS
 
-Visao geral, decisoes, fluxo de dados e referencias metodologicas do MVP.
+Visão geral, decisões, fluxo de dados e referências metodológicas do MVP.
 
-## 1. Visao do Sistema
+## 1. Visão do Sistema
 
 ```mermaid
 flowchart TB
     subgraph Fontes[Fontes de Dados]
-        SIM[SIM - Obitos]
+        SIM[SIM - Óbitos]
         SIA[SIA - Ambulatorial]
-        IBGE[IBGE - Populacao]
+        IBGE[IBGE - Demografia]
     end
 
-    subgraph Pipeline[Pipeline ETL]
-        PySUS[PySUS]
+    subgraph "Pipeline ETL (data-pipeline)"[Pipeline ETL]
+        PySUS[PySUS Fetcher]
         IBGE_Fetch[IBGE Fetcher]
         Parquet[(Parquet)]
-        DuckDB[(DuckDB)]
+        DuckDB[(DuckDB Engine)]
     end
 
-    subgraph Consumo[Camadas de Consumo]
+    subgraph "Camadas de Consumo"[Camadas de Consumo]
         FastAPI[FastAPI REST]
         MCP[MCP Server]
         LLM[LLM Local / Ollama]
@@ -38,125 +38,109 @@ flowchart TB
     FastAPI --> Next
 ```
 
-## 2. Fluxo de Dados (Medallion)
+## 2. Fluxo de Dados (Arquitetura Medallion)
+
+A arquitetura de dados segue o padrão Medallion, garantindo qualidade e rastreabilidade progressivas.
 
 ```mermaid
 flowchart LR
-    subgraph Bronze[Bronze]
-        B1[SIM raw .parquet]
-        B2[SIA raw .parquet]
+    subgraph Bronze[Bronze Raw]
+        direction LR
+        B1[sim_parts/*.parquet]
+        B2[sia_parts/*.parquet]
     end
 
-    subgraph Silver[Silver]
-        S1[Filtro CID V01-V89]
-        S2[Tipagem + campos derivados]
+    subgraph Silver[Silver Enriched]
+        direction LR
+        S1[sim.parquet]
+        S2[sia.parquet]
     end
 
-    subgraph IBGE[IBGE Parquets]
+    subgraph IBGE[IBGE Datasets]
+        direction LR
         IM[ibge_municipios.parquet]
         IP[ibge_populacao.parquet]
     end
 
-    subgraph Gold[Gold]
-        G1[Obitos por municipio/mes]
-        G2[Custos por municipio/mes]
+    subgraph Gold[Gold Aggregated]
+        direction TB
+        G_Ocorrencia[obitos_ocorrencia_municipio_mes]
+        G_Residencia[obitos_residencia_municipio_mes]
+        G_Custos[custos_municipio_mes]
     end
-
-    subgraph Indicadores[Indicadores Relativos]
-        I1[Taxa mortalidade /100mil hab]
+    
+    subgraph Indicadores[Views e Indicadores]
+        I1[Taxa Mortalidade / 100mil hab]
         I2[Custo per capita]
     end
 
     B1 --> S1
-    B2 --> S1
-    S1 --> S2
-    S2 --> IM
-    S2 --> IP
-    S2 --> G1
-    S2 --> G2
-    IM --> G1
-    IP --> G1
-    G1 --> I1
-    G2 --> I2
+    B2 --> S2
+    
+    S1 --> G_Ocorrencia
+    S1 --> G_Residencia
+    S2 --> G_Custos
+    
+    G_Ocorrencia & G_Residencia & G_Custos -- Enriquecimento --> IM
+    G_Ocorrencia & G_Residencia & G_Custos -- Enriquecimento --> IP
+    
+    IM & IP -- Join --> G_Ocorrencia & G_Residencia & G_Custos
+    
+    G_Ocorrencia --> I1
+    G_Residencia --> I1
+    G_Custos --> I2
 ```
 
-| Camada | Conteudo |
-|--------|----------|
-| Bronze | Dados brutos do SIM e SIA em Parquet |
-| Silver | Filtrados (CID V01-V89), tipados, com campos derivados (tipo_veiculo, faixa_etaria) |
-| IBGE | Parquets gerados por `ibge_fetcher`: localidades, malhas (lat/lon), populacao SIDRA |
-| Gold | Tabelas agregadas por municipio/competencia, enriquecidas com nome, lat, lon e populacao quando IBGE existir |
-| Indicadores | Taxas relativas usando populacao estimada (views v_ibge_populacao ou fallback) |
+| Camada | Conteúdo | Propósito |
+|---|---|---|
+| **Bronze** | Dados brutos do SIM e SIA em Parquet, particionados por UF e ano. | Cópia fiel da fonte, otimizada para acesso rápido. |
+| **Silver** | Dados filtrados (CID V01-V89), com tipos corrigidos e campos derivados (tipo_veiculo, faixa_etaria, sexo_desc). | Base limpa e padronizada para análise. |
+| **IBGE** | Parquets gerados por `ibge_fetcher`: localidades, malhas, população. | Fonte de dados demográficos para enriquecimento. |
+| **Gold** | Tabelas agregadas por município/competência, separadas por conceito. | Views de negócio pré-calculadas para consumo rápido pela API. |
 
-## 3. Componentes
+## 3. Modelo de Dados (Camada Gold)
 
-### 3.1 Data Pipeline (`data-pipeline/`)
-
-- **sample_data.py**: Dados amostrais; usa `ibge_municipios.parquet` se existir, senao 9 municipios fixos
-- **bronze.py**: Ingestao bruta para Parquet
-- **silver.py**: Filtragem CID + enriquecimento (tipo veiculo, faixa etaria, sexo)
-- **datasus.py**: Download streaming via PySUS (SIM/SIA) com DuckDB COPY (disco→disco, sem pandas). Cache PySUS em `~/pysus/`. Bronze parts idempotentes.
-- **ibge_fetcher.py**: Integracao com APIs IBGE (localidades v1, metadados v4 para centroide lat/lon, SIDRA populacao). Gera `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
-- **gold.py**: Agregacoes por municipio/competencia; enriquecimento com JOIN nos Parquets IBGE (nome, lat, lon, populacao)
-- **ibge.py**: Leitura de populacao/info a partir dos Parquets IBGE (ou dicionarios fallback) + funcoes de taxa (taxa_por_100mil, custo_per_capita)
-- **config.py**: Pydantic Settings (`.env`)
-- **logging.py**: structlog (dev: console colorido, prod: JSON)
-
-### 3.2 Backend (`backend/`)
-
-- **FastAPI** com routers:
-  - `/api/dashboard/*` - dados para graficos e mapa (lat/lon e nome vindos do Gold ou views IBGE)
-  - `/api/indicadores/*` - taxas relativas com populacao/info do IBGE (views v_ibge_municipios, v_ibge_populacao ou fallback)
-- **DuckDB** in-process: views sobre Gold e, quando existirem, sobre `data/ibge_municipios.parquet` e `data/ibge_populacao.parquet`
-- **ibge.py**: Acesso a dados IBGE via views DuckDB com fallback para `data-pipeline.ibge`
-
-### 3.3 MCP Server (`mcp-server/`)
-
-- **FastMCP** com 5 tools:
-  - `query_obitos` - consulta obitos com filtros
-  - `query_custos` - consulta custos ambulatoriais
-  - `query_taxa_mortalidade` - taxa por 100mil hab com populacao IBGE
-  - `query_serie_temporal` - series mensais
-  - `listar_municipios` - municipios disponiveis
-
-### 3.4 Previsão IA (`backend/services/`)
-
-- **TimesFM** (Google Research, 200M params, PyTorch CPU)
-- Endpoint `/api/predict/{obitos|custos}/{cod_mun_ibge}`
-- Horizonte: 12 meses com intervalos de confianca (P10-P90)
-- Modelo carregado lazy (singleton, ~30s no primeiro request)
-
-### 3.5 Frontend (`frontend/`)
-
-- **Next.js 16** + Tailwind CSS v4 + Recharts
-- **Leaflet** para mapas com circle markers proporcionais
-- 5 paginas: Dashboard, Municipios, Mapa, Previsao IA, Chat IA
-- FilterBar reutilizavel e desacoplado
-- ForecastChart com serie historica + previsao + intervalo de confianca
-
-## 4. Modelo de Dados (Gold)
+A camada Gold foi refatorada para separar explicitamente os fatos por dimensão de localidade, resolvendo ambiguidades analíticas.
 
 ```mermaid
 erDiagram
-    obitos_municipio_mes {
-        string cod_mun_ibge PK
+    obitos_ocorrencia_municipio_mes {
+        string cod_mun_ibge PK "FK, (CODMUNOCOR)"
         date competencia PK
+        string tipo_veiculo PK
+        string faixa_etaria PK
+        string sexo PK
         string municipio
         string uf
         int ano
         int mes
         int total_obitos
-        string tipo_veiculo
-        string faixa_etaria
-        string sexo
+        double lat
+        double lon
+        int populacao_estimada
+    }
+
+    obitos_residencia_municipio_mes {
+        string cod_mun_ibge PK "FK, (CODMUNRES)"
+        date competencia PK
+        string tipo_veiculo PK
+        string faixa_etaria PK
+        string sexo PK
+        string municipio
+        string uf
+        int ano
+        int mes
+        int total_obitos
         double lat
         double lon
         int populacao_estimada
     }
 
     custos_municipio_mes {
-        string cod_mun_ibge PK
+        string cod_mun_ibge PK "FK, (PA_MUNPCN)"
         date competencia PK
+        string tipo_veiculo PK
+        string faixa_etaria PK
         string municipio
         string uf
         int ano
@@ -164,8 +148,6 @@ erDiagram
         decimal custo_total
         int total_procedimentos
         int total_atendimentos
-        string tipo_veiculo
-        string faixa_etaria
         double lat
         double lon
     }
@@ -184,90 +166,64 @@ erDiagram
         int ano PK
         int populacao
     }
+
+    obitos_ocorrencia_municipio_mes }o--|| ibge_municipios : "enriquecido por"
+    obitos_residencia_municipio_mes }o--|| ibge_municipios : "enriquecido por"
+    custos_municipio_mes }o--|| ibge_municipios : "enriquecido por"
+    
+    obitos_ocorrencia_municipio_mes }o--|| ibge_populacao : "enriquecido por"
+    obitos_residencia_municipio_mes }o--|| ibge_populacao : "enriquecido por"
+
 ```
 
-## 5. Indicadores Relativos
+**Principais Mudanças:**
 
-### 5.1 Taxa de Mortalidade por 100 mil habitantes
+- **Desambiguação de Óbitos**: A tabela `obitos_municipio_mes` foi dividida em `obitos_ocorrencia_municipio_mes` e `obitos_residencia_municipio_mes`.
+- **Chaves Primárias**: As chaves primárias foram expandidas para incluir as dimensões de análise (`tipo_veiculo`, `faixa_etaria`, `sexo`) para refletir a granularidade real das tabelas.
+- **Clareza Semântica**: O modelo de dados agora reflete explicitamente a diferença entre o local **onde o óbito ocorreu** e onde a **vítima residia**, permitindo análises mais precisas.
 
-- **Formula**: `(obitos / populacao_estimada) * 100.000`
-- **Referencia**: DATASUS - Ficha de Qualificacao C.12
-- **URL**: http://tabnet.datasus.gov.br/cgi/idb2000/fqc12.htm
-- **Justificativa**: Permite comparacao entre municipios de portes diferentes
+## 4. Componentes e Tecnologias
 
-### 5.2 Custo per capita
-
-- **Formula**: `custo_total_sus / populacao_estimada`
-- **Referencia**: Metodologia de contas em saude (OMS/RIPSA)
-- **Justificativa**: Normaliza impacto financeiro pelo tamanho da populacao
-
-### 5.3 Populacao Estimada
-
-- **Fonte**: IBGE - Tabela 6579 SIDRA (Estimativas da Populacao Residente)
-- **Metodologia**: Metodo matematico AiBi (projecoes por componentes demograficas)
-- **Referencia**: 1o de julho de cada ano
-- **URL**: https://sidra.ibge.gov.br/tabela/6579
-- **API**: `https://apisidra.ibge.gov.br/values/t/6579/n6/{cod_ibge}/v/9324/p/{ano}`
-
-## 6. MCP Server (Consulta em Linguagem Natural)
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant LLM as Ollama (Qwen2.5 3B)
-    participant MCP as MCP Server (FastMCP)
-    participant DB as DuckDB
-
-    U->>LLM: "Qual a taxa de mortalidade em Salvador em 2023?"
-    LLM->>MCP: tool: query_taxa_mortalidade(municipio="Salvador", ano=2023)
-    MCP->>DB: SELECT + calculo com populacao IBGE
-    DB->>MCP: ResultSet
-    MCP->>LLM: "Salvador: 120 obitos, pop 2.480.790, taxa 4.84/100mil"
-    LLM->>U: "Salvador registrou taxa de 4,84 obitos por 100 mil habitantes..."
-```
-
-### Viabilidade para TCC de Baixo Custo
-
-| Item | Opcao | Custo |
-|------|-------|-------|
-| LLM Local | Ollama + Qwen2.5 3B (Q4_K_M) | Gratuito |
-| Requisitos | 4GB RAM, CPU moderno, ~2GB disco | Notebook pessoal |
-| VPS MVP | Nautilus/Avira (4GB RAM) | R$ 40-80/mes |
-| Stack completa | Python + DuckDB + Next.js | 100% open source |
-
-**Ollama local**: Qwen2.5 3B roda em CPU a ~4.5 tokens/s com 3GB RAM. Ideal para demonstracao em notebook.
-
-## 7. Tecnologias
+A stack tecnológica permanece a mesma, mas a lógica interna dos componentes foi aprimorada.
 
 | Camada | Tecnologia | Uso |
-|--------|------------|-----|
-| Extracao | PySUS | DATASUS, .dbc -> Parquet |
-| Processamento | DuckDB | OLAP in-process, views Gold |
+|---|---|---|
+| Extração | PySUS | DATASUS, .dbc -> Parquet |
+| Processamento | DuckDB | OLAP in-process, agregação para a camada Gold |
 | Armazenamento | Parquet | Bronze/Silver/Gold (colunar) |
-| Dados demograficos | IBGE API (Tabela 6579) | Populacao estimada |
-| Backend | FastAPI + Pydantic Settings | API REST + config |
-| IA Conversacional | FastMCP + Ollama | MCP Server + LLM local |
-| IA Preditiva | TimesFM (Google Research) | Previsao de series temporais |
-| Frontend | Next.js 16, Tailwind, Recharts | Dashboards |
-| Mapas | Leaflet | Circle markers, tooltips |
-| Logging | structlog | JSON (prod) / console (dev) |
-| Testes | pytest | Pipeline + API + integracao |
-| Lint | ruff | PEP8 + imports + security |
+| Dados demográficos| IBGE API (SIDRA, etc.) | População, coordenadas, malhas |
+| Backend | FastAPI + Pydantic | API REST para servir os dados da camada Gold |
+| IA Preditiva | TimesFM | Previsão de séries temporais |
+| IA Conversacional| FastMCP + Ollama | Servidor de contexto para consultas em linguagem natural |
+| Frontend | Next.js, Tailwind, Recharts, MapLibre GL JS | Dashboards e visualizações |
+| Testes | pytest | Testes unitários e de integração para pipeline e API |
+| Qualidade | ruff | Linting e formatação de código |
 
-## 8. Referencias Tecnicas
+---
 
-1. BRASIL. Ministerio da Saude. DATASUS. **Ficha de Qualificacao C.12 - Taxa de Mortalidade por Causas Externas**. Disponivel em: http://tabnet.datasus.gov.br/cgi/idb2000/fqc12.htm
+## 5. Indicadores Relativos e Dimensões de Análise
 
-2. IBGE. **Estimativas da Populacao Residente - Tabela 6579**. Sistema IBGE de Recuperacao Automatica (SIDRA). Disponivel em: https://sidra.ibge.gov.br/tabela/6579
+### 5.1. Taxa de Mortalidade por 100 mil habitantes
 
-3. IBGE. **Metodologia das Estimativas da Populacao Residente**. Metodo AiBi. Disponivel em: https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html
+- **Fórmula**: `(total_de_obitos / populacao_estimada) * 100.000`
+- **Contexto**: Pode ser calculada tanto por **ocorrência** quanto por **residência**, dependendo da tabela Gold utilizada.
+- **Padrão do Sistema**: Por padrão, o sistema deve exibir a taxa por **ocorrência**, que reflete o risco do local, mas deve permitir ao usuário alternar para a visão por **residência**.
 
-4. MODEL CONTEXT PROTOCOL. **Introduction and Core Concepts**. Anthropic, 2024. Disponivel em: https://modelcontextprotocol.io
+### 5.2. Custo per capita
 
-5. COELHO, Flavio Codecco et al. **PySUS: A library to open DATASUS files in Python**. GitHub, 2021. Disponivel em: https://github.com/AlertaDengue/PySUS
+- **Fórmula**: `custo_total_sus / populacao_estimada`
+- **Contexto**: A base SIA/PA atribui o custo ao **município de residência do paciente** (`PA_MUNPCN`). Portanto, este indicador reflete o ônus financeiro para o município de origem do paciente, não necessariamente onde o atendimento ocorreu.
 
-6. RAASCH, C. **DuckDB in Action**. Manning Publications, 2023.
+### 5.3. Dimensões Geográficas
 
-7. OBSERVATORIO NACIONAL DE SEGURANCA VIARIA (ONSV). **Retrato da Seguranca Viaria no Brasil**. Campinas: ONSV, 2023.
+O sistema suportará filtros em três níveis de granularidade geográfica:
 
-8. OMS/RIPSA. **Indicadores e Dados Basicos para a Saude no Brasil (IDB)**. Rede Interagencial de Informacoes para a Saude.
+1.  **Município**: Filtro por município de ocorrência (padrão) ou residência.
+2.  **UF (Estado)**: Filtro por Unidade da Federação.
+3.  **Região**: Uma abstração que agrupa UFs (Norte, Nordeste, Sudeste, Sul, Centro-Oeste).
+
+---
+
+## 6. Referências Técnicas
+
+As referências técnicas e metodológicas permanecem as mesmas listadas na versão anterior do documento e no pré-projeto de pesquisa.

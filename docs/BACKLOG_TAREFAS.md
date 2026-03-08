@@ -1,133 +1,109 @@
-# Backlog de Tarefas — Próximas Iterações
+# Backlog de Tarefas — Iteração 3
 
-Tarefas priorizadas para agentes ou desenvolvedores. Cada item inclui contexto, critérios de aceite e referências.
+Esta seção detalha as próximas tarefas do projeto, com foco em auditoria, implementação da metodologia TDD, e evolução das funcionalidades do sistema.
 
----
-
-## Iteração 2.7 — Correção de UF e Município (Alta prioridade)
-
-### Tarefa 2.7.1: Derivar UF do código do município
-
-**Contexto**: Mesmo tendo rodado o pipeline filtrando os registros da Bahia, Fortaleza (CE) e Joinville (SC) aparecem como BA porque o pipeline usa a coluna `UF` bruta do registro, que reflete a UF do **arquivo** (ex.: arquivo BA), não a UF do município. Ver `docs/DADOS_MUNICIPIO.md`. Verificar se o munifipio que estamos usando é de residencia do paciente ou do atendimento.
-
-**Objetivo**: A UF exibida deve ser sempre a do município, obtida via código IBGE.
-
-**Critérios de aceite**:
-1. Silver ou Gold passa a obter UF via JOIN com `ibge_municipios.parquet` (`LEFT(cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)`).
-2. Fallback: se não houver IBGE, derivar UF dos 2 primeiros dígitos do código (23=CE, 29=BA, 42=SC, etc.).
-3. Não usar mais a coluna `UF` bruta do SIM/SIA para exibição ou agregação.
-4. Teste: registros com `cod_mun_ibge` 2304407 (Fortaleza) exibem UF=CE; 4209102 (Joinville) exibe UF=SC.
-
-**Arquivos a alterar**: `data-pipeline/silver.py`, `data-pipeline/gold.py`, possivelmente `backend/routers/geo.py`.
-
-**Referência**: `docs/DADOS_MUNICIPIO.md` seção 2 e 5.
+**Metodologia**: A partir desta iteração, todas as tarefas seguirão o fluxo **Test-Driven Development (TDD)**, conforme descrito no `docs/GUIA_AGENTES.md`.
 
 ---
 
-### Tarefa 2.7.2: Validação de consistência UF × código município
+## Iteração 3.1 — Auditoria e Correção do Pipeline SIA
 
-**Contexto**: Detectar registros com `UF` bruta divergente do código do município para auditoria.
+**Contexto**: O pipeline do SIM apresentou uma falha crítica de perda de dados devido ao processamento parcial de arquivos. É imperativo verificar se o pipeline do SIA (custos) sofre do mesmo problema.
+**Objetivo**: Garantir a completude e a corretude dos dados de custos ambulatoriais.
 
-**Objetivo**: Registrar warning ou métrica quando houver inconsistência.
+### Tarefa 3.1.1: Auditoria de Dados do SIA
 
-**Critérios de aceite**:
-1. Script ou etapa do pipeline conta quantos registros têm `UF` bruta ≠ UF derivada do `cod_mun`.
-2. Log ou relatório de qualidade com essa contagem.
-3. Opcional: flag no Gold para indicar registro com inconsistência histórica.
+-   **Critérios de Aceite**:
+    1.  Executar uma análise nos dados brutos do SIA (`~/pysus/PA*.parquet`) para o escopo de BA/2022.
+    2.  Contar o número total de registros que correspondem ao filtro de acidentes de trânsito (`PA_CIDPRI` entre 'V01' e 'V89').
+    3.  Contar o número de registros no arquivo `data/silver/sia.parquet` gerado pelo pipeline.
+    4.  Comparar as duas contagens e documentar qualquer discrepância.
 
----
+### Tarefa 3.1.2: Correção do Pipeline SIA (Se necessário)
 
-## Iteração 2.8 — GeoJSON de Malhas em Qualidade Alta (Média prioridade)
-
-### Tarefa 2.8.1: Usar qualidade alta nas malhas IBGE
-
-**Contexto**: O pipeline baixa malhas com `qualidade=minima` (~3.7MB). O usuário reportou falhas no mapa (municípios faltando ou geometria incorreta). A API IBGE v4 suporta `qualidade=minima`, `qualidade=intermediaria` e `qualidade=maxima`.
-
-**Objetivo**: Melhorar a qualidade visual e completude das geometrias no mapa.
-
-**Critérios de aceite**:
-1. Alterar `data-pipeline/ibge_fetcher.py`: URL de malhas usar `qualidade=intermediaria` ou `qualidade=maxima`.
-2. Documentar tamanho esperado do arquivo (qualidade alta pode ser 10–50MB).
-3. Atualizar `.gitignore` se o GeoJSON ficar grande demais para versionar.
-4. Validar no mapa: polígonos sem "buracos" óbvios, municípios costeiros/fronteiriços com geometria coerente.
-5. Teste de regressão: endpoint `/api/geo/municipios` continua retornando FeatureCollection válido.
-
-**Arquivo**: `data-pipeline/ibge_fetcher.py` — constante `MALHAS_BR_URL`.
-
-**Documentação IBGE**: https://servicodados.ibge.gov.br/api/docs/malhas?versao=4
+-   **Critérios de Aceite**:
+    1.  Se for identificada perda de dados, aplicar a mesma correção que foi feita no `data-pipeline/datasus.py` (função `baixar_sia_streaming`) para garantir que todos os arquivos de dados brutos sejam processados.
+    2.  Limpar os diretórios `bronze` e `gold` e reexecutar o pipeline para BA/2022.
+    3.  Validar se a contagem na camada Silver do SIA agora corresponde à contagem dos dados brutos.
 
 ---
 
-### Tarefa 2.8.2: Mapear municípios sem geometria no mapa
+## Iteração 3.2 — Base de Testes (TDD Foundation)
 
-**Contexto**: Alguns municípios podem não ter feature correspondente no GeoJSON (nome/UF mudou, código antigo, etc.).
+**Contexto**: Para suportar o desenvolvimento TDD e garantir a estabilidade, a base de código existente precisa de uma cobertura de testes mais robusta.
+**Objetivo**: Escrever testes para as funcionalidades existentes antes de criar novas.
 
-**Objetivo**: Garantir que todos os municípios do Gold com métricas apareçam no mapa.
+### Tarefa 3.2.1: Aumentar Cobertura de Testes da API
 
-**Critérios de aceite**:
-1. Backend: ao enriquecer malhas com métricas, detectar `cod6` do Gold que não existe no GeoJSON.
-2. Fallback: para municípios sem polígono, incluir ponto (centroide) com as mesmas propriedades.
-3. Log de municípios sem geometria (para análise).
-4. Documentar lista de municípios sem malha conhecida (ex.: alterações de território).
-
----
-
-## Iteração 2.9 — Melhorias de Qualidade e Testes
-
-### Tarefa 2.9.1: Corrigir testes com assertions hardcoded
-
-**Contexto**: 4 testes em `test_api.py` falham porque esperam exatamente 9 municípios; os dados sample geram 586.
-
-**Objetivo**: Testes passem de forma estável.
-
-**Critérios de aceite**:
-1. Substituir `== 9` por asserções flexíveis (ex.: `>= 1`, ou valor derivado do fixture).
-2. Usar dados de teste fixos (fixtures) quando o teste depender de contagem exata.
-3. `uv run pytest tests/ -v` passa em todos os testes.
+-   **Critérios de Aceite**:
+    1.  Analisar os endpoints da API em `backend/routers/`.
+    2.  Adicionar testes de unidade em `tests/test_api.py` para os endpoints que não possuem cobertura ou cuja cobertura é insuficiente (ex: testar diferentes parâmetros de query, casos de borda, etc.).
+    3.  Resolver as falhas de teste pré-existentes relacionadas a contagens de municípios hardcoded. Substituir `== 9` por asserções dinâmicas baseadas nos dados de teste.
+    4.  Garantir que `uv run pytest tests/ -v` passe em 100% dos testes.
 
 ---
 
-### Tarefa 2.9.2: Corrigir lint em backend/ibge.py
+## Iteração 3.3 — Backend e Frontend: Dimensões de Análise
 
-**Contexto**: `AGENTS.md` menciona "erro pré-existente" em `backend/ibge.py`.
+**Contexto**: O pipeline agora produz dados de óbitos por ocorrência e residência. A API e a UI precisam ser adaptadas para consumir e apresentar essa nova estrutura de dados.
+**Objetivo**: Permitir que o usuário final analise os dados de óbitos por diferentes dimensões geográficas.
 
-**Objetivo**: `uv run ruff check .` passar sem erros nesse arquivo.
+### Tarefa 3.3.1: Refatorar API de Dashboard
 
-**Critérios de aceite**:
-1. Resolver o erro de lint indicado.
-2. Sem alterar comportamento funcional.
+-   **Use Case**: Um gestor de saúde quer comparar o número de óbitos ocorridos em sua cidade com o número de residentes de sua cidade que morreram (independentemente do local).
+-   **Critérios de Aceite (Test-First)**:
+    1.  **Escrever Teste (RED)**: Criar um novo teste em `tests/test_api.py` para um endpoint (ex: `/api/dashboard/summary`) que aceite um parâmetro de query `dimensao=residencia`. O teste deve falhar.
+    2.  **Implementar (GREEN)**: Modificar o endpoint no backend para:
+        -   Aceitar um parâmetro `dimensao` ('ocorrencia' ou 'residencia'), com 'ocorrencia' sendo o padrão.
+        -   Carregar dados de `obitos_ocorrencia_municipio_mes.parquet` ou `obitos_residencia_municipio_mes.parquet` com base no parâmetro.
+        -   Fazer o teste passar.
+    3.  **Refatorar (REFACTOR)**: Limpar o código do endpoint, garantindo que os testes continuem passando.
 
----
+### Tarefa 3.3.2: Adaptar Frontend
 
-## Iteração 2.10 — Dockerização (já planejada)
-
-Conforme `AGENTS.md` Iteração 2.6:
-- Dockerfile para backend e frontend
-- docker-compose.yml
-- Documentar em `docs/SETUP.md`
-
----
-
-## Iteração 2.11 — Chat e Documentação
-
-### Tarefa 2.11.1: Chat com markdown e tabelas (Iteração 2.4)
-
-Conforme `AGENTS.md`:
-- `react-markdown` para respostas
-- Melhorar system prompt do Ollama
-- Converter resultados tabulares em markdown antes de enviar ao modelo
+-   **Critérios de Aceite**:
+    1.  Adicionar um controle na UI (ex: um `SegmentedControl` ou `Select`) no `FilterBar.tsx` que permita ao usuário escolher a dimensão de análise: "Local da Ocorrência" vs. "Local de Residência".
+    2.  O estado dessa seleção deve ser gerenciado (ex: via `useState` ou Zustand).
+    3.  As chamadas à API (`/api/dashboard/*`) devem incluir o novo parâmetro `dimensao`.
+    4.  Os gráficos e KPIs devem se atualizar dinamicamente com base na dimensão selecionada.
 
 ---
 
-## Resumo de Prioridades
+## Iteração 3.4 — Filtros Avançados: Estado e Região
 
-| Prioridade | Tarefa | Impacto |
-|------------|--------|---------|
-| Alta | 2.7.1 Derivar UF do município | Corrige dados incorretos (Fortaleza/Joinville como BA) |
-| Alta | 2.7.2 Validação UF × código | Qualidade e auditoria |
-| Média | 2.8.1 GeoJSON qualidade alta | Melhora visual do mapa |
-| Média | 2.8.2 Municípios sem geometria | Completude do mapa |
-| Média | 2.9.1 Corrigir testes | Estabilidade do CI |
-| Baixa | 2.9.2 Lint backend/ibge | Consistência de código |
-| Planejada | 2.6 Dockerização | Deploy simplificado |
-| Planejada | 2.4 Chat markdown | UX do chat |
+**Contexto**: A análise atualmente é muito focada em municípios. Para uma visão macro, é essencial permitir filtros por UF (Estado) e Região.
+**Objetivo**: Implementar uma filtragem geográfica mais abrangente.
+
+### Tarefa 3.4.1: Implementar Filtro por UF e Região na API
+
+-   **Use Case**: Um analista do Ministério da Saúde quer ver o total de custos de acidentes para todos os estados da região "Nordeste".
+-   **Critérios de Aceite (Test-First)**:
+    1.  **Escrever Teste (RED)**: Adicionar testes à API que passem `uf=BA` ou `regiao=Nordeste` como query params e validem que os dados retornados são apenas daquela localidade.
+    2.  **Implementar (GREEN)**:
+        -   No backend, criar um mapeamento de Regiões para UFs (ex: `REGIOES = {"Nordeste": ["BA", "SE", "AL", ...]}`).
+        -   Modificar os endpoints para filtrar os dataframes DuckDB com base nos parâmetros `uf` e/ou `regiao` antes de agregar os resultados.
+        -   Fazer os testes passarem.
+    3.  **Refatorar (REFACTOR)**: Otimizar a lógica de filtragem.
+
+### Tarefa 3.4.2: Adicionar Filtros na UI
+
+-   **Critérios de Aceite**:
+    1.  Adicionar componentes `Select` na `FilterBar.tsx` para Estado (UF) and Região.
+    2.  O `Select` de UF deve ser populado com a lista de estados disponíveis nos dados.
+    3.  O `Select` de Região deve conter as 5 grandes regiões do Brasil.
+    4.  A seleção de um filtro deve atualizar os dados exibidos nos dashboards.
+
+---
+
+## Iteração 3.5 — Melhorias de Performance (Backlog)
+
+**Contexto**: O processo de busca de dados do IBGE (`ibge_fetcher.py`) é lento devido a múltiplas chamadas de API sequenciais.
+**Objetivo**: Acelerar o tempo de execução do pipeline.
+
+### Tarefa 3.5.1: Otimizar Requisições ao IBGE
+
+-   **Critérios de Aceite**:
+    1.  Refatorar as funções em `ibge_fetcher.py` que fazem loops para buscar dados da API do IBGE.
+    2.  Utilizar técnicas de concorrência, como `asyncio` com `aiohttp` ou `httpx`, ou paralelismo com `concurrent.futures`, para executar as chamadas de rede em paralelo.
+    3.  Implementar tratamento de erro robusto (ex: retries com exponential backoff) para lidar com a instabilidade da API.
+    4.  Validar que a performance melhorou e que todos os dados continuam sendo baixados corretamente.
