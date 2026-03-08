@@ -86,7 +86,7 @@ export default function MunicipioPage() {
 
       <FilterBar
         filters={[
-          { key: "municipio", label: "Município", options: municipios.map((m) => ({ value: m.cod_mun_ibge, label: `${m.municipio} (${m.uf})` })), placeholder: "Selecione..." },
+          { key: "municipio", label: "Município", options: municipios.filter((m, i, arr) => arr.findIndex((x) => x.cod_mun_ibge === m.cod_mun_ibge) === i).map((m) => ({ value: m.cod_mun_ibge, label: `${m.municipio} (${m.uf})` })), placeholder: "Selecione..." },
           { key: "ano", label: "Ano", options: anos.map((a) => ({ value: String(a), label: String(a) })) },
         ]}
         values={{ municipio: selectedMun, ano: selectedAno }}

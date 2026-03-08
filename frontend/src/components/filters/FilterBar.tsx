@@ -48,8 +48,8 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
             } as React.CSSProperties}
           >
             <option value="">{f.placeholder || "Todos"}</option>
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>
+            {f.options.map((o, i) => (
+              <option key={`${f.key}-${o.value}-${i}`} value={o.value}>
                 {o.label}
               </option>
             ))}

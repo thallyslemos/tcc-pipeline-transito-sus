@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
   Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -56,27 +56,38 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.all([fetchAnos(), fetchMunicipios(), fetchTiposVeiculo()]).then(
-      ([a, m, t]) => { setAnos(a.anos); setMunicipios(m.municipios); setTipos(t.tipos); }
+      ([a, m, t]) => {
+        if (!cancelled) {
+          setAnos(a.anos);
+          setMunicipios(m.municipios);
+          setTipos(t.tipos);
+        }
+      }
     );
+    return () => { cancelled = true; };
   }, []);
 
-  const load = useCallback(() => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     fetchSummary({
       ano: filters.ano ? Number(filters.ano) : undefined,
       municipio: filters.municipio || undefined,
       tipo_veiculo: filters.tipo_veiculo || undefined,
     })
-      .then(setData)
-      .finally(() => setLoading(false));
+      .then((data) => { if (!cancelled) setData(data); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [filters]);
 
-  useEffect(load, [load]);
-
+  const municipiosUnicos = municipios.filter(
+    (m, i, arr) => arr.findIndex((x) => x.cod_mun_ibge === m.cod_mun_ibge) === i
+  );
   const filterDefs = [
     { key: "ano", label: "Ano", options: anos.map((a) => ({ value: String(a), label: String(a) })) },
-    { key: "municipio", label: "Município", options: municipios.map((m) => ({ value: m.cod_mun_ibge, label: m.municipio })), placeholder: "Todos os municípios" },
+    { key: "municipio", label: "Município", options: municipiosUnicos.map((m) => ({ value: m.cod_mun_ibge, label: m.municipio })), placeholder: "Todos os municípios" },
     { key: "tipo_veiculo", label: "Tipo Veículo", options: tipos.map((t) => ({ value: t, label: t })) },
   ];
 
