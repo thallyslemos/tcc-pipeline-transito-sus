@@ -5,6 +5,8 @@
 Impacto econômico e macrotendências de acidentes de trânsito no SUS, com Engenharia
 de Dados (DuckDB), IA Preditiva (TimesFM) e interface conversacional (MCP + Ollama).
 
+![Demo da interface do painel SUS](assets/ui-sus-pipeline.gif)
+
 ### O que este projeto faz
 
 1. **Extrai** microdados de mortalidade (SIM) e custos ambulatoriais (SIA) do DATASUS via PySUS.
