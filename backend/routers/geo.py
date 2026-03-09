@@ -10,7 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from ..database import get_connection
-from ..routers.dashboard import _ibge_join, _lat_lon_expr, _sanitize_floats
+from .utils import _sanitize_floats, _has_view
 
 router = APIRouter(prefix="/api/geo", tags=["GeoJSON"])
 
@@ -70,6 +70,27 @@ def _query_metrics(metrica: str, ano: int | None) -> dict[str, dict]:
     return {r["cod6"]: r for r in rows}
 
 
+def _ibge_join(con, table_alias: str = "o") -> str:
+    """Retorna cláusula LEFT JOIN com v_ibge_municipios se disponível."""
+    if not _has_view(con, "v_ibge_municipios"):
+        return ""
+    return (
+        f"LEFT JOIN v_ibge_municipios ibge "
+        f"ON LEFT({table_alias}.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)"
+    )
+
+
+def _lat_lon_expr(con, table_alias: str = "o") -> tuple[str, str]:
+    """Retorna expressões SQL para lat/lon com fallback para v_ibge_municipios."""
+    has_ibge = _has_view(con, "v_ibge_municipios")
+    if has_ibge:
+        return (
+            f"COALESCE({table_alias}.lat, ibge.lat)",
+            f"COALESCE({table_alias}.lon, ibge.lon)",
+        )
+    return (f"{table_alias}.lat", f"{table_alias}.lon")
+
+
 @router.get("/municipios")
 async def geojson_municipios(ano: int | None = None, metrica: str = "obitos"):
     """GeoJSON FeatureCollection com polígonos de municípios + métricas.
@@ -81,11 +102,11 @@ async def geojson_municipios(ano: int | None = None, metrica: str = "obitos"):
     malhas = _load_malhas()
 
     if malhas:
-        return _build_polygon_fc(malhas, metrics, metrica)
-    return _build_point_fc(metrics, metrica, ano)
+        return _build_polygon_fc(malhas, metrics)
+    return _build_point_fc(metrica, ano)
 
 
-def _build_polygon_fc(malhas: dict, metrics: dict, metrica: str) -> dict:
+def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
     """Constrói FeatureCollection com polígonos do IBGE + métricas."""
     features = []
     for feat in malhas.get("features", []):
@@ -110,7 +131,7 @@ def _build_polygon_fc(malhas: dict, metrics: dict, metrica: str) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
-def _build_point_fc(metrics: dict, metrica: str, ano: int | None) -> dict:
+def _build_point_fc(metrica: str, ano: int | None) -> dict:
     """Fallback: FeatureCollection de pontos (centroides) quando malhas não existem."""
     con = get_connection()
     lat_expr, lon_expr = _lat_lon_expr(con, "o")

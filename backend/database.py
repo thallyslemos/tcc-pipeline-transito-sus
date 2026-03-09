@@ -36,32 +36,45 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
     """Inicializa DuckDB in-memory com views sobre os Parquet Gold."""
     con = duckdb.connect(":memory:")
 
-    obitos_path = _gold_path("obitos_municipio_mes.parquet")
+    ocorrencia_path = _gold_path("obitos_ocorrencia_municipio_mes.parquet")
+    residencia_path = _gold_path("obitos_residencia_municipio_mes.parquet")
     custos_path = _gold_path("custos_municipio_mes.parquet")
 
-    con.sql(f"""
-        CREATE VIEW IF NOT EXISTS v_obitos AS
-        SELECT * FROM read_parquet('{obitos_path}')
-    """)
-    con.sql(f"""
-        CREATE VIEW IF NOT EXISTS v_custos AS
-        SELECT * FROM read_parquet('{custos_path}')
-    """)
+    # Create views for each specific gold file if they exist
+    if Path(ocorrencia_path).exists():
+        con.sql(
+            f"CREATE VIEW IF NOT EXISTS v_obitos_ocorrencia AS SELECT * FROM read_parquet('{ocorrencia_path}')"
+        )
+        # Create a default view for backward compatibility
+        con.sql("CREATE OR REPLACE VIEW v_obitos AS SELECT * FROM v_obitos_ocorrencia")
+
+    if Path(residencia_path).exists():
+        con.sql(
+            f"CREATE VIEW IF NOT EXISTS v_obitos_residencia AS SELECT * FROM read_parquet('{residencia_path}')"
+        )
+
+    if Path(custos_path).exists():
+        con.sql(
+            f"CREATE VIEW IF NOT EXISTS v_custos AS SELECT * FROM read_parquet('{custos_path}')"
+        )
 
     ibge_mun_path = _data_path("ibge_municipios.parquet")
     ibge_pop_path = _data_path("ibge_populacao.parquet")
     if Path(ibge_mun_path).exists():
-        con.sql(f"""
-            CREATE VIEW IF NOT EXISTS v_ibge_municipios AS
-            SELECT * FROM read_parquet('{ibge_mun_path}')
-        """)
+        con.sql(
+            f"CREATE VIEW IF NOT EXISTS v_ibge_municipios AS SELECT * FROM read_parquet('{ibge_mun_path}')"
+        )
     if Path(ibge_pop_path).exists():
-        con.sql(f"""
-            CREATE VIEW IF NOT EXISTS v_ibge_populacao AS
-            SELECT * FROM read_parquet('{ibge_pop_path}')
-        """)
+        con.sql(
+            f"CREATE VIEW IF NOT EXISTS v_ibge_populacao AS SELECT * FROM read_parquet('{ibge_pop_path}')"
+        )
 
-    logger.info("duckdb_inicializado", obitos=obitos_path, custos=custos_path)
+    logger.info(
+        "duckdb_inicializado",
+        obitos_ocorrencia=ocorrencia_path,
+        obitos_residencia=residencia_path,
+        custos=custos_path,
+    )
     return con
 
 
