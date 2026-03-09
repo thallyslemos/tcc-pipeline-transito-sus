@@ -36,43 +36,56 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
     """Inicializa DuckDB in-memory com views sobre os Parquet Gold."""
     con = duckdb.connect(":memory:")
 
-    ocorrencia_path = _gold_path("obitos_ocorrencia_municipio_mes.parquet")
-    residencia_path = _gold_path("obitos_residencia_municipio_mes.parquet")
+    gold_dir = Path(settings.resolve(settings.gold_dir))
     custos_path = _gold_path("custos_municipio_mes.parquet")
 
-    # Create views for each specific gold file if they exist
-    if Path(ocorrencia_path).exists():
-        con.sql(
-            f"CREATE VIEW IF NOT EXISTS v_obitos_ocorrencia AS SELECT * FROM read_parquet('{ocorrencia_path}')"
-        )
-        # Create a default view for backward compatibility
+    ocorrencia_path = gold_dir / "obitos_ocorrencia_municipio_mes.parquet"
+    residencia_path = gold_dir / "obitos_residencia_municipio_mes.parquet"
+    obitos_legacy_path = gold_dir / "obitos_municipio_mes.parquet"
+
+    if ocorrencia_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos_ocorrencia AS
+            SELECT * FROM read_parquet('{ocorrencia_path}')
+        """)
         con.sql("CREATE OR REPLACE VIEW v_obitos AS SELECT * FROM v_obitos_ocorrencia")
-
-    if Path(residencia_path).exists():
-        con.sql(
-            f"CREATE VIEW IF NOT EXISTS v_obitos_residencia AS SELECT * FROM read_parquet('{residencia_path}')"
+    elif obitos_legacy_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos AS
+            SELECT * FROM read_parquet('{obitos_legacy_path}')
+        """)
+    else:
+        raise FileNotFoundError(
+            f"Parquet Gold de óbitos não encontrado. Esperado: {ocorrencia_path} ou {obitos_legacy_path}"
         )
 
-    if Path(custos_path).exists():
-        con.sql(
-            f"CREATE VIEW IF NOT EXISTS v_custos AS SELECT * FROM read_parquet('{custos_path}')"
-        )
+    if residencia_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos_residencia AS
+            SELECT * FROM read_parquet('{residencia_path}')
+        """)
+    con.sql(f"""
+        CREATE VIEW IF NOT EXISTS v_custos AS
+        SELECT * FROM read_parquet('{custos_path}')
+    """)
 
     ibge_mun_path = _data_path("ibge_municipios.parquet")
     ibge_pop_path = _data_path("ibge_populacao.parquet")
     if Path(ibge_mun_path).exists():
-        con.sql(
-            f"CREATE VIEW IF NOT EXISTS v_ibge_municipios AS SELECT * FROM read_parquet('{ibge_mun_path}')"
-        )
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_ibge_municipios AS
+            SELECT * FROM read_parquet('{ibge_mun_path}')
+        """)
     if Path(ibge_pop_path).exists():
-        con.sql(
-            f"CREATE VIEW IF NOT EXISTS v_ibge_populacao AS SELECT * FROM read_parquet('{ibge_pop_path}')"
-        )
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_ibge_populacao AS
+            SELECT * FROM read_parquet('{ibge_pop_path}')
+        """)
 
     logger.info(
         "duckdb_inicializado",
-        obitos_ocorrencia=ocorrencia_path,
-        obitos_residencia=residencia_path,
+        obitos_ocorrencia=str(ocorrencia_path),
+        obitos_residencia=str(residencia_path),
         custos=custos_path,
     )
     return con
