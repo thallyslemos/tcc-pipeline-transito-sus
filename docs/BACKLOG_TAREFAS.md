@@ -23,6 +23,7 @@
     2.  Adicionar um parâmetro `dimensao: str` às `tools` de consulta (`query_obitos`, `query_custos`) para permitir que o LLM especifique a análise por ocorrência ou residência.
     3.  Criar uma nova `tool` chamada `listar_opcoes_filtro()` que consulta os dados e retorna os valores distintos para `ano`, `tipo_veiculo`, `uf` e as regiões disponíveis.
     4.  Atualizar o `prompt` de instruções do MCP para informar ao LLM sobre a existência dessa nova `tool` e incentivá-lo a usá-la.
+-   **(Status: Concluído)** Refatorado para usar `backend.database.get_connection()`, adicionado `dimensao` e a nova tool de filtros.
 
 ### Tarefa 4.3: Preparação para Análise Preditiva de Alta Resolução
 
@@ -32,6 +33,7 @@
     2.  Criar um novo script no pipeline (`data-pipeline/gold_timeseries.py`, por exemplo) que gera essa tabela a partir da camada **Silver**, que possui granularidade diária.
     3.  A agregação deve unir os dados de óbitos (SIM) e custos (SIA) por dia e município.
     4.  Adicionar a execução deste novo script ao orquestrador `run.py`.
+-   **(Status: Concluído)** Novo script `gold_timeseries.py` implementado e integrado ao pipeline principal.
 
 ### Tarefa 4.4: Adicionar Filtro por Região na API (Conclusão)
 
@@ -41,3 +43,13 @@
     2.  Escrever testes que falhem ao tentar filtrar esses endpoints por `uf` e `regiao`.
     3.  Implementar a lógica de filtro nesses endpoints, utilizando as funções auxiliares já criadas em `routers/utils.py`.
     4.  Garantir que todos os testes passem.
+-   **(Status: Concluído)** Filtros implementados em `dashboard.py` e `geo.py`, com cobertura de testes em `tests/test_api.py`.
+
+### Tarefa 4.5: Implementação de Testes de Frontend
+
+-   **Use Case**: Garantir que alterações no frontend não quebrem funcionalidades críticas da interface.
+-   **Critérios de Aceite**:
+    1.  Instalar e configurar Vitest + React Testing Library no projeto frontend.
+    2.  Criar infraestrutura de mocks para Next.js navigation e hooks de tema.
+    3.  Implementar testes para componentes críticos (ex: Sidebar).
+-   **(Status: Concluído)** Vitest configurado e testes básicos implementados para o componente Sidebar.
