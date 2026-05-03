@@ -117,3 +117,14 @@ Este repositório está conectado ao Cursor para implementação iterativa. Ao e
 - Dados: SIM (óbitos) e SIA (produção ambulatorial/custos).
 - Municípios prioritários: São Paulo, Belo Horizonte, Vitória da Conquista (BA).
 - Manter arquivos Parquet em `data/` (adicionar ao `.gitignore` se >50MB).
+
+---
+
+## Documentos de Planejamento e Backlog
+
+| Documento | Conteúdo |
+|-----------|----------|
+| `docs/BACKLOG_TAREFAS.md` | Tarefas priorizadas (2.7 correção UF, 2.8 GeoJSON qualidade alta, 2.9 testes, etc.) com critérios de aceite |
+| `docs/DADOS_MUNICIPIO.md` | Semântica de município (ocorrência vs residência), problema UF Fortaleza/Joinville, fontes para respostas |
+| `docs/GUIA_AGENTES.md` | Instruções para agentes IA, fluxo de trabalho, checklist de features |
+| `AGENTS.md` | Comandos, caveats, plano de iterações 2.1–2.8 |

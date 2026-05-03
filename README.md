@@ -5,6 +5,8 @@
 Impacto econômico e macrotendências de acidentes de trânsito no SUS, com Engenharia
 de Dados (DuckDB), IA Preditiva (TimesFM) e interface conversacional (MCP + Ollama).
 
+![Demo da interface do painel SUS](assets/ui-sus-pipeline.gif)
+
 ### O que este projeto faz
 
 1. **Extrai** microdados de mortalidade (SIM) e custos ambulatoriais (SIA) do DATASUS via PySUS.
@@ -84,9 +86,12 @@ uv run ruff format .       # formatação
 | **[docs/SETUP.md](docs/SETUP.md)** | Guia completo de configuração local (Windows/macOS/Linux), comandos do dia a dia, solução de problemas |
 | **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Arquitetura do pipeline (Medallion), modelo de dados Gold, integração IBGE, MCP Server, diagramas Mermaid |
 | **[docs/FINANCEIRO.md](docs/FINANCEIRO.md)** | Metodologia de cálculos financeiros (SIA/PA), significado de `PA_VALAPR`, limitações conhecidas |
+| **[docs/DADOS_MUNICIPIO.md](docs/DADOS_MUNICIPIO.md)** | Semântica município (ocorrência vs residência), correção UF (Fortaleza/Joinville), fontes |
+| **[docs/BACKLOG_TAREFAS.md](docs/BACKLOG_TAREFAS.md)** | Tarefas priorizadas com critérios de aceite (2.7 UF, 2.8 GeoJSON, etc.) |
+| **[docs/GUIA_AGENTES.md](docs/GUIA_AGENTES.md)** | Instruções para agentes IA, fluxo de trabalho, padrões e checklist |
 | **[docs/PLANEJAMENTO.md](docs/PLANEJAMENTO.md)** | Plano de iterações, stack, referência CID-10, instruções por iteração |
 | **[docs/Thallys \[TCC I\] Súmula](docs/Thallys%20%5BTCC%20I%5D%20Súmula%20de%20Projeto%20de%20Pesquisa.docx.md)** | Pré-projeto de pesquisa com 22 referências acadêmicas/institucionais (NBR 6023:2018) |
-| **[AGENTS.md](AGENTS.md)** | Instruções para uso com agentes IA (Cursor/LLMs) e comandos úteis |
+| **[AGENTS.md](AGENTS.md)** | Instruções para uso com agentes IA (Cursor/LLMs), comandos e caveats |
 
 ### Tecnologias
 

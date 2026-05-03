@@ -1,0 +1,148 @@
+%% Diagrama de Arquitetura de Dados Completa
+%% Pipeline Analítico de Acidentes de Trânsito no SUS
+
+flowchart TB
+    %% Estilos
+    classDef fonte fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef bronze fill:#d7ccc8,stroke:#5d4037,stroke-width:2px
+    classDef silver fill:#c0c0c0,stroke:#616161,stroke-width:2px
+    classDef gold fill:#ffd700,stroke:#f57f17,stroke-width:2px
+    classDef postgres fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    classDef process fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    %% Fontes
+    subgraph FONTES["📥 Fontes de Dados Externas"]
+        F1[(DATASUS)]
+        F2[(IBGE)]
+        F3[(DENATRAN)]
+        F4[(Atlas Brasil)]
+    end
+    
+    %% Camada Bronze
+    subgraph BRONZE["🥉 Camada Bronze (Raw)"]
+        B1[bronze_sim.parquet]
+        B2[bronze_sia.parquet]
+        B3[bronze_ibge.parquet]
+        B4[bronze_frota.parquet]
+        B5[bronze_pib.parquet]
+    end
+    
+    %% Processos Silver
+    subgraph PROC_SILVER["⚙️ Processamento Silver"]
+        P1[Filtrar CID V01-V89]
+        P2[Normalizar campos]
+        P3[Decodificar idades]
+        P4[Enriquecer geografia]
+    end
+    
+    %% Camada Silver
+    subgraph SILVER["🥈 Camada Silver (Clean)"]
+        S1[silver_sim.parquet]
+        S2[silver_sia.parquet]
+        S3[silver_municipios.parquet]
+        S4[silver_frota.parquet]
+        S5[silver_pib.parquet]
+    end
+    
+    %% Processos Gold
+    subgraph PROC_GOLD["⚙️ Agregação Gold"]
+        P5[Agregar por município/mês]
+        P6[Calcular indicadores]
+        P7[Enriquecer com IBGE]
+    end
+    
+    %% Camada Gold
+    subgraph GOLD["🥇 Camada Gold (Aggregated)"]
+        G1[gold_obitos_ocorrencia.parquet]
+        G2[gold_obitos_residencia.parquet]
+        G3[gold_custos.parquet]
+        G4[gold_frota.parquet]
+        G5[gold_municipios_completos.parquet]
+    end
+    
+    %% Sync
+    subgraph SYNC["🔄 Sync para Produção"]
+        SYNC1[scripts/sync_to_postgres.py]
+    end
+    
+    %% PostgreSQL
+    subgraph POSTGRES["🐘 PostgreSQL (Produção)"]
+        subgraph DIMENSOES["Dimensões"]
+            DIM1[(dim_municipio)]
+            DIM2[(dim_tempo)]
+        end
+        
+        subgraph FATOS["Tabelas Fato"]
+            FAT1[(fato_obitos)]
+            FAT2[(fato_custos)]
+            FAT3[(fato_frota)]
+        end
+    end
+    
+    %% API
+    subgraph API["⚡ API Layer"]
+        API1[FastAPI]
+    end
+    
+    %% Frontend
+    subgraph FRONT["🖥️ Frontend"]
+        FR1[Next.js Dashboard]
+    end
+    
+    %% Fluxos
+    F1 -->|FTP/PySUS| B1
+    F1 -->|FTP/PySUS| B2
+    F2 -->|CSV/API| B3
+    F3 -->|Download| B4
+    F4 -->|Download| B5
+    
+    B1 --> P1
+    B2 --> P1
+    B3 --> P4
+    B4 --> P2
+    B5 --> P2
+    
+    P1 --> S1
+    P1 --> S2
+    P4 --> S3
+    P2 --> S4
+    P2 --> S5
+    
+    S1 --> P5
+    S2 --> P6
+    S3 --> P7
+    S4 --> P5
+    
+    P5 --> G1
+    P5 --> G2
+    P6 --> G3
+    P5 --> G4
+    P7 --> G5
+    
+    G1 --> SYNC1
+    G2 --> SYNC1
+    G3 --> SYNC1
+    G4 --> SYNC1
+    G5 --> SYNC1
+    
+    SYNC1 --> DIM1
+    SYNC1 --> DIM2
+    SYNC1 --> FAT1
+    SYNC1 --> FAT2
+    SYNC1 --> FAT3
+    
+    DIM1 --> API1
+    DIM2 --> API1
+    FAT1 --> API1
+    FAT2 --> API1
+    FAT3 --> API1
+    
+    API1 --> FR1
+    
+    %% Classes
+    class F1,F2,F3,F4 fonte
+    class B1,B2,B3,B4,B5 bronze
+    class P1,P2,P3,P4,P5,P6,P7,SYNC1 process
+    class S1,S2,S3,S4,S5 silver
+    class G1,G2,G3,G4,G5 gold
+    class DIM1,DIM2,FAT1,FAT2,FAT3 postgres

@@ -35,7 +35,8 @@ def tmp_data(tmp_path: Path):
     silver_sim = silver_mod.processar_silver_sim(bronze_sim)
     silver_sia = silver_mod.processar_silver_sia(bronze_sia)
 
-    gold_obitos = gold_mod.gerar_gold_obitos(silver_sim)
+    gold_obitos_ocorrencia = gold_mod.gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gold_mod.gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gold_mod.gerar_gold_custos(silver_sia)
 
     return {
@@ -43,7 +44,8 @@ def tmp_data(tmp_path: Path):
         "bronze_sia": bronze_sia,
         "silver_sim": silver_sim,
         "silver_sia": silver_sia,
-        "gold_obitos": gold_obitos,
+        "gold_obitos_ocorrencia": gold_obitos_ocorrencia,
+        "gold_obitos_residencia": gold_obitos_residencia,
         "gold_custos": gold_custos,
         "df_sim": df_sim,
         "df_sia": df_sia,
@@ -101,13 +103,28 @@ def test_silver_sim_enrichment(tmp_data):
 
 
 def test_gold_obitos_aggregation(tmp_data):
-    """Gold óbitos deve ser agregado por município/mês."""
+    """Gold óbitos (ocorrência) deve ser agregado por município/mês."""
     con = duckdb.connect(":memory:")
     result = con.sql(f"""
         SELECT
             COUNT(DISTINCT cod_mun_ibge) AS municipios,
             MIN(ano) AS min_ano, MAX(ano) AS max_ano
-        FROM '{tmp_data["gold_obitos"]}'
+        FROM '{tmp_data["gold_obitos_ocorrencia"]}'
+    """).fetchone()
+    con.close()
+    assert result[0] == 9, "Deve ter 9 municipios"
+    assert result[1] == 2022
+    assert result[2] == 2023
+
+
+def test_gold_obitos_residencia_aggregation(tmp_data):
+    """Gold óbitos (residencia) deve ser agregado por município/mês."""
+    con = duckdb.connect(":memory:")
+    result = con.sql(f"""
+        SELECT
+            COUNT(DISTINCT cod_mun_ibge) AS municipios,
+            MIN(ano) AS min_ano, MAX(ano) AS max_ano
+        FROM '{tmp_data["gold_obitos_residencia"]}'
     """).fetchone()
     con.close()
     assert result[0] == 9, "Deve ter 9 municipios"

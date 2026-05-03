@@ -36,13 +36,34 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
     """Inicializa DuckDB in-memory com views sobre os Parquet Gold."""
     con = duckdb.connect(":memory:")
 
-    obitos_path = _gold_path("obitos_municipio_mes.parquet")
+    gold_dir = Path(settings.resolve(settings.gold_dir))
     custos_path = _gold_path("custos_municipio_mes.parquet")
 
-    con.sql(f"""
-        CREATE VIEW IF NOT EXISTS v_obitos AS
-        SELECT * FROM read_parquet('{obitos_path}')
-    """)
+    ocorrencia_path = gold_dir / "obitos_ocorrencia_municipio_mes.parquet"
+    residencia_path = gold_dir / "obitos_residencia_municipio_mes.parquet"
+    obitos_legacy_path = gold_dir / "obitos_municipio_mes.parquet"
+
+    if ocorrencia_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos_ocorrencia AS
+            SELECT * FROM read_parquet('{ocorrencia_path}')
+        """)
+        con.sql("CREATE OR REPLACE VIEW v_obitos AS SELECT * FROM v_obitos_ocorrencia")
+    elif obitos_legacy_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos AS
+            SELECT * FROM read_parquet('{obitos_legacy_path}')
+        """)
+    else:
+        raise FileNotFoundError(
+            f"Parquet Gold de óbitos não encontrado. Esperado: {ocorrencia_path} ou {obitos_legacy_path}"
+        )
+
+    if residencia_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_obitos_residencia AS
+            SELECT * FROM read_parquet('{residencia_path}')
+        """)
     con.sql(f"""
         CREATE VIEW IF NOT EXISTS v_custos AS
         SELECT * FROM read_parquet('{custos_path}')
@@ -61,7 +82,12 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
             SELECT * FROM read_parquet('{ibge_pop_path}')
         """)
 
-    logger.info("duckdb_inicializado", obitos=obitos_path, custos=custos_path)
+    logger.info(
+        "duckdb_inicializado",
+        obitos_ocorrencia=str(ocorrencia_path),
+        obitos_residencia=str(residencia_path),
+        custos=custos_path,
+    )
     return con
 
 

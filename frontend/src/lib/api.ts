@@ -7,6 +7,9 @@ function qs(filters: FilterValues): string {
   if (filters.ano) p.set("ano", String(filters.ano));
   if (filters.municipio) p.set("municipio", filters.municipio);
   if (filters.tipo_veiculo) p.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.uf) p.set("uf", filters.uf);
+  if (filters.regiao) p.set("regiao", filters.regiao);
+  if (filters.dimensao) p.set("dimensao", filters.dimensao);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -26,8 +29,8 @@ export const fetchAnos = () =>
 export const fetchTiposVeiculo = () =>
   get<{ tipos: string[] }>("/api/dashboard/tipos-veiculo");
 
-export const fetchMunicipios = () =>
-  get<{ municipios: Municipio[] }>("/api/dashboard/municipios");
+export const fetchMunicipios = (f: FilterValues = {}) =>
+  get<{ municipios: Municipio[] }>(`/api/dashboard/municipios${qs(f)}`);
 
 export const fetchMunicipio = (cod: string, ano?: number) =>
   get<MunicipioDetail>(`/api/dashboard/municipio/${cod}${ano ? `?ano=${ano}` : ""}`);

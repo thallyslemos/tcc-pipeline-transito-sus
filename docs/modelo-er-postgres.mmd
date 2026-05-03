@@ -1,0 +1,106 @@
+%% Modelo Entidade-Relacionamento - PostgreSQL
+%% Camada de Consumo
+
+erDiagram
+    DIM_MUNICIPIO {
+        varchar cod_mun_ibge_7 PK "Código IBGE com dígito"
+        varchar cod_mun_ibge_6 UK "Código IBGE sem dígito"
+        varchar nome "Nome do município"
+        varchar uf_sigla "Sigla da UF"
+        varchar uf_nome "Nome da UF"
+        varchar regiao_macro "Região do Brasil"
+        varchar regiao_intermediaria_cod "Código região intermediária IBGE"
+        varchar regiao_intermediaria_nome "Nome região intermediária"
+        varchar regiao_imediata_cod "Código região imediata IBGE"
+        varchar regiao_imediata_nome "Nome região imediata"
+        decimal lat "Latitude"
+        decimal lon "Longitude"
+        decimal area_km2 "Área territorial em km²"
+        timestamp criado_em "Data de criação"
+        timestamp atualizado_em "Data de atualização"
+    }
+    
+    DIM_TEMPO {
+        date data PK "Data"
+        int ano "Ano"
+        int mes "Mês"
+        int trimestre "Trimestre"
+        varchar nome_mes "Nome do mês"
+        int dia_semana "Dia da semana (0-6)"
+        boolean feriado "É feriado?"
+        boolean fim_de_semana "É fim de semana?"
+    }
+    
+    DIM_TIPO_VEICULO {
+        varchar codigo PK "Código CID-10 ou categoria"
+        varchar descricao "Descrição"
+    }
+    
+    FATO_OBITOS {
+        serial id PK "ID único"
+        varchar cod_mun_ibge_7 FK "Referência dim_municipio"
+        int ano "Ano do evento"
+        int mes "Mês do evento"
+        varchar dimensao "ocorrencia ou residencia"
+        varchar tipo_veiculo "Categoria do veículo"
+        varchar faixa_etaria "Faixa etária da vítima"
+        varchar sexo "M ou F"
+        int quantidade "Número de óbitos"
+        decimal taxa_100_mil "Taxa por 100 mil habitantes"
+        timestamp criado_em "Data de carga"
+    }
+    
+    FATO_CUSTOS {
+        serial id PK "ID único"
+        varchar cod_mun_ibge_7 FK "Referência dim_municipio"
+        int ano "Ano do atendimento"
+        int mes "Mês do atendimento"
+        varchar tipo_veiculo "Categoria do veículo"
+        varchar faixa_etaria "Faixa etária"
+        decimal custo_total "Valor total aprovado (R$)"
+        int qtd_procedimentos "Quantidade de procedimentos"
+        int qtd_atendimentos "Número de atendimentos"
+        decimal custo_per_capita "Custo por habitante"
+        timestamp criado_em "Data de carga"
+    }
+    
+    FATO_FROTA {
+        serial id PK "ID único"
+        varchar cod_mun_ibge_7 FK "Referência dim_municipio"
+        int ano "Ano de referência"
+        int mes "Mês de referência"
+        varchar tipo_veiculo "Categoria do veículo"
+        int quantidade "Frota"
+        timestamp atualizado_em "Data de atualização"
+    }
+    
+    %% Relacionamentos
+    DIM_MUNICIPIO ||--o{ FATO_OBITOS : "1:N"
+    DIM_MUNICIPIO ||--o{ FATO_CUSTOS : "1:N"
+    DIM_MUNICIPIO ||--o{ FATO_FROTA : "1:N"
+    
+    %% Notas
+    note right of DIM_MUNICIPIO
+        Todos os 5.570 municípios brasileiros
+        Hierarquia IBGE 2017 completa
+        Carregada uma única vez
+        Atualizada anualmente
+    end note
+    
+    note right of FATO_OBITOS
+        Agregação mensal por município
+        Dupla dimensão: ocorrência e residência
+        Taxa calculada sobre população IBGE
+    end note
+    
+    note right of FATO_CUSTOS
+        Dados do SIA/PA filtrados CID V01-V89
+        Custo per capita calculado
+        Atualização mensal
+    end note
+    
+    note right of FATO_FROTA
+        Fonte: DENATRAN/RENAVAM
+        Frota mensal por tipo de veículo
+        Permite calcular taxas por frota
+    end note

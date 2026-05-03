@@ -14,14 +14,19 @@ interface FilterDef {
   placeholder?: string;
 }
 
-interface Props {
+interface Props<T extends string> {
   filters: FilterDef[];
-  values: Record<string, string>;
-  onChange: (key: string, value: string) => void;
+  values: Partial<Record<T, string>>;
+  onChange: (key: T, value: string) => void;
   onReset?: () => void;
 }
 
-export default function FilterBar({ filters, values, onChange, onReset }: Props) {
+export default function FilterBar<T extends string>({
+  filters,
+  values,
+  onChange,
+  onReset,
+}: Props<T>) {
   const hasActive = Object.values(values).some(Boolean);
 
   return (
@@ -37,8 +42,8 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
           </label>
           <select
             id={`filter-${f.key}`}
-            value={values[f.key] || ""}
-            onChange={(e) => onChange(f.key, e.target.value)}
+            value={values[f.key as T] || ""}
+            onChange={(e) => onChange(f.key as T, e.target.value)}
             className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
             style={{
               backgroundColor: "var(--bg-card)",
@@ -48,8 +53,8 @@ export default function FilterBar({ filters, values, onChange, onReset }: Props)
             } as React.CSSProperties}
           >
             <option value="">{f.placeholder || "Todos"}</option>
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>
+            {f.options.map((o, i) => (
+              <option key={`${f.key}-${o.value}-${i}`} value={o.value}>
                 {o.label}
               </option>
             ))}

@@ -9,6 +9,8 @@ Responsavel por:
 
 from __future__ import annotations
 
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,10 +22,10 @@ from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
-
+1100700
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 METADADOS_MUN_URL = (
-    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
+    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/1100700/metadados"
 )
 MALHAS_BR_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
@@ -32,6 +34,7 @@ MALHAS_BR_URL = (
 SIDRA_BASE_URL = "https://apisidra.ibge.gov.br/values"
 SIDRA_TABELA = "6579"
 SIDRA_VARIAVEL_POP = "9324"
+MAX_WORKERS = 10  # Limita o número de threads para não sobrecarregar a API
 
 
 @dataclass(frozen=True)
@@ -42,116 +45,94 @@ class MunicipioLocalidade:
     regiao: str
 
 
-def _http_get(url: str, *, params: dict | None = None, timeout: float = 30.0) -> httpx.Response:
-    """Wrapper simples de GET com log e timeout padrao."""
-    try:
-        resp = httpx.get(url, params=params, timeout=timeout)
-        resp.raise_for_status()
-        return resp
-    except httpx.HTTPError as exc:
-        logger.error("ibge_http_erro", url=url, params=params, erro=str(exc))
-        raise
+def _http_get_with_retry(
+    url: str, *, params: dict | None = None, timeout: float = 30.0, retries: int = 3, delay: float = 1.0
+) -> httpx.Response | None:
+    """Wrapper GET com retries e exponential backoff."""
+    for attempt in range(retries):
+        try:
+            resp = httpx.get(url, params=params, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except httpx.HTTPError as exc:
+            logger.warning("ibge_http_erro", url=url, attempt=attempt + 1, erro=str(exc))
+            if attempt + 1 == retries:
+                logger.error("ibge_http_falha_final", url=url, erro=str(exc))
+                return None
+            time.sleep(delay * (2**attempt))
+    return None
 
 
 def fetch_localidades() -> list[MunicipioLocalidade]:
     """Busca lista completa de municipios na API de localidades."""
     logger.info("ibge_localidades_busca", url=LOCALIDADES_URL)
-    resp = _http_get(LOCALIDADES_URL)
+    resp = _http_get_with_retry(LOCALIDADES_URL)
+    if not resp:
+        return []
+        
     data = resp.json()
-
     municipios: list[MunicipioLocalidade] = []
     for item in data:
         try:
             cod = str(item["id"])
             nome = item["nome"]
-            micro = item.get("microrregiao")
-            regiao_imediata = item.get("regiao-imediata")
-            if micro and micro.get("mesorregiao"):
-                uf_info = micro["mesorregiao"]["UF"]
-            elif regiao_imediata and regiao_imediata.get("regiao-intermediaria"):
-                uf_info = regiao_imediata["regiao-intermediaria"]["UF"]
-            else:
-                continue
-            uf_sigla = uf_info["sigla"]
-            regiao_nome = uf_info["regiao"]["nome"]
-            municipios.append(
-                MunicipioLocalidade(
-                    cod_mun_ibge=cod,
-                    nome=nome,
-                    uf=uf_sigla,
-                    regiao=regiao_nome,
+            uf_info = item.get("regiao-imediata", {}).get("regiao-intermediaria", {}).get("UF", {})
+            uf_sigla = uf_info.get("sigla")
+            regiao_nome = uf_info.get("regiao", {}).get("nome")
+            if uf_sigla and regiao_nome:
+                municipios.append(
+                    MunicipioLocalidade(
+                        cod_mun_ibge=cod, nome=nome, uf=uf_sigla, regiao=regiao_nome
+                    )
                 )
-            )
-        except Exception as exc:  # pragma: no cover - defensivo
+        except Exception as exc:
             logger.warning("ibge_localidade_parse_falha", erro=str(exc), raw=item)
             continue
-
     logger.info("ibge_localidades_total", total=len(municipios))
     return municipios
 
 
-def fetch_centroide_municipio(cod_mun: str) -> dict[str, float] | None:
-    """Busca centroide de um municipio via API v4 de metadados de malhas.
-
-    URL: /api/v4/malhas/municipios/{cod}/metadados
-    Retorna: {"lat": float, "lon": float} ou None.
-    """
+def fetch_centroide_municipio(cod_mun: str) -> tuple[str, dict[str, float] | None]:
+    """Busca centroide de um municipio. Retorna tupla (cod_mun, resultado)."""
     url = METADADOS_MUN_URL.format(cod=cod_mun)
-    try:
-        resp = _http_get(url, timeout=15.0)
-    except httpx.HTTPError:
-        return None
+    resp = _http_get_with_retry(url, timeout=15.0)
+    if not resp:
+        return cod_mun, None
 
     try:
         data = resp.json()
-    except ValueError:
-        return None
+        if isinstance(data, list) and data:
+            centroide = data[0].get("centroide", {})
+            lat = centroide.get("latitude")
+            lon = centroide.get("longitude")
+            if lat is not None and lon is not None:
+                return cod_mun, {"lat": float(lat), "lon": float(lon)}
+    except (ValueError, IndexError):
+        return cod_mun, None
+    return cod_mun, None
 
-    if isinstance(data, list) and data:
-        centroide = data[0].get("centroide", {})
-        lat = centroide.get("latitude")
-        lon = centroide.get("longitude")
-        if lat is not None and lon is not None:
-            return {"lat": float(lat), "lon": float(lon)}
-    return None
 
-
-def fetch_populacao(cod_mun: str, ano: int) -> int | None:
-    """Busca populacao estimada para um municipio/ano (SIDRA Tabela 6579)."""
-    url = (
-        f"{SIDRA_BASE_URL}/t/{SIDRA_TABELA}/n6/{cod_mun}/"
-        f"v/{SIDRA_VARIAVEL_POP}/p/{ano}"
-    )
+def fetch_populacao(cod_mun: str, ano: int) -> tuple[str, int, int | None]:
+    """Busca populacao estimada. Retorna tupla (cod_mun, ano, resultado)."""
+    url = f"{SIDRA_BASE_URL}/t/{SIDRA_TABELA}/n6/{cod_mun}/v/{SIDRA_VARIAVEL_POP}/p/{ano}"
     params = {"formato": "json"}
-    logger.info("ibge_sidra_busca", cod_mun=cod_mun, ano=ano, url=url)
-    try:
-        resp = _http_get(url, params=params, timeout=60.0)
-    except httpx.HTTPError:
-        return None
+    logger.info("ibge_sidra_busca", cod_mun=cod_mun, ano=ano)
+    
+    resp = _http_get_with_retry(url, params=params, timeout=60.0)
+    if not resp:
+        return cod_mun, ano, None
 
     try:
         data = resp.json()
-    except ValueError as exc:  # pragma: no cover - defensivo
-        logger.warning("ibge_sidra_json_invalido", erro=str(exc))
-        return None
-
-    # API retorna primeira linha como cabecalho e as demais como dados
-    if not isinstance(data, list) or len(data) < 2:
-        return None
-
-    for item in data[1:]:
-        valor = item.get("V")
-        if not valor:
-            continue
-        try:
-            # Valor vem como string, ex: "2480790"
-            v = int(str(valor).replace(".", "").replace(",", ""))
-            return v
-        except (TypeError, ValueError):  # pragma: no cover - defensivo
-            logger.warning("ibge_sidra_valor_invalido", raw_valor=valor)
-            continue
-
-    return None
+        if not isinstance(data, list) or len(data) < 2:
+            return cod_mun, ano, None
+        
+        valor = data[1].get("V")
+        if valor and str(valor).strip() not in ("..", "...", "-"):
+            return cod_mun, ano, int(valor)
+    except (ValueError, IndexError, TypeError):
+        return cod_mun, ano, None
+    return cod_mun, ano, None
 
 
 def _silver_paths() -> tuple[Path, Path]:
@@ -214,14 +195,8 @@ def _write_parquet(df: pd.DataFrame, path: Path) -> None:
 
 
 def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
-    """Orquestra busca de dados IBGE e salva em Parquet.
-
-    Args:
-        dest_dir: Diretório base para os arquivos Parquet IBGE.
-                  Se None, usa settings.data_dir.
-    """
+    """Orquestra busca de dados IBGE em paralelo e salva em Parquet."""
     dest_dir = settings.resolve(settings.data_dir) if dest_dir is None else Path(dest_dir)
-
     logger.info("ibge_parquet_iniciando", dest_dir=str(dest_dir))
 
     combos = _infer_cod_ano_uf()
@@ -230,107 +205,67 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         return
 
     codigos = sorted({c for (c, _, _) in combos})
-    anos = sorted({a for (_, a, _) in combos})
-    ufs = sorted({u for (_, _, u) in combos})
-
-    logger.info(
-        "ibge_combos_inferidos",
-        municipios=len(codigos),
-        anos=anos,
-        ufs=ufs,
-    )
-
-    # 1) Localidades (nome, uf, regiao)
+    
     localidades = fetch_localidades()
-
-    # Mapa por código de 7 dígitos (IBGE oficial) e por prefixo de 6 dígitos
-    # (DATASUS/SIA). Permite lookup com ambos os formatos.
-    loc_map_7: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge: m for m in localidades}
-    loc_map_6: dict[str, MunicipioLocalidade] = {m.cod_mun_ibge[:6]: m for m in localidades}
+    loc_map_7 = {m.cod_mun_ibge: m for m in localidades}
+    loc_map_6 = {m.cod_mun_ibge[:6]: m for m in localidades}
 
     def _find_localidade(cod: str) -> MunicipioLocalidade | None:
-        if cod in loc_map_7:
-            return loc_map_7[cod]
-        prefix = cod[:6]
-        if prefix in loc_map_6:
-            return loc_map_6[prefix]
-        return None
+        return loc_map_7.get(cod) or loc_map_6.get(cod[:6])
 
-    # 2) Centroides (lat/lon) via API v4 metadados — por municipio
-    # Deduplica por prefixo de 6 dígitos para evitar duplicatas no JOIN
-    seen_prefixes: set[str] = set()
-    municipios_rows: list[dict] = []
+    # 1) Fetch Centroides em paralelo
+    logger.info("ibge_centroides_iniciando", total_municipios=len(codigos))
+    coords_map = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(fetch_centroide_municipio, cod) for cod in codigos}
+        for future in as_completed(futures):
+            cod_result, result = future.result()
+            if result:
+                coords_map[cod_result] = result
+
+    # 2) Monta DataFrame de municípios
+    municipios_rows = []
     for cod in codigos:
         loc = _find_localidade(cod)
-        if not loc:
-            logger.warning("ibge_municipio_sem_localidade", cod_mun_ibge=cod)
-            continue
-        prefix = loc.cod_mun_ibge[:6]
-        if prefix in seen_prefixes:
-            continue
-        seen_prefixes.add(prefix)
-        coords = fetch_centroide_municipio(loc.cod_mun_ibge) or {}
-        municipios_rows.append(
-            {
-                "cod_mun_ibge": loc.cod_mun_ibge,
-                "nome": loc.nome,
-                "uf": loc.uf,
-                "regiao": loc.regiao,
-                "lat": coords.get("lat"),
-                "lon": coords.get("lon"),
-            }
-        )
+        if loc:
+            coords = coords_map.get(loc.cod_mun_ibge, {})
+            municipios_rows.append({
+                "cod_mun_ibge": loc.cod_mun_ibge, "nome": loc.nome, "uf": loc.uf,
+                "regiao": loc.regiao, "lat": coords.get("lat"), "lon": coords.get("lon"),
+            })
+    df_mun = pd.DataFrame(municipios_rows).drop_duplicates(subset=["cod_mun_ibge"])
+    _write_parquet(df_mun, dest_dir / "ibge_municipios.parquet")
+    logger.info("ibge_municipios_salvo", registros=len(df_mun))
 
-    df_mun = pd.DataFrame(municipios_rows)
-    municipios_path = dest_dir / "ibge_municipios.parquet"
-    _write_parquet(df_mun, municipios_path)
-    logger.info("ibge_municipios_salvo", path=str(municipios_path), registros=len(df_mun))
+    # 3) Fetch População em paralelo
+    logger.info("ibge_populacao_iniciando", total_combos=len(combos))
+    pop_rows = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Garante que usamos o código de 7 dígitos do IBGE para a API
+        tasks = {
+            executor.submit(
+                fetch_populacao,
+                (_find_localidade(cod).cod_mun_ibge if _find_localidade(cod) else cod),
+                ano
+            )
+            for cod, ano, _ in combos
+        }
+        for future in as_completed(tasks):
+            cod, ano, pop = future.result()
+            if pop:
+                pop_rows.append({"cod_mun_ibge": cod, "ano": ano, "populacao": pop})
+            else:
+                logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod, ano=ano)
 
-    # 3) Populacao (cod, ano -> populacao)
-    # API SIDRA requer código de 7 dígitos. Mapeamos cod→cod_ibge_7.
-    pop_rows: list[dict] = []
-    seen_pop: set[tuple[str, int]] = set()
-    for cod, ano, _uf in combos:
-        loc = _find_localidade(cod)
-        cod_7 = loc.cod_mun_ibge if loc else cod
-        prefix_ano = (cod_7[:6], ano)
-        if prefix_ano in seen_pop:
-            continue
-        seen_pop.add(prefix_ano)
-        pop = fetch_populacao(cod_7, ano)
-        if not pop:
-            logger.warning("ibge_populacao_indisponivel", cod_mun_ibge=cod_7, ano=ano)
-            continue
-        pop_rows.append(
-            {
-                "cod_mun_ibge": cod_7,
-                "ano": ano,
-                "populacao": int(pop),
-            }
-        )
-
-    df_pop = pd.DataFrame(pop_rows)
-    pop_path = dest_dir / "ibge_populacao.parquet"
-    _write_parquet(df_pop, pop_path)
-    logger.info("ibge_populacao_salvo", path=str(pop_path), registros=len(df_pop))
-
-    # 4) Malhas GeoJSON (polígonos de todos os municípios)
-    malhas_path = dest_dir / "ibge_malhas_municipios.geojson"
-    baixar_malhas_geojson(malhas_path)
-
+    df_pop = pd.DataFrame(pop_rows).drop_duplicates(subset=["cod_mun_ibge", "ano"])
+    _write_parquet(df_pop, dest_dir / "ibge_populacao.parquet")
+    logger.info("ibge_populacao_salvo", registros=len(df_pop))
+    
+    # 4) Malhas GeoJSON
+    baixar_malhas_geojson(dest_dir / "ibge_malhas_municipios.geojson")
 
 def baixar_malhas_geojson(dest: Path | None = None) -> Path:
-    """Baixa GeoJSON de malhas de TODOS os municípios do Brasil (IBGE v4).
-
-    URL: /api/v4/malhas/paises/BR?formato=application/vnd.geo+json
-         &qualidade=minima&intrarregiao=municipio
-
-    Retorna FeatureCollection com ~5571 polígonos (~3.7MB qualidade mínima).
-    Cada Feature tem properties.codarea (código IBGE 7 dígitos).
-
-    Args:
-        dest: Caminho para salvar o arquivo. Se None, usa data/ibge_malhas_municipios.geojson.
-    """
+    """Baixa GeoJSON de malhas de TODOS os municípios do Brasil (IBGE v4)."""
     import json
 
     if dest is None:
@@ -343,7 +278,10 @@ def baixar_malhas_geojson(dest: Path | None = None) -> Path:
         return dest
 
     logger.info("ibge_malhas_download", url=MALHAS_BR_URL)
-    resp = _http_get(MALHAS_BR_URL, timeout=60.0)
+    resp = _http_get_with_retry(MALHAS_BR_URL, timeout=60.0)
+    if not resp:
+        return dest
+        
     geojson = resp.json()
 
     n_features = len(geojson.get("features", []))
@@ -352,4 +290,3 @@ def baixar_malhas_geojson(dest: Path | None = None) -> Path:
     dest.write_text(json.dumps(geojson, ensure_ascii=False), encoding="utf-8")
     logger.info("ibge_malhas_salvo", path=str(dest), size_kb=round(dest.stat().st_size / 1024))
     return dest
-

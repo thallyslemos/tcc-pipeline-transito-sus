@@ -7,10 +7,15 @@ de óbitos/custos do pipeline Gold.
 import json
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from ..database import get_connection
-from ..routers.dashboard import _ibge_join, _lat_lon_expr, _sanitize_floats
+from .utils import (
+    Regiao,
+    _has_view,
+    _sanitize_floats,
+    _where_and,
+)
 
 router = APIRouter(prefix="/api/geo", tags=["GeoJSON"])
 
@@ -45,24 +50,29 @@ def _within_brasil(lat: float | None, lon: float | None) -> bool:
     )
 
 
-def _query_metrics(metrica: str, ano: int | None) -> dict[str, dict]:
+def _query_metrics(
+    metrica: str,
+    ano: int | None = None,
+    uf: str | None = None,
+    regiao: Regiao | None = None,
+) -> dict[str, dict]:
     """Consulta métricas agregadas por município, retorna dict cod6 -> props."""
     con = get_connection()
-    w = f"AND ano = {ano}" if ano is not None else ""
+    wa = _where_and(ano=ano, uf=uf, regiao=regiao)
 
     if metrica == "custos":
         rows = con.sql(f"""
             SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
                    ROUND(SUM(custo_total), 2) AS valor,
                    SUM(total_atendimentos) AS atendimentos
-            FROM v_custos WHERE 1=1 {w}
+            FROM v_custos WHERE 1=1 {wa}
             GROUP BY cod6, municipio, uf
         """).fetchdf().to_dict(orient="records")
     else:
         rows = con.sql(f"""
             SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
                    SUM(total_obitos) AS valor
-            FROM v_obitos WHERE 1=1 {w}
+            FROM v_obitos WHERE 1=1 {wa}
             GROUP BY cod6, municipio, uf
         """).fetchdf().to_dict(orient="records")
 
@@ -70,22 +80,48 @@ def _query_metrics(metrica: str, ano: int | None) -> dict[str, dict]:
     return {r["cod6"]: r for r in rows}
 
 
+def _ibge_join(con, table_alias: str = "o") -> str:
+    """Retorna cláusula LEFT JOIN com v_ibge_municipios se disponível."""
+    if not _has_view(con, "v_ibge_municipios"):
+        return ""
+    return (
+        f"LEFT JOIN v_ibge_municipios ibge "
+        f"ON LEFT({table_alias}.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)"
+    )
+
+
+def _lat_lon_expr(con, table_alias: str = "o") -> tuple[str, str]:
+    """Retorna expressões SQL para lat/lon com fallback para v_ibge_municipios."""
+    has_ibge = _has_view(con, "v_ibge_municipios")
+    if has_ibge:
+        return (
+            f"COALESCE({table_alias}.lat, ibge.lat)",
+            f"COALESCE({table_alias}.lon, ibge.lon)",
+        )
+    return (f"{table_alias}.lat", f"{table_alias}.lon")
+
+
 @router.get("/municipios")
-async def geojson_municipios(ano: int | None = None, metrica: str = "obitos"):
+async def geojson_municipios(
+    ano: int | None = None,
+    uf: str | None = Query(None, alias="uf"),
+    regiao: Regiao | None = Query(None, alias="regiao"),
+    metrica: str = "obitos",
+):
     """GeoJSON FeatureCollection com polígonos de municípios + métricas.
 
     Se o arquivo de malhas existe (ibge_malhas_municipios.geojson), retorna
     polígonos enriquecidos. Caso contrário, retorna pontos (centroides).
     """
-    metrics = _query_metrics(metrica, ano)
+    metrics = _query_metrics(metrica, ano, uf, regiao)
     malhas = _load_malhas()
 
     if malhas:
-        return _build_polygon_fc(malhas, metrics, metrica)
-    return _build_point_fc(metrics, metrica, ano)
+        return _build_polygon_fc(malhas, metrics)
+    return _build_point_fc(metrica, ano, uf, regiao)
 
 
-def _build_polygon_fc(malhas: dict, metrics: dict, metrica: str) -> dict:
+def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
     """Constrói FeatureCollection com polígonos do IBGE + métricas."""
     features = []
     for feat in malhas.get("features", []):
@@ -110,12 +146,17 @@ def _build_polygon_fc(malhas: dict, metrics: dict, metrica: str) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
-def _build_point_fc(metrics: dict, metrica: str, ano: int | None) -> dict:
+def _build_point_fc(
+    metrica: str,
+    ano: int | None = None,
+    uf: str | None = None,
+    regiao: Regiao | None = None,
+) -> dict:
     """Fallback: FeatureCollection de pontos (centroides) quando malhas não existem."""
     con = get_connection()
     lat_expr, lon_expr = _lat_lon_expr(con, "o")
     join_ibge = _ibge_join(con, "o")
-    w = f"AND ano = {ano}" if ano is not None else ""
+    wa = _where_and(ano=ano, uf=uf, regiao=regiao)
 
     if metrica == "custos":
         rows = con.sql(f"""
@@ -124,7 +165,7 @@ def _build_point_fc(metrics: dict, metrica: str, ano: int | None) -> dict:
                    SUM(o.total_atendimentos) AS atendimentos,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM v_custos o {join_ibge}
-            WHERE 1=1 {w}
+            WHERE 1=1 {wa}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
         """).fetchdf().to_dict(orient="records")
     else:
@@ -133,7 +174,7 @@ def _build_point_fc(metrics: dict, metrica: str, ano: int | None) -> dict:
                    SUM(o.total_obitos) AS valor,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM v_obitos o {join_ibge}
-            WHERE 1=1 {w}
+            WHERE 1=1 {wa}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
         """).fetchdf().to_dict(orient="records")
 

@@ -2,6 +2,9 @@ export interface FilterValues {
   ano?: number;
   municipio?: string;
   tipo_veiculo?: string;
+  uf?: string;
+  regiao?: string;
+  dimensao?: "ocorrencia" | "residencia";
 }
 
 export interface Municipio {
