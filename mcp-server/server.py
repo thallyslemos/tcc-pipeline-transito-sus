@@ -5,22 +5,23 @@ via linguagem natural usando o Model Context Protocol (MCP).
 """
 
 import sys
-from importlib import import_module
 from pathlib import Path
 
-import duckdb
 from fastmcp import FastMCP
 
-# Garante que a raiz do projeto esta no path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from importlib import import_module
 
-config = import_module("data-pipeline.config")
+# Garante que a raiz do projeto esta no path para imports relativos
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+from backend.database import get_connection
+from backend.routers.utils import REGIOES
+
 ibge_mod = import_module("data-pipeline.ibge")
-router_utils = import_module("backend.routers.utils")
-
-settings = config.settings
-gold_dir = settings.resolve(settings.gold_dir)
-data_dir = settings.resolve(settings.data_dir)
+get_populacao = ibge_mod.get_populacao
+taxa_por_100mil = ibge_mod.taxa_por_100mil
 
 mcp = FastMCP(
     "Transito SUS",
@@ -36,45 +37,11 @@ mcp = FastMCP(
 )
 
 
-def _get_con() -> duckdb.DuckDBPyConnection:
-    """Cria conexao DuckDB com views sobre os Parquet Gold e IBGE (quando existirem)."""
-    con = duckdb.connect(":memory:")
-
-    ocorrencia_path = gold_dir / "obitos_ocorrencia_municipio_mes.parquet"
-    residencia_path = gold_dir / "obitos_residencia_municipio_mes.parquet"
-    custos_path = gold_dir / "custos_municipio_mes.parquet"
-
-    if ocorrencia_path.exists():
-        con.sql(
-            f"CREATE VIEW v_obitos_ocorrencia AS SELECT * FROM read_parquet('{ocorrencia_path}')"
-        )
-        con.sql("CREATE OR REPLACE VIEW v_obitos AS SELECT * FROM v_obitos_ocorrencia")
-
-    if residencia_path.exists():
-        con.sql(
-            f"CREATE VIEW v_obitos_residencia AS SELECT * FROM read_parquet('{residencia_path}')"
-        )
-
-    if custos_path.exists():
-        con.sql(f"CREATE VIEW v_custos AS SELECT * FROM read_parquet('{custos_path}')")
-
-    ibge_mun = data_dir / "ibge_municipios.parquet"
-    ibge_pop = data_dir / "ibge_populacao.parquet"
-    if ibge_mun.exists():
-        con.sql(
-            f"CREATE VIEW v_ibge_municipios AS SELECT * FROM read_parquet('{ibge_mun}')"
-        )
-    if ibge_pop.exists():
-        con.sql(
-            f"CREATE VIEW v_ibge_populacao AS SELECT * FROM read_parquet('{ibge_pop}')"
-        )
-    return con
-
-
 @mcp.tool()
 def listar_opcoes_filtro() -> str:
     """Lista os valores possíveis para os filtros de ano, UF, região e tipo de veículo."""
-    con = _get_con()
+    con = get_connection()
+    # Usamos v_obitos como referencia para anos, ufs e veiculos
     anos = con.sql("SELECT DISTINCT ano FROM v_obitos ORDER BY ano DESC").df()["ano"].tolist()
     ufs = con.sql("SELECT DISTINCT uf FROM v_obitos ORDER BY uf").df()["uf"].tolist()
     veiculos = (
@@ -82,8 +49,7 @@ def listar_opcoes_filtro() -> str:
         .df()["tipo_veiculo"]
         .tolist()
     )
-    regioes = list(router_utils.REGIOES.keys())
-    con.close()
+    regioes = list(REGIOES.keys())
     return f"""Opções de filtro disponíveis:
 - anos: {anos}
 - ufs: {ufs}
@@ -101,23 +67,27 @@ def query_obitos(
     dimensao: str = "ocorrencia",
 ) -> str:
     """Consulta óbitos por acidentes de trânsito no SUS."""
-    con = _get_con()
+    con = get_connection()
     clauses = []
     if municipio:
         clauses.append(f"municipio ILIKE '%{municipio}%'")
     if uf:
         clauses.append(f"uf = '{uf.upper()}'")
     if regiao:
-        ufs = router_utils.REGIOES.get(regiao.title())
-        if ufs:
-            clauses.append(f"uf IN {tuple(ufs)}")
+        ufs_list = REGIOES.get(regiao.title())
+        if ufs_list:
+            if len(ufs_list) == 1:
+                clauses.append(f"uf = '{ufs_list[0]}'")
+            else:
+                clauses.append(f"uf IN {tuple(ufs_list)}")
     if ano:
         clauses.append(f"ano = {ano}")
     if tipo_veiculo:
         clauses.append(f"tipo_veiculo ILIKE '%{tipo_veiculo}%'")
 
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
-    view = f"v_obitos_{dimensao}"
+    # Mapeia dimensao para as views corretas definidas em database.py
+    view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
 
     result = con.sql(
         f"""
@@ -128,7 +98,6 @@ def query_obitos(
         LIMIT 20
     """
     ).fetchdf()
-    con.close()
 
     if result.empty:
         return "Nenhum registro encontrado com os filtros informados."
@@ -144,16 +113,19 @@ def query_custos(
     tipo_veiculo: str | None = None,
 ) -> str:
     """Consulta custos ambulatoriais de acidentes de trânsito no SUS."""
-    con = _get_con()
+    con = get_connection()
     clauses = []
     if municipio:
         clauses.append(f"municipio ILIKE '%{municipio}%'")
     if uf:
         clauses.append(f"uf = '{uf.upper()}'")
     if regiao:
-        ufs = router_utils.REGIOES.get(regiao.title())
-        if ufs:
-            clauses.append(f"uf IN {tuple(ufs)}")
+        ufs_list = REGIOES.get(regiao.title())
+        if ufs_list:
+            if len(ufs_list) == 1:
+                clauses.append(f"uf = '{ufs_list[0]}'")
+            else:
+                clauses.append(f"uf IN {tuple(ufs_list)}")
     if ano:
         clauses.append(f"ano = {ano}")
     if tipo_veiculo:
@@ -172,7 +144,6 @@ def query_custos(
         LIMIT 20
     """
     ).fetchdf()
-    con.close()
 
     if result.empty:
         return "Nenhum registro encontrado."
@@ -184,7 +155,7 @@ def query_taxa_mortalidade(
     municipio: str | None = None, uf: str | None = None, ano: int = 2022, dimensao: str = "ocorrencia"
 ) -> str:
     """Calcula taxa de mortalidade por 100 mil habitantes."""
-    con = _get_con()
+    con = get_connection()
     clauses = []
     if municipio:
         clauses.append(f"municipio ILIKE '%{municipio}%'")
@@ -192,7 +163,7 @@ def query_taxa_mortalidade(
         clauses.append(f"uf = '{uf.upper()}'")
     
     where_clause = " AND ".join(clauses)
-    view = f"v_obitos_{dimensao}"
+    view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
 
     rows = con.sql(
         f"""
@@ -202,12 +173,11 @@ def query_taxa_mortalidade(
         ORDER BY obitos DESC
     """
     ).fetchdf()
-    con.close()
 
     resultados = []
     for _, row in rows.iterrows():
-        pop = ibge_mod.get_populacao(row["cod_mun_ibge"], ano)
-        taxa = ibge_mod.taxa_por_100mil(float(row["obitos"]), pop) if pop else None
+        pop = get_populacao(row["cod_mun_ibge"], ano)
+        taxa = taxa_por_100mil(float(row["obitos"]), pop) if pop else None
         resultados.append(
             f"{row['municipio']}: {int(row['obitos'])} obitos, "
             f"pop {pop:,} hab, taxa {taxa}/100mil hab"
@@ -215,7 +185,7 @@ def query_taxa_mortalidade(
             else f"{row['municipio']}: {int(row['obitos'])} obitos (pop indisponivel)"
         )
 
-    return "\\n".join(resultados) if resultados else "Nenhum dado encontrado."
+    return "\n".join(resultados) if resultados else "Nenhum dado encontrado."
 
 
 @mcp.tool()
@@ -223,7 +193,7 @@ def query_serie_temporal(
     municipio: str, metrica: str = "obitos", dimensao: str = "ocorrencia"
 ) -> str:
     """Retorna serie temporal mensal de um municipio."""
-    con = _get_con()
+    con = get_connection()
     if metrica == "custos":
         result = con.sql(
             f"""
@@ -236,7 +206,7 @@ def query_serie_temporal(
         """
         ).fetchdf()
     else:
-        view = f"v_obitos_{dimensao}"
+        view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
         result = con.sql(
             f"""
             SELECT STRFTIME(competencia, '%Y-%m') AS mes,
@@ -247,7 +217,6 @@ def query_serie_temporal(
             ORDER BY mes
         """
         ).fetchdf()
-    con.close()
 
     if result.empty:
         return f"Nenhum dado de {metrica} para {municipio}."
@@ -257,7 +226,7 @@ def query_serie_temporal(
 @mcp.tool()
 def listar_municipios(uf: str | None = None) -> str:
     """Lista os municipios disponiveis na base com totais gerais, opcionalmente por UF."""
-    con = _get_con()
+    con = get_connection()
     where = f"WHERE uf = '{uf.upper()}'" if uf else ""
     result = con.sql(
         f"""
@@ -267,8 +236,12 @@ def listar_municipios(uf: str | None = None) -> str:
         ORDER BY total_obitos DESC
     """
     ).fetchdf()
-    con.close()
     return result.to_string(index=False)
+
+
+if __name__ == "__main__":
+    mcp.run()
+
 
 
 if __name__ == "__main__":

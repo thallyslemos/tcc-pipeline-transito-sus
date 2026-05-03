@@ -167,9 +167,9 @@ async def dashboard_summary(
         if nome_mun_row:
             partes.append(nome_mun_row[0])
     
-    periodo_loc = ", ".join(partes)
+    periodo_loc = ", ".join(partes) or "Brasil"
     periodo_ano = f" - {ano}" if ano else ""
-    periodo = f"{periodo_loc}{periodo_ano}" if periodo_loc else "Brasil"
+    periodo = f"{periodo_loc}{periodo_ano}"
 
     return {
         "dimensao_ativa": dimensao.value,
@@ -266,8 +266,27 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
         .fetchdf()
         .to_dict(orient="records")
     )
-    # ... mais código
-    return {"cod_mun_ibge": cod_mun, "municipio": nome[0] if nome else cod_mun}
+
+    obitos_tipo = (
+        con.sql(
+            f"""
+        SELECT tipo_veiculo, SUM(total_obitos) AS total
+        FROM v_obitos WHERE {wc} {wa} GROUP BY tipo_veiculo ORDER BY total DESC
+    """
+        )
+        .fetchdf()
+        .to_dict(orient="records")
+    )
+
+    return {
+        "cod_mun_ibge": cod_mun,
+        "municipio": nome[0] if nome else cod_mun,
+        "total_obitos": int(total_obitos),
+        "total_custos": float(total_custos),
+        "total_atendimentos": int(total_atend),
+        "serie_obitos": serie_obitos,
+        "obitos_por_tipo_veiculo": obitos_tipo,
+    }
 
 
 @router.get("/mapa")

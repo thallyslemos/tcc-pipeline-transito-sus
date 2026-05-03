@@ -43,6 +43,7 @@ from .gold import (
     gerar_gold_obitos_ocorrencia,
     gerar_gold_obitos_residencia,
 )
+from .gold_timeseries import gerar_gold_diario
 from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
 
@@ -91,6 +92,7 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
     gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
     gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
+    gold_diario = gerar_gold_diario(silver_sim, silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
@@ -98,6 +100,7 @@ def run_real(ufs: list[str], anos: list[int]) -> None:
         gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
         gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
+        gold_diario=str(gold_diario),
     )
 
 
@@ -152,6 +155,7 @@ def run_gold() -> None:
     gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
     gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
+    gold_diario = gerar_gold_diario(silver_sim, silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
@@ -159,6 +163,7 @@ def run_gold() -> None:
         gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
         gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
+        gold_diario=str(gold_diario),
     )
 
 
@@ -180,6 +185,7 @@ def _executar_etl(df_sim, df_sia) -> None:
     gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
     gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
     gold_custos = gerar_gold_custos(silver_sia)
+    gold_diario = gerar_gold_diario(silver_sim, silver_sia)
     logger.info("etapa", camada="gold", status="concluido")
 
     logger.info(
@@ -187,6 +193,7 @@ def _executar_etl(df_sim, df_sia) -> None:
         gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
         gold_obitos_residencia=str(gold_obitos_residencia),
         gold_custos=str(gold_custos),
+        gold_diario=str(gold_diario),
     )
 
 

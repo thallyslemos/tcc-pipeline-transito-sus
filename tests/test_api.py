@@ -110,6 +110,59 @@ def test_listar_municipios_filtro_uf(client: TestClient):
     assert len(munis_sp) == 0
 
 
+def test_dashboard_summary_filtro_regiao(client: TestClient, ano_disponivel: int):
+    """Verifica o filtro de região no summary."""
+    # O dataset de teste tem 'BA', que é Nordeste
+    r_ne = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&regiao=Nordeste")
+    assert r_ne.status_code == 200
+    d_ne = r_ne.json()
+    assert d_ne["total_obitos"] > 0
+    assert "Nordeste" in d_ne["periodo"]
+
+    # Verifica uma região sem dados (Sudeste no dataset de teste)
+    r_se = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&regiao=Sudeste")
+    assert r_se.status_code == 200
+    assert r_se.json()["total_obitos"] == 0
+
+
+def test_listar_municipios_filtro_regiao(client: TestClient):
+    """Verifica se o endpoint de listar municipios funciona com filtro de região."""
+    r_ne = client.get("/api/dashboard/municipios?regiao=Nordeste")
+    assert r_ne.status_code == 200
+    munis_ne = r_ne.json()["municipios"]
+    assert len(munis_ne) > 0
+    # Verifica se todos os municípios retornados são do Nordeste
+    from backend.routers.utils import REGIOES
+    ufs_ne = REGIOES["Nordeste"]
+    assert all(m["uf"] in ufs_ne for m in munis_ne)
+
+
+def test_mapa_filtro_regiao(client: TestClient, ano_disponivel: int):
+    """Verifica o filtro de região no endpoint do mapa."""
+    r_ne = client.get(f"/api/dashboard/mapa?metrica=obitos&ano={ano_disponivel}&regiao=Nordeste")
+    assert r_ne.status_code == 200
+    d_ne = r_ne.json()
+    assert len(d_ne["dados"]) > 0
+    
+    from backend.routers.utils import REGIOES
+    ufs_ne = REGIOES["Nordeste"]
+    assert all(d["uf"] in ufs_ne for d in d_ne["dados"])
+
+
+def test_geojson_filtro_regiao(client: TestClient, ano_disponivel: int):
+    """Verifica o filtro de região no endpoint GeoJSON."""
+    r_ne = client.get(f"/api/geo/municipios?ano={ano_disponivel}&regiao=Nordeste")
+    assert r_ne.status_code == 200
+    d_ne = r_ne.json()
+    assert d_ne["type"] == "FeatureCollection"
+    assert len(d_ne["features"]) > 0
+    
+    from backend.routers.utils import REGIOES
+    ufs_ne = REGIOES["Nordeste"]
+    for feat in d_ne["features"]:
+        assert feat["properties"]["uf"] in ufs_ne
+
+
 def test_municipio_detalhe(client: TestClient, municipio_disponivel: dict):
     """Verifica o endpoint de detalhe de um município dinâmico."""
     cod_mun = municipio_disponivel["cod_mun_ibge"]

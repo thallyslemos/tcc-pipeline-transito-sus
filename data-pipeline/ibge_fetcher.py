@@ -22,10 +22,10 @@ from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
-
+1100700
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 METADADOS_MUN_URL = (
-    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
+    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/1100700/metadados"
 )
 MALHAS_BR_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
