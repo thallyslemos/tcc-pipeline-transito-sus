@@ -45,6 +45,10 @@ ignore = ["S608", "S101", "S104"]
 "tests/**" = ["S101", "S106"]
 "data-pipeline/sample_data.py" = ["S311"]
 "notebooks/**" = ["E501", "F541", "I001"]
+# FastAPI usa Query(...) nos defaults por desenho da framework (falso positivo B008).
+"backend/routers/*.py" = ["B008"]
+# sys.path antes de imports do monorepo.
+"mcp-server/server.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,8 +1,7 @@
 """Funções utilitárias compartilhadas entre os routers."""
 
 import math
-from enum import Enum
-
+from enum import StrEnum
 
 REGIOES = {
     "Norte": ["AC", "AP", "AM", "PA", "RO", "RR", "TO"],
@@ -13,12 +12,12 @@ REGIOES = {
 }
 
 
-class Dimensao(str, Enum):
+class Dimensao(StrEnum):
     ocorrencia = "ocorrencia"
     residencia = "residencia"
 
 
-class Regiao(str, Enum):
+class Regiao(StrEnum):
     norte = "Norte"
     nordeste = "Nordeste"
     sudeste = "Sudeste"

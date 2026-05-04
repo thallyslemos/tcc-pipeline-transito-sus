@@ -1,9 +1,10 @@
 """Arquivo de configuração do Pytest (fixtures compartilhadas)."""
 
+import unicodedata
+
 import pytest
 from backend.app import app
 from fastapi.testclient import TestClient
-import unicodedata
 
 
 @pytest.fixture(scope="session")

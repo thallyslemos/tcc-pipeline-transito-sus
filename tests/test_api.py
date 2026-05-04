@@ -143,7 +143,7 @@ def test_mapa_filtro_regiao(client: TestClient, ano_disponivel: int):
     assert r_ne.status_code == 200
     d_ne = r_ne.json()
     assert len(d_ne["dados"]) > 0
-    
+
     from backend.routers.utils import REGIOES
     ufs_ne = REGIOES["Nordeste"]
     assert all(d["uf"] in ufs_ne for d in d_ne["dados"])
@@ -156,7 +156,7 @@ def test_geojson_filtro_regiao(client: TestClient, ano_disponivel: int):
     d_ne = r_ne.json()
     assert d_ne["type"] == "FeatureCollection"
     assert len(d_ne["features"]) > 0
-    
+
     from backend.routers.utils import REGIOES
     ufs_ne = REGIOES["Nordeste"]
     for feat in d_ne["features"]:

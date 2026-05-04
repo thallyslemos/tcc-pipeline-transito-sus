@@ -22,7 +22,6 @@ from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
-1100700
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 METADADOS_MUN_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/1100700/metadados"
@@ -46,7 +45,12 @@ class MunicipioLocalidade:
 
 
 def _http_get_with_retry(
-    url: str, *, params: dict | None = None, timeout: float = 30.0, retries: int = 3, delay: float = 1.0
+    url: str,
+    *,
+    params: dict | None = None,
+    timeout: float = 30.0,
+    retries: int = 3,
+    delay: float = 1.0,
 ) -> httpx.Response | None:
     """Wrapper GET com retries e exponential backoff."""
     for attempt in range(retries):
@@ -69,7 +73,7 @@ def fetch_localidades() -> list[MunicipioLocalidade]:
     resp = _http_get_with_retry(LOCALIDADES_URL)
     if not resp:
         return []
-        
+
     data = resp.json()
     municipios: list[MunicipioLocalidade] = []
     for item in data:
@@ -117,7 +121,7 @@ def fetch_populacao(cod_mun: str, ano: int) -> tuple[str, int, int | None]:
     url = f"{SIDRA_BASE_URL}/t/{SIDRA_TABELA}/n6/{cod_mun}/v/{SIDRA_VARIAVEL_POP}/p/{ano}"
     params = {"formato": "json"}
     logger.info("ibge_sidra_busca", cod_mun=cod_mun, ano=ano)
-    
+
     resp = _http_get_with_retry(url, params=params, timeout=60.0)
     if not resp:
         return cod_mun, ano, None
@@ -126,7 +130,7 @@ def fetch_populacao(cod_mun: str, ano: int) -> tuple[str, int, int | None]:
         data = resp.json()
         if not isinstance(data, list) or len(data) < 2:
             return cod_mun, ano, None
-        
+
         valor = data[1].get("V")
         if valor and str(valor).strip() not in ("..", "...", "-"):
             return cod_mun, ano, int(valor)
@@ -205,7 +209,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         return
 
     codigos = sorted({c for (c, _, _) in combos})
-    
+
     localidades = fetch_localidades()
     loc_map_7 = {m.cod_mun_ibge: m for m in localidades}
     loc_map_6 = {m.cod_mun_ibge[:6]: m for m in localidades}
@@ -260,7 +264,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     df_pop = pd.DataFrame(pop_rows).drop_duplicates(subset=["cod_mun_ibge", "ano"])
     _write_parquet(df_pop, dest_dir / "ibge_populacao.parquet")
     logger.info("ibge_populacao_salvo", registros=len(df_pop))
-    
+
     # 4) Malhas GeoJSON
     baixar_malhas_geojson(dest_dir / "ibge_malhas_municipios.geojson")
 
@@ -281,7 +285,7 @@ def baixar_malhas_geojson(dest: Path | None = None) -> Path:
     resp = _http_get_with_retry(MALHAS_BR_URL, timeout=60.0)
     if not resp:
         return dest
-        
+
     geojson = resp.json()
 
     n_features = len(geojson.get("features", []))

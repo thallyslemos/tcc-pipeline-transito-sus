@@ -5,11 +5,10 @@ via linguagem natural usando o Model Context Protocol (MCP).
 """
 
 import sys
+from importlib import import_module
 from pathlib import Path
 
 from fastmcp import FastMCP
-
-from importlib import import_module
 
 # Garante que a raiz do projeto esta no path para imports relativos
 project_root = Path(__file__).resolve().parent.parent
@@ -152,7 +151,10 @@ def query_custos(
 
 @mcp.tool()
 def query_taxa_mortalidade(
-    municipio: str | None = None, uf: str | None = None, ano: int = 2022, dimensao: str = "ocorrencia"
+    municipio: str | None = None,
+    uf: str | None = None,
+    ano: int = 2022,
+    dimensao: str = "ocorrencia",
 ) -> str:
     """Calcula taxa de mortalidade por 100 mil habitantes."""
     con = get_connection()
@@ -161,7 +163,7 @@ def query_taxa_mortalidade(
         clauses.append(f"municipio ILIKE '%{municipio}%'")
     if uf:
         clauses.append(f"uf = '{uf.upper()}'")
-    
+
     where_clause = " AND ".join(clauses)
     view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
 

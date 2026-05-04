@@ -56,7 +56,8 @@ def _init_connection() -> duckdb.DuckDBPyConnection:
         """)
     else:
         raise FileNotFoundError(
-            f"Parquet Gold de óbitos não encontrado. Esperado: {ocorrencia_path} ou {obitos_legacy_path}"
+            "Parquet Gold de óbitos não encontrado. Esperado: "
+            f"{ocorrencia_path} ou {obitos_legacy_path}"
         )
 
     if residencia_path.exists():

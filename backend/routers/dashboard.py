@@ -148,7 +148,10 @@ async def dashboard_summary(
     obitos_sexo = (
         con.sql(
             f"""
-        SELECT sexo, SUM(total_obitos) AS total FROM {view_obitos} {w} GROUP BY sexo ORDER BY total DESC
+        SELECT sexo, SUM(total_obitos) AS total
+        FROM {view_obitos} {w}
+        GROUP BY sexo
+        ORDER BY total DESC
     """
         )
         .fetchdf()
@@ -162,11 +165,16 @@ async def dashboard_summary(
         partes.append(uf)
     if municipio:
         nome_mun_row = con.sql(
-            f"SELECT DISTINCT municipio FROM {view_obitos} WHERE cod_mun_ibge = '{municipio}' LIMIT 1"
+            f"""
+            SELECT DISTINCT municipio
+            FROM {view_obitos}
+            WHERE cod_mun_ibge = '{municipio}'
+            LIMIT 1
+            """
         ).fetchone()
         if nome_mun_row:
             partes.append(nome_mun_row[0])
-    
+
     periodo_loc = ", ".join(partes) or "Brasil"
     periodo_ano = f" - {ano}" if ano else ""
     periodo = f"{periodo_loc}{periodo_ano}"
@@ -238,7 +246,6 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     cod6 = cod_mun[:6]
     wa = f"AND ano = {ano}" if ano is not None else ""
     wc = f"LEFT(cod_mun_ibge, 6) = '{cod6}'"
-    wc_alias = f"LEFT(o.cod_mun_ibge, 6) = '{cod6}'"
 
     nome = con.sql(
         f"SELECT DISTINCT municipio FROM v_obitos WHERE {wc} LIMIT 1"
@@ -300,7 +307,7 @@ async def dados_mapa(
     """Dados agregados por municipio para visualizacao no mapa."""
     con = get_connection()
     w = _where(ano=ano, uf=uf, regiao=regiao)
-    
+
     # As funções de join com IBGE foram movidas para geo.py,
     # então usamos as colunas de lat/lon que já foram enriquecidas no Gold.
 
