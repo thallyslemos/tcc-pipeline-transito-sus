@@ -12,7 +12,7 @@ Metodologia:
   Ref: https://www.atlasbrasil.org.br
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from ..database import get_connection
 from ..ibge import (
@@ -21,6 +21,7 @@ from ..ibge import (
     get_populacao,
     taxa_por_100mil,
 )
+from .utils import Regiao
 
 router = APIRouter(prefix="/api/indicadores", tags=["Indicadores"])
 
@@ -101,12 +102,31 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
 
 
 @router.get("/ranking")
-async def ranking_indicadores(ano: int = 2023, metrica: str = "taxa_obitos_100mil"):
+async def ranking_indicadores(
+    ano: int = 2023,
+    metrica: str = "taxa_obitos_100mil",
+    uf: str | None = Query(None, alias="uf"),
+    regiao: Regiao | None = Query(None, alias="regiao"),
+):
     """Ranking comparativo de municipios por indicador relativo."""
     con = get_connection()
-    codigos = con.sql(
-        f"SELECT DISTINCT LEFT(cod_mun_ibge, 6) AS cod6 FROM v_obitos WHERE ano = {ano}"
-    ).fetchdf()["cod6"].tolist()
+
+    # Monta filtro de UF/região
+    if regiao:
+        from .utils import REGIOES
+        ufs_in_region = REGIOES[regiao.value]
+        uf_filter = f" AND uf IN {tuple(ufs_in_region)}"
+    elif uf:
+        uf_filter = f" AND uf = '{uf}'"
+    else:
+        uf_filter = ""
+
+    codigos_query = f"""
+        SELECT DISTINCT LEFT(cod_mun_ibge, 6) AS cod6
+        FROM v_obitos
+        WHERE ano = {ano}{uf_filter}
+    """
+    codigos = con.sql(codigos_query).fetchdf()["cod6"].tolist()
     resultados = []
 
     for cod6 in codigos:

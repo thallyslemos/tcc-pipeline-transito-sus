@@ -240,19 +240,27 @@ async def listar_municipios(
 
 
 @router.get("/municipio/{cod_mun}")
-async def detalhe_municipio(cod_mun: str, ano: int | None = None):
-    # TODO: Refatorar para aceitar dimensão
+async def detalhe_municipio(
+    cod_mun: str,
+    ano: int | None = None,
+    dimensao: Dimensao = Query(Dimensao.ocorrencia, alias="dimensao"),
+):
+    """Detalhe de um municipio especifico com series temporais."""
     con = get_connection()
     cod6 = cod_mun[:6]
     wa = f"AND ano = {ano}" if ano is not None else ""
     wc = f"LEFT(cod_mun_ibge, 6) = '{cod6}'"
 
+    view_obitos = f"v_obitos_{dimensao.value}"
+    if not _has_view(con, view_obitos):
+        view_obitos = "v_obitos"
+
     nome = con.sql(
-        f"SELECT DISTINCT municipio FROM v_obitos WHERE {wc} LIMIT 1"
+        f"SELECT DISTINCT municipio FROM {view_obitos} WHERE {wc} LIMIT 1"
     ).fetchone()
 
     total_obitos = con.sql(
-        f"SELECT COALESCE(SUM(total_obitos),0) FROM v_obitos WHERE {wc} {wa}"
+        f"SELECT COALESCE(SUM(total_obitos),0) FROM {view_obitos} WHERE {wc} {wa}"
     ).fetchone()[0]
 
     total_custos = con.sql(
@@ -267,7 +275,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
         con.sql(
             f"""
         SELECT STRFTIME(competencia,'%Y-%m') AS competencia, SUM(total_obitos) AS valor
-        FROM v_obitos WHERE {wc} {wa} GROUP BY competencia ORDER BY competencia
+        FROM {view_obitos} WHERE {wc} {wa} GROUP BY competencia ORDER BY competencia
     """
         )
         .fetchdf()
@@ -278,7 +286,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
         con.sql(
             f"""
         SELECT tipo_veiculo, SUM(total_obitos) AS total
-        FROM v_obitos WHERE {wc} {wa} GROUP BY tipo_veiculo ORDER BY total DESC
+        FROM {view_obitos} WHERE {wc} {wa} GROUP BY tipo_veiculo ORDER BY total DESC
     """
         )
         .fetchdf()
@@ -288,6 +296,7 @@ async def detalhe_municipio(cod_mun: str, ano: int | None = None):
     return {
         "cod_mun_ibge": cod_mun,
         "municipio": nome[0] if nome else cod_mun,
+        "dimensao_ativa": dimensao.value,
         "total_obitos": int(total_obitos),
         "total_custos": float(total_custos),
         "total_atendimentos": int(total_atend),

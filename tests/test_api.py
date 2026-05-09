@@ -176,6 +176,28 @@ def test_municipio_detalhe(client: TestClient, municipio_disponivel: dict):
     assert len(d["obitos_por_tipo_veiculo"]) > 0
 
 
+def test_municipio_detalhe_com_dimensao(client: TestClient, ano_disponivel: int):
+    """Verifica se o parâmetro dimensao funciona no detalhe de município."""
+    # Primeiro obtém um código de município disponível
+    r_mun = client.get("/api/dashboard/municipios")
+    assert r_mun.status_code == 200
+    munis = r_mun.json()["municipios"]
+    assert len(munis) > 0
+    cod_mun = munis[0]["cod_mun_ibge"]
+
+    # Testa com dimensão residência
+    r = client.get(f"/api/dashboard/municipio/{cod_mun}?ano={ano_disponivel}&dimensao=residencia")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["dimensao_ativa"] == "residencia"
+
+    # Testa com dimensão ocorrência (padrão)
+    r2 = client.get(f"/api/dashboard/municipio/{cod_mun}?ano={ano_disponivel}&dimensao=ocorrencia")
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["dimensao_ativa"] == "ocorrencia"
+
+
 def test_mapa_obitos(client: TestClient):
     r = client.get("/api/dashboard/mapa?metrica=obitos")
     assert r.status_code == 200
@@ -255,6 +277,37 @@ def test_ranking(client: TestClient, ano_disponivel: int):
             d["ranking"][0]["taxa_obitos_100mil"]
             >= d["ranking"][-1]["taxa_obitos_100mil"]
         )
+
+
+def test_ranking_filtros_geograficos(client: TestClient, ano_disponivel: int):
+    """Verifica se o ranking aceita filtros de UF e região."""
+    # Filtro por região (Nordeste tem BA, que é o único estado no dataset de teste)
+    r_ne = client.get(
+        f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil&regiao=Nordeste"
+    )
+    assert r_ne.status_code == 200
+    d_ne = r_ne.json()
+    # O ranking pode estar vazio se não houver dados populacionais para o ano/região,
+    # mas o endpoint deve retornar 200 e a estrutura correta
+    assert "ranking" in d_ne
+    assert "ano" in d_ne
+    assert "metrica" in d_ne
+    # Se houver resultados, todos devem ser do Nordeste
+    if len(d_ne["ranking"]) > 0:
+        from backend.routers.utils import REGIOES
+        ufs_ne = REGIOES["Nordeste"]
+        assert all(m["uf"] in ufs_ne for m in d_ne["ranking"])
+
+    # Filtro por UF (BA tem dados)
+    r_ba = client.get(
+        f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil&uf=BA"
+    )
+    assert r_ba.status_code == 200
+    d_ba = r_ba.json()
+    assert "ranking" in d_ba
+    # Se houver resultados, todos devem ser de BA
+    if len(d_ba["ranking"]) > 0:
+        assert all(m["uf"] == "BA" for m in d_ba["ranking"])
 
 
 def test_cors_headers(client: TestClient):

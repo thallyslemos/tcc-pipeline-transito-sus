@@ -32,12 +32,23 @@ export const fetchTiposVeiculo = () =>
 export const fetchMunicipios = (f: FilterValues = {}) =>
   get<{ municipios: Municipio[] }>(`/api/dashboard/municipios${qs(f)}`);
 
-export const fetchMunicipio = (cod: string, ano?: number) =>
-  get<MunicipioDetail>(`/api/dashboard/municipio/${cod}${ano ? `?ano=${ano}` : ""}`);
+export const fetchMunicipio = (cod: string, ano?: number, dimensao?: string) => {
+  const params = new URLSearchParams();
+  if (ano) params.set("ano", String(ano));
+  if (dimensao) params.set("dimensao", dimensao);
+  const qs = params.toString() ? `?${params}` : "";
+  return get<MunicipioDetail>(`/api/dashboard/municipio/${cod}${qs}`);
+};
 
-export const fetchMapa = (metrica: string = "obitos", ano?: number) => {
+export const fetchMapa = (
+  metrica: string = "obitos",
+  filtros?: FilterValues
+) => {
   const p = new URLSearchParams({ metrica });
-  if (ano) p.set("ano", String(ano));
+  if (filtros?.ano) p.set("ano", String(filtros.ano));
+  if (filtros?.uf) p.set("uf", filtros.uf);
+  if (filtros?.regiao) p.set("regiao", filtros.regiao);
+  if (filtros?.dimensao) p.set("dimensao", filtros.dimensao);
   return get<{ metrica: string; ano: number | null; dados: MapPoint[] }>(
     `/api/dashboard/mapa?${p}`
   );
@@ -82,7 +93,15 @@ export interface RankingItem {
   custo_per_capita: number;
 }
 
-export const fetchRanking = (ano: number = 2023, metrica: string = "taxa_obitos_100mil") =>
-  get<{ ano: number; metrica: string; ranking: RankingItem[] }>(
-    `/api/indicadores/ranking?ano=${ano}&metrica=${metrica}`
+export const fetchRanking = (
+  ano: number = 2023,
+  metrica: string = "taxa_obitos_100mil",
+  filtros?: FilterValues
+) => {
+  const p = new URLSearchParams({ ano: String(ano), metrica });
+  if (filtros?.uf) p.set("uf", filtros.uf);
+  if (filtros?.regiao) p.set("regiao", filtros.regiao);
+  return get<{ ano: number; metrica: string; ranking: RankingItem[] }>(
+    `/api/indicadores/ranking?${p}`
   );
+};

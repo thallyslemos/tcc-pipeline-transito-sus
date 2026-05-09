@@ -102,17 +102,17 @@ export default function MunicipioPage() {
 
   // Load data for the selected municipality
   const loadDetail = useCallback(() => {
-    const { municipio, ano } = filters;
+    const { municipio, ano, dimensao } = filters;
     if (!municipio) { setData(null); setIndicadores(null); return; }
     setLoading(true);
     const anoNum = ano ? Number(ano) : undefined;
     Promise.all([
-      fetchMunicipio(municipio, anoNum),
+      fetchMunicipio(municipio, anoNum, dimensao),
       fetchIndicadores(municipio, anoNum),
     ])
       .then(([d, ind]) => { setData(d); setIndicadores(ind); })
       .finally(() => setLoading(false));
-  }, [filters.municipio, filters.ano]);
+  }, [filters.municipio, filters.ano, filters.dimensao]);
 
   useEffect(loadDetail, [loadDetail]);
 
