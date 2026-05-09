@@ -55,6 +55,7 @@ def _query_metrics(
     ano: int | None = None,
     uf: str | None = None,
     regiao: Regiao | None = None,
+    dimensao: str = "ocorrencia",
 ) -> dict[str, dict]:
     """Consulta métricas agregadas por município, retorna dict cod6 -> props."""
     con = get_connection()
@@ -69,10 +70,13 @@ def _query_metrics(
             GROUP BY cod6, municipio, uf
         """).fetchdf().to_dict(orient="records")
     else:
+        view_obitos = f"v_obitos_{dimensao}"
+        if not _has_view(con, view_obitos):
+            view_obitos = "v_obitos"
         rows = con.sql(f"""
             SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
                    SUM(total_obitos) AS valor
-            FROM v_obitos WHERE 1=1 {wa}
+            FROM {view_obitos} WHERE 1=1 {wa}
             GROUP BY cod6, municipio, uf
         """).fetchdf().to_dict(orient="records")
 
@@ -106,6 +110,7 @@ async def geojson_municipios(
     ano: int | None = None,
     uf: str | None = Query(None, alias="uf"),
     regiao: Regiao | None = Query(None, alias="regiao"),
+    dimensao: str = "ocorrencia",
     metrica: str = "obitos",
 ):
     """GeoJSON FeatureCollection com polígonos de municípios + métricas.
@@ -113,12 +118,12 @@ async def geojson_municipios(
     Se o arquivo de malhas existe (ibge_malhas_municipios.geojson), retorna
     polígonos enriquecidos. Caso contrário, retorna pontos (centroides).
     """
-    metrics = _query_metrics(metrica, ano, uf, regiao)
+    metrics = _query_metrics(metrica, ano, uf, regiao, dimensao)
     malhas = _load_malhas()
 
     if malhas:
         return _build_polygon_fc(malhas, metrics)
-    return _build_point_fc(metrica, ano, uf, regiao)
+    return _build_point_fc(metrica, ano, uf, regiao, dimensao)
 
 
 def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
@@ -151,6 +156,7 @@ def _build_point_fc(
     ano: int | None = None,
     uf: str | None = None,
     regiao: Regiao | None = None,
+    dimensao: str = "ocorrencia",
 ) -> dict:
     """Fallback: FeatureCollection de pontos (centroides) quando malhas não existem."""
     con = get_connection()
@@ -169,11 +175,14 @@ def _build_point_fc(
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
         """).fetchdf().to_dict(orient="records")
     else:
+        view_obitos = f"v_obitos_{dimensao}"
+        if not _has_view(con, view_obitos):
+            view_obitos = "v_obitos"
         rows = con.sql(f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
                    SUM(o.total_obitos) AS valor,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
-            FROM v_obitos o {join_ibge}
+            FROM {view_obitos} o {join_ibge}
             WHERE 1=1 {wa}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
         """).fetchdf().to_dict(orient="records")
