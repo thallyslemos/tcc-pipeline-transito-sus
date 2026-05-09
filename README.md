@@ -31,6 +31,10 @@ de Dados (DuckDB), IA Preditiva (TimesFM) e interface conversacional (MCP + Olla
 
 ---
 
+Mudanças que alterem contrato da API ou schema de consumo devem seguir
+[docs/OPENSPEC.md](docs/OPENSPEC.md) e atualizar [docs/SPEC.md](docs/SPEC.md).
+Deploy em VPS com PostgreSQL: [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md).
+
 ### Como rodar
 
 Guia completo (instalação, ambiente, comandos): **[docs/SETUP.md](docs/SETUP.md)**
