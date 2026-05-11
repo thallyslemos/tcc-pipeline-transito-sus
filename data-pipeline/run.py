@@ -10,13 +10,16 @@ Modos de operacao:
     3. Apenas IBGE (localidades, populacao, malhas GeoJSON):
        uv run python -m data-pipeline.run --ibge
 
-    4. Apenas malhas GeoJSON:
+    4. Apenas SIM (sem SIA):
+       uv run python -m data-pipeline.run --sim-only --ufs ALL --anos 2010 2011 2023
+
+    5. Apenas malhas GeoJSON:
        uv run python -m data-pipeline.run --malhas
 
-    5. Apenas Gold (requer Silver existente):
+    6. Apenas Gold (requer Silver existente):
        uv run python -m data-pipeline.run --gold
 
-    6. Carga PostgreSQL (requer DATABASE_URL e migrações aplicadas):
+    7. Carga PostgreSQL (requer DATABASE_URL e migrações aplicadas):
        uv run python -m data-pipeline.run --load-postgres
 
 Exemplos:
@@ -119,6 +122,44 @@ def run_ibge() -> None:
     ibge_dir = settings.resolve(settings.data_dir)
     salvar_ibge_parquet(ibge_dir)
     logger.info("etapa", camada="ibge", status="concluido")
+
+
+def run_sim_only(ufs: list[str], anos: list[int]) -> None:
+    """Pipeline completo para SIM apenas (Bronze -> Silver -> Gold), sem SIA.
+
+    Uso:
+        uv run python -m data-pipeline.run --sim-only --ufs ALL --anos 2010 2024
+    """
+    from .datasus import UFS_BRASIL, baixar_sim_streaming
+
+    if ufs == ["ALL"]:
+        ufs = UFS_BRASIL
+        logger.info("modo", tipo="sim_only", escopo="brasil_completo", anos=anos)
+    else:
+        logger.info("modo", tipo="sim_only", ufs=ufs, anos=anos)
+
+    logger.info("etapa", sistema="sim", status="download_streaming")
+    sim_bronze_dir = baixar_sim_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_sim", status="iniciando")
+    silver_sim = processar_silver_sim(sim_bronze_dir)
+    logger.info("etapa", camada="silver_sim", status="concluido")
+    gc.collect()
+
+    run_ibge()
+
+    logger.info("etapa", camada="gold", status="iniciando")
+    gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
+    gold_diario = gerar_gold_diario(silver_sim, silver_sia=None)
+    logger.info("etapa", camada="gold", status="concluido")
+
+    logger.info(
+        "pipeline_sim_only_concluido",
+        gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
+        gold_obitos_residencia=str(gold_obitos_residencia),
+        gold_diario=str(gold_diario),
+    )
 
 
 def run_malhas() -> None:
@@ -234,6 +275,11 @@ def main() -> None:
         help="Carrega Parquet Gold/IBGE para PostgreSQL (requer DATABASE_URL)",
     )
     parser.add_argument(
+        "--sim-only",
+        action="store_true",
+        help="Apenas SIM (sem SIA) - pipeline completo Bronze->Silver->Gold",
+    )
+    parser.add_argument(
         "--ufs",
         nargs="+",
         default=["BA", "SP", "MG"],
@@ -253,6 +299,8 @@ def main() -> None:
         from .postgres_load import load_gold_to_postgres
 
         load_gold_to_postgres()
+    elif args.sim_only:
+        run_sim_only(ufs=args.ufs, anos=args.anos)
     elif args.ibge:
         run_ibge()
     elif args.malhas:

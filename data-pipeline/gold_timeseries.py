@@ -14,12 +14,10 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 
-def gerar_gold_diario(silver_sim: Path, silver_sia: Path) -> Path:
-    """Gera tabela Gold diaria agregando SIM (obitos) e SIA (custos).
+def gerar_gold_diario(silver_sim: Path, silver_sia: Path | None) -> Path:
+    """Gera tabela Gold diaria agregando SIM (obitos) e opcionalmente SIA (custos).
 
-    Nota: O SIM tem resolucao diaria (dt_obito). O SIA normalmente tem
-    resolucao mensal nos dados ambulatoriais. A tabela resultante tera
-    obitos diarios e custos mensais (atribuidos ao primeiro dia do mes ou nulos).
+    Quando silver_sia for None, gera apenas obitos diarios (sem custos).
     """
     if not silver_sim.exists():
         msg = f"Silver SIM nao encontrado: {silver_sim}"
@@ -42,32 +40,46 @@ def gerar_gold_diario(silver_sim: Path, silver_sia: Path) -> Path:
         GROUP BY cod_mun_ocorrencia, uf, dt_obito
     """)
 
-    # Agregacao SIA por mes (ja que nao temos dia confiavel para custos)
-    con.sql(f"""
-        CREATE TABLE custos_mensais AS
-        SELECT
-            cod_mun AS cod_mun_ibge,
-            competencia AS data,
-            SUM(valor_aprovado) AS custo_total
-        FROM read_parquet('{silver_sia}')
-        GROUP BY cod_mun, competencia
-    """)
-
-    # Join das duas tabelas. Usamos FULL OUTER JOIN para nao perder dias
-    # que so tem obitos ou meses que so tem custos (improvavel mas possivel).
-    con.sql(f"""
-        COPY (
+    if silver_sia and silver_sia.exists():
+        # Agregacao SIA por mes (ja que nao temos dia confiavel para custos)
+        con.sql(f"""
+            CREATE TABLE custos_mensais AS
             SELECT
-                COALESCE(o.cod_mun_ibge, c.cod_mun_ibge) AS cod_mun_ibge,
-                COALESCE(o.data, c.data) AS data,
-                COALESCE(o.total_obitos, 0) AS total_obitos,
-                COALESCE(c.custo_total, 0) AS custo_total
-            FROM obitos_diarios o
-            FULL OUTER JOIN custos_mensais c
-                ON o.cod_mun_ibge = c.cod_mun_ibge AND o.data = c.data
-            ORDER BY data, cod_mun_ibge
-        ) TO '{destino}' (FORMAT PARQUET)
-    """)
+                cod_mun AS cod_mun_ibge,
+                competencia AS data,
+                SUM(valor_aprovado) AS custo_total
+            FROM read_parquet('{silver_sia}')
+            GROUP BY cod_mun, competencia
+        """)
+
+        # Join das duas tabelas. Usamos FULL OUTER JOIN para nao perder dias
+        # que so tem obitos ou meses que so tem custos (improvavel mas possivel).
+        con.sql(f"""
+            COPY (
+                SELECT
+                    COALESCE(o.cod_mun_ibge, c.cod_mun_ibge) AS cod_mun_ibge,
+                    COALESCE(o.data, c.data) AS data,
+                    COALESCE(o.total_obitos, 0) AS total_obitos,
+                    COALESCE(c.custo_total, 0) AS custo_total
+                FROM obitos_diarios o
+                FULL OUTER JOIN custos_mensais c
+                    ON o.cod_mun_ibge = c.cod_mun_ibge AND o.data = c.data
+                ORDER BY data, cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
+    else:
+        # Modo SIM-only: apenas obitos diarios, custos zerados
+        con.sql(f"""
+            COPY (
+                SELECT
+                    cod_mun_ibge,
+                    data,
+                    total_obitos,
+                    0 AS custo_total
+                FROM obitos_diarios
+                ORDER BY data, cod_mun_ibge
+            ) TO '{destino}' (FORMAT PARQUET)
+        """)
 
     con.close()
 

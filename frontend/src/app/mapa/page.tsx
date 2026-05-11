@@ -198,7 +198,7 @@ export default function MapaPage() {
             />
           </div>
         )}
-        <MapView data={data} metrica={metrica} dimensao={filters.dimensao} ano={filters.ano} />
+        <MapView data={data} metrica={metrica} dimensao={filters.dimensao} ano={filters.ano} uf={filters.uf ?? undefined} regiao={filters.regiao ?? undefined} />
       </div>
 
       {/* Table with Pagination */}
