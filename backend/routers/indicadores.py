@@ -114,6 +114,7 @@ async def ranking_indicadores(
     # Monta filtro de UF/região
     if regiao:
         from .utils import REGIOES
+
         ufs_in_region = REGIOES[regiao.value]
         uf_filter = f" AND uf IN {tuple(ufs_in_region)}"
     elif uf:
@@ -165,11 +166,7 @@ async def ranking_indicadores(
             }
         )
 
-    key = (
-        metrica
-        if metrica in ("taxa_obitos_100mil", "custo_per_capita")
-        else "taxa_obitos_100mil"
-    )
+    key = metrica if metrica in ("taxa_obitos_100mil", "custo_per_capita") else "taxa_obitos_100mil"
     resultados.sort(key=lambda x: x[key], reverse=True)
 
     return {

@@ -1,6 +1,11 @@
 """Arquivo de configuração do Pytest (fixtures compartilhadas)."""
 
+import os
 import unicodedata
+
+# Antes de importar o backend: testes usam sempre DuckDB + Parquet locais.
+os.environ["USE_POSTGRES"] = "false"
+os.environ.pop("DATABASE_URL", None)
 
 import pytest
 from backend.app import app

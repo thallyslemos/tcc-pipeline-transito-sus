@@ -16,6 +16,9 @@ Modos de operacao:
     5. Apenas Gold (requer Silver existente):
        uv run python -m data-pipeline.run --gold
 
+    6. Carga PostgreSQL (requer DATABASE_URL e migrações aplicadas):
+       uv run python -m data-pipeline.run --load-postgres
+
 Exemplos:
     # Dados amostrais (rapido, sem internet)
     uv run python -m data-pipeline.run
@@ -226,6 +229,11 @@ def main() -> None:
         help="Apenas Gold (requer Silver existente)",
     )
     parser.add_argument(
+        "--load-postgres",
+        action="store_true",
+        help="Carrega Parquet Gold/IBGE para PostgreSQL (requer DATABASE_URL)",
+    )
+    parser.add_argument(
         "--ufs",
         nargs="+",
         default=["BA", "SP", "MG"],
@@ -241,7 +249,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.ibge:
+    if args.load_postgres:
+        from .postgres_load import load_gold_to_postgres
+
+        load_gold_to_postgres()
+    elif args.ibge:
         run_ibge()
     elif args.malhas:
         run_malhas()

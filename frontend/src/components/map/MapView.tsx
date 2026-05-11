@@ -11,6 +11,7 @@ interface Props {
   data: MapPoint[];
   metrica: string;
   dimensao?: string;
+  ano?: number;
 }
 
 function tileUrl(isDark: boolean): string[] {
@@ -69,7 +70,7 @@ function buildCircleGeoJSON(data: MapPoint[]): GeoJSON.FeatureCollection {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function MapView({ data, metrica, dimensao }: Props) {
+export default function MapView({ data, metrica, dimensao, ano }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -83,6 +84,7 @@ export default function MapView({ data, metrica, dimensao }: Props) {
   useEffect(() => {
     const params = new URLSearchParams({ metrica });
     if (dimensao) params.set("dimensao", dimensao);
+    if (ano) params.set("ano", String(ano));
     fetch(`${API_URL}/api/geo/municipios?${params}`)
       .then((r) => r.json())
       .then((fc) => {
@@ -93,7 +95,7 @@ export default function MapView({ data, metrica, dimensao }: Props) {
         if (!hasPolygons) setMode("circles");
       })
       .catch(() => setMode("circles"));
-  }, [metrica, dimensao]);
+  }, [metrica, dimensao, ano]);
 
   const isCustos = metrica === "custos";
   const fmt = useCallback((v: number) => isCustos ? formatCurrency(v) : formatNumber(v), [isCustos]);

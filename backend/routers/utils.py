@@ -35,7 +35,9 @@ def _sanitize_floats(rows: list[dict]) -> list[dict]:
 
 
 def _has_view(con, view_name: str) -> bool:
-    """Verifica se uma view existe no DuckDB."""
+    """Verifica se uma view existe (DuckDB: DESCRIBE; PostgreSQL: information_schema)."""
+    if hasattr(con, "has_relation"):
+        return con.has_relation(view_name)
     try:
         con.sql(f"DESCRIBE {view_name}")
         return True

@@ -257,6 +257,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 | Apenas IBGE | `uv run python -m data-pipeline.run --ibge` |
 | Apenas malhas GeoJSON | `uv run python -m data-pipeline.run --malhas` |
 | Apenas Gold (requer Silver) | `uv run python -m data-pipeline.run --gold` |
+| Carga PostgreSQL (requer `DATABASE_URL` + migrações) | `uv run python -m data-pipeline.run --load-postgres` |
+| Migrações SQL | `uv run python db/run_migrations.py` |
 | Limpar dados | `rm -rf data/bronze/* data/silver/* data/gold/*` |
 
 ### Serviços
@@ -288,6 +290,17 @@ Antes de considerar uma tarefa "pronta":
 - [ ] Lint limpo: `uv run ruff check .`
 - [ ] Código formatado: `uv run ruff format .`
 - [ ] Testes de frontend passam (se aplicável): `cd frontend && npm test`
+
+### Contratos, API e OpenSpec
+
+Mudanças que afetem o **contrato da API REST** (paths, parâmetros, formato JSON)
+ou o **schema de consumo** do dashboard ou do MCP exigem atualização de
+[docs/SPEC.md](SPEC.md) e testes que cubram o comportamento novo. Se a mudança
+afetar tabelas ou views servidas em produção, atualize também
+[docs/MODELAGEM_DADOS.md](MODELAGEM_DADOS.md) e as migrações em `db/migrations/`.
+
+Fluxo de especificação: [docs/OPENSPEC.md](OPENSPEC.md). PostgreSQL em produção:
+[docs/adr/ADR-002_POSTGRES_SERVING.md](adr/ADR-002_POSTGRES_SERVING.md).
 
 ### Commits
 
@@ -544,6 +557,9 @@ cd frontend && npm test
 | [docs/GUIA_AGENTES.md](docs/GUIA_AGENTES.md) | Metodologia TDD detalhada |
 | [docs/FINANCEIRO.md](docs/FINANCEIRO.md) | Metodologia de cálculos financeiros |
 | [docs/DADOS_MUNICIPIO.md](docs/DADOS_MUNICIPIO.md) | Semântica de municípios |
+| [docs/OPENSPEC.md](docs/OPENSPEC.md) | Fluxo spec → implementar → validar |
+| [docs/MODELAGEM_DADOS.md](docs/MODELAGEM_DADOS.md) | Modelo lógico (Gold + Postgres) |
+| [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md) | Deploy com PostgreSQL na VPS |
 
 ---
 

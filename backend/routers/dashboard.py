@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Query
 
 from ..database import get_connection
+from ..sql_dialect import expr_competencia_yyyy_mm, expr_round_numeric
 from .utils import (
     Dimensao,
     Regiao,
@@ -26,6 +27,7 @@ async def dashboard_summary(
 ):
     """Resumo geral com KPIs, series temporais e distribuicoes."""
     con = get_connection()
+    comp_expr = expr_competencia_yyyy_mm("competencia")
 
     view_obitos = f"v_obitos_{dimensao.value}"
     if not _has_view(con, view_obitos):
@@ -37,15 +39,11 @@ async def dashboard_summary(
     total_obitos = con.sql(
         f"SELECT COALESCE(SUM(total_obitos),0) FROM {view_obitos} {w}"
     ).fetchone()[0]
-    total_custos = con.sql(
-        f"SELECT COALESCE(SUM(custo_total),0) FROM v_custos {w}"
-    ).fetchone()[0]
+    total_custos = con.sql(f"SELECT COALESCE(SUM(custo_total),0) FROM v_custos {w}").fetchone()[0]
     total_atend = con.sql(
         f"SELECT COALESCE(SUM(total_atendimentos),0) FROM v_custos {w}"
     ).fetchone()[0]
-    n_mun = con.sql(
-        f"SELECT COUNT(DISTINCT cod_mun_ibge) FROM {view_obitos} {w}"
-    ).fetchone()[0]
+    n_mun = con.sql(f"SELECT COUNT(DISTINCT cod_mun_ibge) FROM {view_obitos} {w}").fetchone()[0]
 
     obitos_ano = (
         con.sql(
@@ -55,13 +53,11 @@ async def dashboard_summary(
         .to_dict(orient="records")
     )
 
-    custos_ano = (
-        con.sql(
-            "SELECT ano, ROUND(SUM(custo_total),2) AS total FROM v_custos GROUP BY ano ORDER BY ano"
-        )
-        .fetchdf()
-        .to_dict(orient="records")
+    custos_ano_q = (
+        f"SELECT ano, {expr_round_numeric('SUM(custo_total)')} AS total "
+        "FROM v_custos GROUP BY ano ORDER BY ano"
     )
+    custos_ano = con.sql(custos_ano_q).fetchdf().to_dict(orient="records")
 
     obitos_tipo = (
         con.sql(
@@ -77,7 +73,7 @@ async def dashboard_summary(
     custos_tipo = (
         con.sql(
             f"""
-        SELECT tipo_veiculo, ROUND(SUM(custo_total),2) AS total
+        SELECT tipo_veiculo, {expr_round_numeric("SUM(custo_total)")} AS total
         FROM v_custos {w} GROUP BY tipo_veiculo ORDER BY total DESC
     """
         )
@@ -100,7 +96,7 @@ async def dashboard_summary(
     custos_mun = (
         con.sql(
             f"""
-        SELECT municipio, ROUND(SUM(custo_total),2) AS total
+        SELECT municipio, {expr_round_numeric("SUM(custo_total)")} AS total
         FROM v_custos {w} GROUP BY municipio ORDER BY total DESC
         LIMIT 10
     """
@@ -112,7 +108,7 @@ async def dashboard_summary(
     serie_obitos = (
         con.sql(
             f"""
-        SELECT STRFTIME(competencia,'%Y-%m') AS competencia, SUM(total_obitos) AS valor
+        SELECT {comp_expr} AS competencia, SUM(total_obitos) AS valor
         FROM {view_obitos} WHERE 1=1 {wa} GROUP BY competencia ORDER BY competencia
     """
         )
@@ -123,7 +119,7 @@ async def dashboard_summary(
     serie_custos = (
         con.sql(
             f"""
-        SELECT STRFTIME(competencia,'%Y-%m') AS competencia, ROUND(SUM(custo_total),2) AS valor
+        SELECT {comp_expr} AS competencia, {expr_round_numeric("SUM(custo_total)")} AS valor
         FROM v_custos WHERE 1=1 {wa} GROUP BY competencia ORDER BY competencia
     """
         )
@@ -203,6 +199,7 @@ async def dashboard_summary(
 # para também aceitarem os novos filtros e a dimensão.
 # No momento, elas continuarão usando a view padrão `v_obitos` (ocorrencia).
 
+
 @router.get("/municipios")
 async def listar_municipios(
     uf: str | None = Query(None, alias="uf"),
@@ -250,14 +247,13 @@ async def detalhe_municipio(
     cod6 = cod_mun[:6]
     wa = f"AND ano = {ano}" if ano is not None else ""
     wc = f"LEFT(cod_mun_ibge, 6) = '{cod6}'"
+    comp_expr = expr_competencia_yyyy_mm("competencia")
 
     view_obitos = f"v_obitos_{dimensao.value}"
     if not _has_view(con, view_obitos):
         view_obitos = "v_obitos"
 
-    nome = con.sql(
-        f"SELECT DISTINCT municipio FROM {view_obitos} WHERE {wc} LIMIT 1"
-    ).fetchone()
+    nome = con.sql(f"SELECT DISTINCT municipio FROM {view_obitos} WHERE {wc} LIMIT 1").fetchone()
 
     total_obitos = con.sql(
         f"SELECT COALESCE(SUM(total_obitos),0) FROM {view_obitos} WHERE {wc} {wa}"
@@ -274,7 +270,7 @@ async def detalhe_municipio(
     serie_obitos = (
         con.sql(
             f"""
-        SELECT STRFTIME(competencia,'%Y-%m') AS competencia, SUM(total_obitos) AS valor
+        SELECT {comp_expr} AS competencia, SUM(total_obitos) AS valor
         FROM {view_obitos} WHERE {wc} {wa} GROUP BY competencia ORDER BY competencia
     """
         )
@@ -325,7 +321,7 @@ async def dados_mapa(
             con.sql(
                 f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
-                   ROUND(SUM(o.custo_total), 2) AS valor,
+                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
                    SUM(o.total_atendimentos) AS atendimentos,
                    MAX(o.lat) AS lat, MAX(o.lon) AS lon
             FROM v_custos o
@@ -373,7 +369,5 @@ async def anos_disponiveis():
 async def tipos_veiculo():
     """Lista tipos de veiculo disponiveis."""
     con = get_connection()
-    tipos = con.sql(
-        "SELECT DISTINCT tipo_veiculo FROM v_obitos ORDER BY tipo_veiculo"
-    ).fetchdf()
+    tipos = con.sql("SELECT DISTINCT tipo_veiculo FROM v_obitos ORDER BY tipo_veiculo").fetchdf()
     return {"tipos": tipos["tipo_veiculo"].tolist()}

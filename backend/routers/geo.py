@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import APIRouter, Query
 
 from ..database import get_connection
+from ..sql_dialect import expr_round_numeric
 from .utils import (
     Regiao,
     _has_view,
@@ -62,23 +63,31 @@ def _query_metrics(
     wa = _where_and(ano=ano, uf=uf, regiao=regiao)
 
     if metrica == "custos":
-        rows = con.sql(f"""
+        rows = (
+            con.sql(f"""
             SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
-                   ROUND(SUM(custo_total), 2) AS valor,
+                   {expr_round_numeric("SUM(custo_total)")} AS valor,
                    SUM(total_atendimentos) AS atendimentos
             FROM v_custos WHERE 1=1 {wa}
             GROUP BY cod6, municipio, uf
-        """).fetchdf().to_dict(orient="records")
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
     else:
         view_obitos = f"v_obitos_{dimensao}"
         if not _has_view(con, view_obitos):
             view_obitos = "v_obitos"
-        rows = con.sql(f"""
+        rows = (
+            con.sql(f"""
             SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
                    SUM(total_obitos) AS valor
             FROM {view_obitos} WHERE 1=1 {wa}
             GROUP BY cod6, municipio, uf
-        """).fetchdf().to_dict(orient="records")
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
 
     rows = _sanitize_floats(rows)
     return {r["cod6"]: r for r in rows}
@@ -136,17 +145,19 @@ def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
         if not m:
             continue
 
-        features.append({
-            "type": "Feature",
-            "geometry": feat["geometry"],
-            "properties": {
-                "cod_mun_ibge": codarea,
-                "municipio": m.get("municipio", ""),
-                "uf": m.get("uf", ""),
-                "valor": m.get("valor", 0),
-                "atendimentos": m.get("atendimentos"),
-            },
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": feat["geometry"],
+                "properties": {
+                    "cod_mun_ibge": codarea,
+                    "municipio": m.get("municipio", ""),
+                    "uf": m.get("uf", ""),
+                    "valor": m.get("valor", 0),
+                    "atendimentos": m.get("atendimentos"),
+                },
+            }
+        )
 
     return {"type": "FeatureCollection", "features": features}
 
@@ -165,27 +176,35 @@ def _build_point_fc(
     wa = _where_and(ano=ano, uf=uf, regiao=regiao)
 
     if metrica == "custos":
-        rows = con.sql(f"""
+        rows = (
+            con.sql(f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
-                   ROUND(SUM(o.custo_total), 2) AS valor,
+                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
                    SUM(o.total_atendimentos) AS atendimentos,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM v_custos o {join_ibge}
             WHERE 1=1 {wa}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
-        """).fetchdf().to_dict(orient="records")
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
     else:
         view_obitos = f"v_obitos_{dimensao}"
         if not _has_view(con, view_obitos):
             view_obitos = "v_obitos"
-        rows = con.sql(f"""
+        rows = (
+            con.sql(f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
                    SUM(o.total_obitos) AS valor,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM {view_obitos} o {join_ibge}
             WHERE 1=1 {wa}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
-        """).fetchdf().to_dict(orient="records")
+        """)
+            .fetchdf()
+            .to_dict(orient="records")
+        )
 
     rows = _sanitize_floats(rows)
     features = []
@@ -193,16 +212,18 @@ def _build_point_fc(
         lat, lon = r.get("lat"), r.get("lon")
         if not _within_brasil(lat, lon):
             continue
-        features.append({
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [lon, lat]},
-            "properties": {
-                "cod_mun_ibge": r["cod_mun_ibge"],
-                "municipio": r["municipio"],
-                "uf": r["uf"],
-                "valor": r["valor"],
-                "atendimentos": r.get("atendimentos"),
-            },
-        })
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                "properties": {
+                    "cod_mun_ibge": r["cod_mun_ibge"],
+                    "municipio": r["municipio"],
+                    "uf": r["uf"],
+                    "valor": r["valor"],
+                    "atendimentos": r.get("atendimentos"),
+                },
+            }
+        )
 
     return {"type": "FeatureCollection", "features": features}
