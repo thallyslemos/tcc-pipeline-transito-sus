@@ -65,6 +65,19 @@
     3.  Decidir estratégia de migração gradual vs big-bang
 - **(Status: ⏳ Pendente)**
 
+### Tarefa 6.7: Desacoplar Fetchers Externos do Pipeline SUS (SIM/SIA)
+
+- **Use Case**: O pipeline principal (`--real` / `--sim-only`) não deve disparar milhares de chamadas HTTP do IBGE/SIDRA por município/ano durante o processamento de SIM/SIA.
+- **Critérios de Aceite**:
+    1.  Separar a responsabilidade de ingestão externa em jobs dedicados (ex.: `ibge_fetcher`, `senatran_fetcher`) fora do fluxo crítico do SUS.
+    2.  Pipeline SUS deve consumir apenas artefatos já materializados/cached (`ibge_municipios.parquet`, `ibge_populacao.parquet`, malhas) sem fetch online durante execução principal.
+    3.  Criar comando/entrypoint explícito para atualização de dados externos (on-demand ou agendado), independente do ETL SIM/SIA.
+    4.  Definir contrato de dados entre fetchers externos e camada Gold (schema, versionamento e validação mínima).
+    5.  Documentar a separação arquitetural em `docs/ARCHITECTURE.md` e `docs/PIPELINE_ETL.md`.
+    6.  Adicionar teste de integração garantindo que `--sim-only` não invoque chamadas HTTP do SIDRA durante a execução.
+- **Prioridade**: 🔴 Alta (bloqueador de performance/estabilidade)
+- **(Status: ⏳ Pendente)**
+
 ---
 
 ## Iteração 5 — Granularidade de Filtros no Frontend

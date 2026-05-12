@@ -7,7 +7,7 @@ Modos de operacao:
     2. Real (PySUS): Baixa dados reais do DATASUS via FTP.
        uv run python -m data-pipeline.run --real --ufs BA SP --anos 2022 2023
 
-    3. Apenas IBGE (localidades, populacao, malhas GeoJSON):
+    3. Apenas enriquecimento externo (IBGE: localidades, populacao, malhas):
        uv run python -m data-pipeline.run --ibge
 
     4. Apenas SIM (sem SIA):
@@ -129,6 +129,10 @@ def run_sim_only(ufs: list[str], anos: list[int]) -> None:
 
     Uso:
         uv run python -m data-pipeline.run --sim-only --ufs ALL --anos 2010 2024
+
+    Importante:
+        Nao executa fetchers externos (IBGE/SIDRA). O enriquecimento deve ser
+        rodado separadamente via `--ibge`, mantendo os pipelines desacoplados.
     """
     from .datasus import UFS_BRASIL, baixar_sim_streaming
 
@@ -145,8 +149,6 @@ def run_sim_only(ufs: list[str], anos: list[int]) -> None:
     silver_sim = processar_silver_sim(sim_bronze_dir)
     logger.info("etapa", camada="silver_sim", status="concluido")
     gc.collect()
-
-    run_ibge()
 
     logger.info("etapa", camada="gold", status="iniciando")
     gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
@@ -257,7 +259,7 @@ def main() -> None:
     parser.add_argument(
         "--ibge",
         action="store_true",
-        help="Apenas IBGE: localidades + populacao + malhas GeoJSON",
+        help="Job de enriquecimento externo (IBGE): localidades + populacao + malhas",
     )
     parser.add_argument(
         "--malhas",

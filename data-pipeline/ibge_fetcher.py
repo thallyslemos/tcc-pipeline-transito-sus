@@ -241,18 +241,23 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     _write_parquet(df_mun, dest_dir / "ibge_municipios.parquet")
     logger.info("ibge_municipios_salvo", registros=len(df_mun))
 
-    # 3) Fetch População em paralelo
-    logger.info("ibge_populacao_iniciando", total_combos=len(combos))
+    # 3) Fetch População em paralelo (deduplicado por municipio/ano)
+    pop_keys: set[tuple[str, int]] = set()
+    for cod, ano, _ in combos:
+        loc = _find_localidade(cod)
+        cod_sidra = loc.cod_mun_ibge if loc else cod
+        pop_keys.add((cod_sidra, ano))
+
+    logger.info(
+        "ibge_populacao_iniciando",
+        total_combos=len(combos),
+        total_chaves_unicas=len(pop_keys),
+    )
     pop_rows = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # Garante que usamos o código de 7 dígitos do IBGE para a API
         tasks = {
-            executor.submit(
-                fetch_populacao,
-                (_find_localidade(cod).cod_mun_ibge if _find_localidade(cod) else cod),
-                ano
-            )
-            for cod, ano, _ in combos
+            executor.submit(fetch_populacao, cod, ano)
+            for cod, ano in pop_keys
         }
         for future in as_completed(tasks):
             cod, ano, pop = future.result()

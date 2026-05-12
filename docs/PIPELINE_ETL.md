@@ -71,7 +71,7 @@ python -m data-pipeline.run --ufs BA --anos 2023
 **Novo fluxo:**
 ```bash
 # 1. Executar uma vez quando precisar de coordenadas/população
-python -m data-pipeline.run --ibge-only
+python -m data-pipeline.run --ibge
 
 # 2. Pipeline diário (sem IBGE)
 python -m data-pipeline.run --sim-only --ufs BA --anos 2023
@@ -80,6 +80,11 @@ python -m data-pipeline.run --gold
 # 3. Opcional: SIA em background
 python -m data-pipeline.run --sia-only --ufs BA --anos 2023
 ```
+
+**Implementação atual (2026-05-12):**
+- `--sim-only` não dispara chamadas HTTP do IBGE/SIDRA.
+- enriquecimento externo roda via job dedicado `--ibge`.
+- consultas de população no `ibge_fetcher` são deduplicadas por chave única `(cod_mun_ibge, ano)`.
 
 **Por que dados IBGE mudam raramente:**
 - Divisão territorial (códigos/nomes): alterada apenas quando há criação de município

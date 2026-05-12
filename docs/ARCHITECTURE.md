@@ -53,7 +53,7 @@ flowchart TB
 |-------|--------|-------------|
 | SIM (óbitos) | ✅ Implementada | ~38k registros (BA+PB) |
 | SIA (custos) | ⚠️ Opcional | Desabilitado para otimização ETL |
-| IBGE (coords/pop) | ⚠️ Parcial | Cache implementado |
+| IBGE (coords/pop) | ⚠️ Parcial | Job segregado (`--ibge`) e deduplicação por município/ano |
 | SENATRAN (frota) | ⏳ Pendente | Para indicador ób./10k veículos |
 | PRF | ⏳ Pendente | Cruzamento com SIM |
 | RENAEST | ⏳ Pendente | Validação ocorrências |
@@ -82,6 +82,12 @@ flowchart LR
 | **Gold** | `obitos_ocorrencia_mes`, `obitos_residencia_mes`, `custos_mes`, `eventos_diarios` | ✅ |
 | **API** | 7 endpoints (dashboard, geo, indicadores) | ✅ |
 | **Frontend** | 5 páginas (dashboard, mapa, ranking, município, chat) | ✅ |
+
+### Segregação de Responsabilidades (Implementada)
+
+- **Pipeline SUS (`--sim-only` / `--real`)**: processa somente dados SIM/SIA (bronze/silver/gold).
+- **Pipeline de Enriquecimento (`--ibge`)**: executa fetchers externos (IBGE/SIDRA/malhas) de forma independente.
+- **Contrato de integração**: enriquecimento persiste artefatos em `data/ibge_*.parquet` consumidos pela camada Gold sem dependência de HTTP em tempo de execução do SUS.
 
 ---
 
