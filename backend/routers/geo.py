@@ -14,6 +14,8 @@ from ..sql_dialect import expr_round_numeric
 from .utils import (
     Regiao,
     _has_view,
+    _ibge_label_exprs,
+    _ibge_municipios_join,
     _sanitize_floats,
     _where_and,
 )
@@ -60,47 +62,104 @@ def _query_metrics(
 ) -> dict[str, dict]:
     """Consulta métricas agregadas por município, retorna dict cod6 -> props."""
     con = get_connection()
-    wa = _where_and(ano=ano, uf=uf, regiao=regiao)
+    has_pop = _has_view(con, "v_ibge_populacao")
+    join_ibge = _ibge_municipios_join(con, "o")
+    uf_filt_geo = "COALESCE(ibge.uf, o.uf)" if join_ibge else None
+    wa_o = _where_and(
+        ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_geo
+    )
+    mun_expr, uf_expr = _ibge_label_exprs(con, "o")
+    join_pop_custo = """
+            LEFT JOIN v_ibge_populacao pop
+              ON LEFT(o.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
+             AND o.ano = pop.ano
+    """ if has_pop else ""
+    join_pop_obitos = """
+            LEFT JOIN v_ibge_populacao pop
+              ON LEFT(o.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
+             AND o.ano = pop.ano
+    """ if has_pop else ""
 
     if metrica == "custos":
-        rows = (
-            con.sql(f"""
-            SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
-                   {expr_round_numeric("SUM(custo_total)")} AS valor,
-                   SUM(total_atendimentos) AS atendimentos
-            FROM v_custos WHERE 1=1 {wa}
-            GROUP BY cod6, municipio, uf
-        """)
-            .fetchdf()
-            .to_dict(orient="records")
+        pop_select = "MAX(pop.populacao) AS populacao"
+        per_capita = (
+            f"{expr_round_numeric('SUM(o.custo_total) / NULLIF(MAX(pop.populacao), 0)')} "
+            "AS custo_per_capita"
+            if has_pop
+            else "CAST(NULL AS DOUBLE) AS custo_per_capita, CAST(NULL AS BIGINT) AS populacao"
         )
+        if has_pop:
+            rows = (
+                con.sql(f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6, {mun_expr} AS municipio,
+                   {uf_expr} AS uf,
+                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
+                   SUM(o.total_atendimentos) AS atendimentos,
+                   {pop_select},
+                   {per_capita}
+            FROM v_custos o {join_pop_custo}
+            {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
+        """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6, {mun_expr} AS municipio, {uf_expr} AS uf,
+                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
+                   SUM(o.total_atendimentos) AS atendimentos,
+                   CAST(NULL AS DOUBLE) AS custo_per_capita,
+                   CAST(NULL AS BIGINT) AS populacao
+            FROM v_custos o {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
+        """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
     else:
         view_obitos = f"v_obitos_{dimensao}"
         if not _has_view(con, view_obitos):
             view_obitos = "v_obitos"
-        rows = (
-            con.sql(f"""
-            SELECT LEFT(cod_mun_ibge, 6) AS cod6, municipio, uf,
-                   SUM(total_obitos) AS valor
-            FROM {view_obitos} WHERE 1=1 {wa}
-            GROUP BY cod6, municipio, uf
+        if has_pop:
+            rows = (
+                con.sql(f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6, {mun_expr} AS municipio,
+                   {uf_expr} AS uf,
+                   SUM(o.total_obitos) AS valor,
+                   MAX(COALESCE(o.populacao_estimada, pop.populacao)) AS populacao,
+                   (SUM(o.total_obitos) * 100000.0 / NULLIF(
+                       MAX(COALESCE(o.populacao_estimada, pop.populacao)), 0
+                   )) AS taxa_obitos_100mil
+            FROM {view_obitos} o {join_pop_obitos}
+            {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
         """)
-            .fetchdf()
-            .to_dict(orient="records")
-        )
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6, {mun_expr} AS municipio, {uf_expr} AS uf,
+                   SUM(o.total_obitos) AS valor,
+                   MAX(o.populacao_estimada) AS populacao,
+                   (SUM(o.total_obitos) * 100000.0 / NULLIF(MAX(o.populacao_estimada), 0))
+                   AS taxa_obitos_100mil
+            FROM {view_obitos} o {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
+        """)
+                .fetchdf()
+                .to_dict(orient="records")
+            )
 
     rows = _sanitize_floats(rows)
     return {r["cod6"]: r for r in rows}
-
-
-def _ibge_join(con, table_alias: str = "o") -> str:
-    """Retorna cláusula LEFT JOIN com v_ibge_municipios se disponível."""
-    if not _has_view(con, "v_ibge_municipios"):
-        return ""
-    return (
-        f"LEFT JOIN v_ibge_municipios ibge "
-        f"ON LEFT({table_alias}.cod_mun_ibge, 6) = LEFT(ibge.cod_mun_ibge, 6)"
-    )
 
 
 def _lat_lon_expr(con, table_alias: str = "o") -> tuple[str, str]:
@@ -135,6 +194,21 @@ async def geojson_municipios(
     return _build_point_fc(metrica, ano, uf, regiao, dimensao)
 
 
+def _metric_props_geojson(m: dict) -> dict:
+    """Campos opcionais para o front (escala absoluta vs relativa)."""
+    props: dict = {
+        "valor": m.get("valor", 0),
+        "atendimentos": m.get("atendimentos"),
+    }
+    if m.get("populacao") is not None:
+        props["populacao"] = m["populacao"]
+    if m.get("taxa_obitos_100mil") is not None:
+        props["taxa_obitos_100mil"] = m["taxa_obitos_100mil"]
+    if m.get("custo_per_capita") is not None:
+        props["custo_per_capita"] = m["custo_per_capita"]
+    return props
+
+
 def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
     """Constrói FeatureCollection com polígonos do IBGE + métricas."""
     features = []
@@ -145,6 +219,7 @@ def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
         if not m:
             continue
 
+        mp = _metric_props_geojson(m)
         features.append(
             {
                 "type": "Feature",
@@ -153,8 +228,7 @@ def _build_polygon_fc(malhas: dict, metrics: dict) -> dict:
                     "cod_mun_ibge": codarea,
                     "municipio": m.get("municipio", ""),
                     "uf": m.get("uf", ""),
-                    "valor": m.get("valor", 0),
-                    "atendimentos": m.get("atendimentos"),
+                    **mp,
                 },
             }
         )
@@ -169,59 +243,61 @@ def _build_point_fc(
     regiao: Regiao | None = None,
     dimensao: str = "ocorrencia",
 ) -> dict:
-    """Fallback: FeatureCollection de pontos (centroides) quando malhas não existem."""
+    """Fallback: pontos (centroides) — reutiliza agregados de `_query_metrics`."""
+    metrics = _query_metrics(metrica, ano, uf, regiao, dimensao)
+    if not metrics:
+        return {"type": "FeatureCollection", "features": []}
+
     con = get_connection()
     lat_expr, lon_expr = _lat_lon_expr(con, "o")
-    join_ibge = _ibge_join(con, "o")
-    wa = _where_and(ano=ano, uf=uf, regiao=regiao)
+    join_ibge = _ibge_municipios_join(con, "o")
+    uf_filt = "COALESCE(ibge.uf, o.uf)" if join_ibge else None
+    wa_o = _where_and(ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt)
 
     if metrica == "custos":
-        rows = (
-            con.sql(f"""
-            SELECT o.cod_mun_ibge, o.municipio, o.uf,
-                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
-                   SUM(o.total_atendimentos) AS atendimentos,
+        pos_sql = f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6,
+                   MAX(o.cod_mun_ibge) AS cod_mun_ibge,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM v_custos o {join_ibge}
-            WHERE 1=1 {wa}
-            GROUP BY o.cod_mun_ibge, o.municipio, o.uf
-        """)
-            .fetchdf()
-            .to_dict(orient="records")
-        )
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
+        """
     else:
         view_obitos = f"v_obitos_{dimensao}"
         if not _has_view(con, view_obitos):
             view_obitos = "v_obitos"
-        rows = (
-            con.sql(f"""
-            SELECT o.cod_mun_ibge, o.municipio, o.uf,
-                   SUM(o.total_obitos) AS valor,
+        pos_sql = f"""
+            SELECT LEFT(o.cod_mun_ibge, 6) AS cod6,
+                   MAX(o.cod_mun_ibge) AS cod_mun_ibge,
                    MAX({lat_expr}) AS lat, MAX({lon_expr}) AS lon
             FROM {view_obitos} o {join_ibge}
-            WHERE 1=1 {wa}
-            GROUP BY o.cod_mun_ibge, o.municipio, o.uf
-        """)
-            .fetchdf()
-            .to_dict(orient="records")
-        )
+            WHERE 1=1 {wa_o}
+            GROUP BY LEFT(o.cod_mun_ibge, 6)
+        """
 
-    rows = _sanitize_floats(rows)
+    rows_pos = con.sql(pos_sql).fetchdf().to_dict(orient="records")
+    rows_pos = _sanitize_floats(rows_pos)
+
     features = []
-    for r in rows:
+    for r in rows_pos:
+        cod6 = r.get("cod6")
+        m = metrics.get(cod6) if cod6 else None
+        if not m:
+            continue
         lat, lon = r.get("lat"), r.get("lon")
         if not _within_brasil(lat, lon):
             continue
+        mp = _metric_props_geojson(m)
         features.append(
             {
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [lon, lat]},
                 "properties": {
-                    "cod_mun_ibge": r["cod_mun_ibge"],
-                    "municipio": r["municipio"],
-                    "uf": r["uf"],
-                    "valor": r["valor"],
-                    "atendimentos": r.get("atendimentos"),
+                    "cod_mun_ibge": r.get("cod_mun_ibge"),
+                    "municipio": m.get("municipio", ""),
+                    "uf": m.get("uf", ""),
+                    **mp,
                 },
             }
         )

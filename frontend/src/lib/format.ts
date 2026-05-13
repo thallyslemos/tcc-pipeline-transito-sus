@@ -16,3 +16,11 @@ export function formatCompact(value: number): string {
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return String(value);
 }
+
+/** Taxa por 100 mil habitantes (SIM / Ficha C.12) */
+export function formatTaxa100k(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}

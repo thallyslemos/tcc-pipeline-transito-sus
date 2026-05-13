@@ -5,10 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import FilterBar from "@/components/filters/FilterBar";
-import MapLegend from "@/components/map/MapLegend";
 import { fetchAnos, fetchMunicipios, fetchMapa } from "@/lib/api";
-import { formatCurrency, formatNumber } from "@/lib/format";
+import { formatCurrency, formatNumber, formatTaxa100k } from "@/lib/format";
 import type { MapPoint, FilterValues, Municipio } from "@/lib/types";
+import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
 
@@ -29,23 +29,30 @@ export default function MapaPage() {
 
   const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
   const [metrica, setMetrica] = useState("obitos");
+  /** Cores no mapa: absoluto vs taxa / 100k ou per capita */
+  const [escalaMapa, setEscalaMapa] = useState<MapScaleMode>("total");
   const [data, setData] = useState<MapPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [tablePage, setTablePage] = useState(0);
 
   useEffect(() => {
-    fetchAnos().then((a) => setAnos(a.anos));
+    fetchAnos().then((a) => {
+      setAnos(a.anos);
+      if (a.anos.length > 0) {
+        setFilters((f) => ({ ...f, ano: f.ano ?? a.anos.at(-1)! }));
+      }
+    });
   }, []);
 
-  // Carrega lista de municípios para popular filtros de UF
+  // UF/região vêm dos dados agregados; ano não é parâmetro deste endpoint, mas dimensão sim.
   useEffect(() => {
-    if (!filters.ano) return;
-    fetchMunicipios({ ano: filters.ano }).then((m) => {
+    const dim = filters.dimensao ?? "ocorrencia";
+    fetchMunicipios({ dimensao: dim }).then((m) => {
       setMunicipios(m.municipios);
       const availableUfs = [...new Set(m.municipios.map((mun) => mun.uf))].sort();
       setUfs(availableUfs);
     });
-  }, [filters.ano]);
+  }, [filters.dimensao]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -67,10 +74,10 @@ export default function MapaPage() {
 
     if (key === "regiao") {
       newFilters.uf = undefined;
-      newFilters.regiao = value as FilterValues["regiao"];
+      newFilters.regiao = value ? (value as FilterValues["regiao"]) : undefined;
     } else if (key === "uf") {
       newFilters.regiao = undefined;
-      newFilters.uf = value;
+      newFilters.uf = value || undefined;
     } else if (key === "ano") {
       newFilters.ano = value ? Number(value) : undefined;
     } else if (key === "dimensao") {
@@ -143,14 +150,20 @@ export default function MapaPage() {
         </div>
         <FilterBar
           filters={filterDefs}
-          values={filters as Record<string, string>}
+          values={{
+            dimensao: filters.dimensao ?? "ocorrencia",
+            regiao: filters.regiao ?? "",
+            uf: filters.uf ?? "",
+            ano: filters.ano != null ? String(filters.ano) : "",
+            metrica,
+          }}
           onChange={(k, v) => handleFilterChange(k as keyof FilterValues, v)}
           onReset={handleReset}
         />
       </div>
 
-      {/* Summary bar */}
-      <div className="flex flex-wrap gap-3">
+      {/* Summary + escala do mapa */}
+      <div className="flex flex-wrap items-center gap-3">
         <div
           className="rounded-lg px-4 py-2"
           style={{
@@ -168,7 +181,43 @@ export default function MapaPage() {
             {metrica === "custos" ? formatCurrency(total) : formatNumber(total)}
           </p>
         </div>
-        <MapLegend metrica={metrica} />
+
+        <div
+          className="flex overflow-hidden rounded-lg"
+          style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setEscalaMapa("total")}
+            className="px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{
+              backgroundColor:
+                escalaMapa === "total" ? "var(--primary)" : "var(--bg-card)",
+              color:
+                escalaMapa === "total" ? "var(--primary-fg)" : "var(--fg-secondary)",
+            }}
+          >
+            Mapa: absoluto
+          </button>
+          <button
+            type="button"
+            onClick={() => setEscalaMapa("relative")}
+            className="px-3 py-1.5 text-xs font-medium transition-colors"
+            style={{
+              backgroundColor:
+                escalaMapa === "relative" ? "var(--primary)" : "var(--bg-card)",
+              color:
+                escalaMapa === "relative"
+                  ? "var(--primary-fg)"
+                  : "var(--fg-secondary)",
+              borderLeft: "1px solid var(--border)",
+            }}
+          >
+            {metrica === "custos"
+              ? "Mapa: R$ / hab."
+              : "Mapa: óbitos / 100k"}
+          </button>
+        </div>
       </div>
 
       {/* Map */}
@@ -198,7 +247,15 @@ export default function MapaPage() {
             />
           </div>
         )}
-        <MapView data={data} metrica={metrica} dimensao={filters.dimensao} ano={filters.ano} uf={filters.uf ?? undefined} regiao={filters.regiao ?? undefined} />
+        <MapView
+          data={data}
+          metrica={metrica}
+          dimensao={filters.dimensao}
+          ano={filters.ano}
+          uf={filters.uf ?? undefined}
+          regiao={filters.regiao ?? undefined}
+          escala={escalaMapa}
+        />
       </div>
 
       {/* Table with Pagination */}
@@ -226,6 +283,9 @@ export default function MapaPage() {
                 <th className="px-4 py-2">UF</th>
                 <th className="px-4 py-2 text-right">
                   {metrica === "custos" ? "Custo Total" : "Óbitos"}
+                </th>
+                <th className="px-4 py-2 text-right">
+                  {metrica === "custos" ? "Per capita" : "Taxa / 100k"}
                 </th>
                 <th className="px-4 py-2 text-right">%</th>
               </tr>
@@ -261,6 +321,18 @@ export default function MapaPage() {
                     {metrica === "custos"
                       ? formatCurrency(d.valor)
                       : formatNumber(d.valor)}
+                  </td>
+                  <td
+                    className="px-4 py-2 text-right text-xs font-mono"
+                    style={{ color: "var(--fg-secondary)" }}
+                  >
+                    {metrica === "custos"
+                      ? d.custo_per_capita != null && d.custo_per_capita > 0
+                        ? formatCurrency(d.custo_per_capita)
+                        : "—"
+                      : d.taxa_obitos_100mil != null && d.taxa_obitos_100mil > 0
+                        ? formatTaxa100k(d.taxa_obitos_100mil)
+                        : "—"}
                   </td>
                   <td
                     className="px-4 py-2 text-right"

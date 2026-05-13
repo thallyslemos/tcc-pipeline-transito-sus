@@ -24,6 +24,12 @@ export interface MapPoint {
   lat: number | null;
   lon: number | null;
   atendimentos?: number;
+  /** População (IBGE / Gold) quando disponível */
+  populacao?: number | null;
+  /** Mortes por 100 mil hab. (apenas métrica óbitos) */
+  taxa_obitos_100mil?: number | null;
+  /** Custo per capita em R$ (métrica custos, requer dim_ibge_populacao / join) */
+  custo_per_capita?: number | null;
 }
 
 export interface DashboardData {

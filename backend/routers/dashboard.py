@@ -8,6 +8,8 @@ from .utils import (
     Dimensao,
     Regiao,
     _has_view,
+    _ibge_label_exprs,
+    _ibge_municipios_join,
     _sanitize_floats,
     _where,
     _where_and,
@@ -312,47 +314,110 @@ async def dados_mapa(
     """Dados agregados por municipio para visualizacao no mapa."""
     con = get_connection()
     w = _where(ano=ano, uf=uf, regiao=regiao)
-
-    # As funções de join com IBGE foram movidas para geo.py,
-    # então usamos as colunas de lat/lon que já foram enriquecidas no Gold.
+    has_pop = _has_view(con, "v_ibge_populacao")
+    join_ibge = _ibge_municipios_join(con, "o")
+    mun_sel, uf_sel = _ibge_label_exprs(con, "o")
+    uf_filt_mapa = "COALESCE(ibge.uf, o.uf)" if join_ibge else None
+    wa_o = _where_and(
+        ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_mapa
+    )
+    join_pop = (
+        """
+            LEFT JOIN v_ibge_populacao pop
+              ON LEFT(o.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
+             AND o.ano = pop.ano
+        """
+        if has_pop
+        else ""
+    )
 
     if metrica == "custos":
-        rows = (
-            con.sql(
-                f"""
+        if has_pop:
+            rows = (
+                con.sql(
+                    f"""
+            SELECT o.cod_mun_ibge, {mun_sel} AS municipio, {uf_sel} AS uf,
+                   {expr_round_numeric("SUM(o.custo_total)")} AS valor,
+                   SUM(o.total_atendimentos) AS atendimentos,
+                   MAX(o.lat) AS lat, MAX(o.lon) AS lon,
+                   MAX(pop.populacao) AS populacao,
+                   {expr_round_numeric(
+                       "SUM(o.custo_total) / NULLIF(MAX(pop.populacao), 0)"
+                   )} AS custo_per_capita
+            FROM v_custos o {join_pop}
+            {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY o.cod_mun_ibge
+            ORDER BY valor DESC
+        """
+                )
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(
+                    f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
                    {expr_round_numeric("SUM(o.custo_total)")} AS valor,
                    SUM(o.total_atendimentos) AS atendimentos,
-                   MAX(o.lat) AS lat, MAX(o.lon) AS lon
+                   MAX(o.lat) AS lat, MAX(o.lon) AS lon,
+                   CAST(NULL AS BIGINT) AS populacao,
+                   CAST(NULL AS DOUBLE) AS custo_per_capita
             FROM v_custos o
             {w}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
             ORDER BY valor DESC
         """
+                )
+                .fetchdf()
+                .to_dict(orient="records")
             )
-            .fetchdf()
-            .to_dict(orient="records")
-        )
     else:
         view_obitos = f"v_obitos_{dimensao.value}"
         if not _has_view(con, view_obitos):
             view_obitos = "v_obitos"
 
-        rows = (
-            con.sql(
-                f"""
+        if has_pop:
+            rows = (
+                con.sql(
+                    f"""
+            SELECT o.cod_mun_ibge, {mun_sel} AS municipio, {uf_sel} AS uf,
+                   SUM(o.total_obitos) AS valor,
+                   MAX(o.lat) AS lat, MAX(o.lon) AS lon,
+                   MAX(COALESCE(o.populacao_estimada, pop.populacao)) AS populacao,
+                   (SUM(o.total_obitos) * 100000.0 / NULLIF(
+                       MAX(COALESCE(o.populacao_estimada, pop.populacao)), 0
+                   )) AS taxa_obitos_100mil
+            FROM {view_obitos} o {join_pop}
+            {join_ibge}
+            WHERE 1=1 {wa_o}
+            GROUP BY o.cod_mun_ibge
+            ORDER BY valor DESC
+        """
+                )
+                .fetchdf()
+                .to_dict(orient="records")
+            )
+        else:
+            rows = (
+                con.sql(
+                    f"""
             SELECT o.cod_mun_ibge, o.municipio, o.uf,
                    SUM(o.total_obitos) AS valor,
-                   MAX(o.lat) AS lat, MAX(o.lon) AS lon
+                   MAX(o.lat) AS lat, MAX(o.lon) AS lon,
+                   MAX(o.populacao_estimada) AS populacao,
+                   (SUM(o.total_obitos) * 100000.0 / NULLIF(MAX(o.populacao_estimada), 0))
+                   AS taxa_obitos_100mil
             FROM {view_obitos} o
             {w}
             GROUP BY o.cod_mun_ibge, o.municipio, o.uf
             ORDER BY valor DESC
         """
+                )
+                .fetchdf()
+                .to_dict(orient="records")
             )
-            .fetchdf()
-            .to_dict(orient="records")
-        )
 
     return {"metrica": metrica, "ano": ano, "dados": _sanitize_floats(rows)}
 
