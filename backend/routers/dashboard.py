@@ -303,6 +303,97 @@ async def detalhe_municipio(
     }
 
 
+CONCENTRACAO_MIN_OBITOS_ANO = 10
+CONCENTRACAO_SHARE_DIA_PICO = 0.5
+
+
+@router.get("/municipio/{cod_mun}/serie-diaria")
+async def serie_diaria_municipio(
+    cod_mun: str,
+    ano: int,
+    dimensao: Dimensao = Query(Dimensao.ocorrencia, alias="dimensao"),
+):
+    """Óbitos por dia (Gold diário) e indicadores de concentração temporal (picos)."""
+    con = get_connection()
+    cod6 = "".join(c for c in cod_mun.strip()[:6] if c.isdigit())
+    if len(cod6) != 6:
+        return {"error": "codigo de municipio invalido"}
+
+    if dimensao != Dimensao.ocorrencia:
+        return {
+            "cod_mun_ibge": cod_mun,
+            "ano": ano,
+            "dimensao_ativa": dimensao.value,
+            "serie_diaria_disponivel": False,
+            "motivo": "Granularidade diaria apenas para dimensao ocorrencia (CODMUNOCOR no SIM).",
+            "pontos": [],
+            "resumo": None,
+        }
+
+    if not _has_view(con, "v_eventos_diarios"):
+        return {
+            "cod_mun_ibge": cod_mun,
+            "ano": ano,
+            "dimensao_ativa": dimensao.value,
+            "serie_diaria_disponivel": False,
+            "motivo": "eventos_diarios_municipio.parquet ausente — rode o pipeline com serie diaria.",
+            "pontos": [],
+            "resumo": None,
+        }
+
+    rows = (
+        con.sql(
+            f"""
+        SELECT CAST(data AS DATE) AS dia, SUM(total_obitos)::BIGINT AS obitos
+        FROM v_eventos_diarios
+        WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = '{cod6}'
+          AND YEAR(CAST(data AS DATE)) = {int(ano)}
+        GROUP BY 1 ORDER BY 1
+        """
+        )
+        .fetchdf()
+    )
+
+    pontos: list[dict] = []
+    for _, r in rows.iterrows():
+        dia = r["dia"]
+        pontos.append(
+            {
+                "data": dia.isoformat() if hasattr(dia, "isoformat") else str(dia),
+                "obitos": int(r["obitos"]),
+            }
+        )
+
+    total = int(rows["obitos"].sum()) if not rows.empty else 0
+    max_ob = int(rows["obitos"].max()) if not rows.empty else 0
+    share_pico = (max_ob / total) if total > 0 else 0.0
+    alerta = total >= CONCENTRACAO_MIN_OBITOS_ANO and share_pico >= CONCENTRACAO_SHARE_DIA_PICO
+    dia_pico = None
+    if not rows.empty and max_ob > 0:
+        idx = rows["obitos"].idxmax()
+        d = rows.loc[idx, "dia"]
+        dia_pico = d.isoformat() if hasattr(d, "isoformat") else str(d)
+
+    resumo = {
+        "total_obitos_ano": total,
+        "max_obitos_dia": max_ob,
+        "dia_pico": dia_pico,
+        "share_obitos_no_dia_pico": round(share_pico, 4),
+        "alerta_concentracao": alerta,
+        "limiar_share": CONCENTRACAO_SHARE_DIA_PICO,
+        "limiar_obitos_ano": CONCENTRACAO_MIN_OBITOS_ANO,
+    }
+
+    return {
+        "cod_mun_ibge": cod_mun,
+        "ano": ano,
+        "dimensao_ativa": dimensao.value,
+        "serie_diaria_disponivel": True,
+        "pontos": _sanitize_floats(pontos),
+        "resumo": resumo,
+    }
+
+
 @router.get("/mapa")
 async def dados_mapa(
     ano: int | None = None,

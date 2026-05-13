@@ -52,8 +52,19 @@ from .gold import (
 from .gold_timeseries import gerar_gold_diario
 from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
+from .frota_gold import build_frota_municipio_ano
 
 logger = get_logger(__name__)
+
+
+def run_frota_gold() -> None:
+    """Apenas Gold frota (CSV SENATRAN normalizado em data/frota/)."""
+    logger.info("modo", tipo="frota_gold")
+    out = build_frota_municipio_ano()
+    if out:
+        logger.info("frota_concluida", dest=str(out))
+    else:
+        logger.warning("frota_nao_gerada", motivo="csv_ausente")
 
 
 def run_sample() -> None:
@@ -277,6 +288,11 @@ def main() -> None:
         help="Carrega Parquet Gold/IBGE para PostgreSQL (requer DATABASE_URL)",
     )
     parser.add_argument(
+        "--frota",
+        action="store_true",
+        help="Apenas Gold frota (data/frota/frota_normalizada_ibge.csv)",
+    )
+    parser.add_argument(
         "--sim-only",
         action="store_true",
         help="Apenas SIM (sem SIA) - pipeline completo Bronze->Silver->Gold",
@@ -301,6 +317,8 @@ def main() -> None:
         from .postgres_load import load_gold_to_postgres
 
         load_gold_to_postgres()
+    elif args.frota:
+        run_frota_gold()
     elif args.sim_only:
         run_sim_only(ufs=args.ufs, anos=args.anos)
     elif args.ibge:

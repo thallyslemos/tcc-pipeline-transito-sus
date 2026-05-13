@@ -229,6 +229,51 @@ def test_municipio_detalhe_com_dimensao(client: TestClient, ano_disponivel: int)
     assert d2["dimensao_ativa"] == "ocorrencia"
 
 
+def test_indicadores_municipio_dimensao(client: TestClient, municipio_disponivel: dict):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r_oc = client.get(f"/api/indicadores/municipio/{cod}?dimensao=ocorrencia")
+    assert r_oc.status_code == 200
+    assert r_oc.json()["dimensao_ativa"] == "ocorrencia"
+    r_re = client.get(f"/api/indicadores/municipio/{cod}?dimensao=residencia")
+    assert r_re.status_code == 200
+    assert r_re.json()["dimensao_ativa"] == "residencia"
+
+
+def test_serie_diaria_residencia_indisponivel(
+    client: TestClient, municipio_disponivel: dict, ano_disponivel: int
+):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r = client.get(
+        f"/api/dashboard/municipio/{cod}/serie-diaria",
+        params={"ano": ano_disponivel, "dimensao": "residencia"},
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert d["serie_diaria_disponivel"] is False
+    assert d.get("motivo")
+
+
+def test_serie_diaria_ocorrencia_contrato(
+    client: TestClient, municipio_disponivel: dict, ano_disponivel: int
+):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r = client.get(
+        f"/api/dashboard/municipio/{cod}/serie-diaria",
+        params={"ano": ano_disponivel, "dimensao": "ocorrencia"},
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert "serie_diaria_disponivel" in d
+    assert "pontos" in d
+    if d["serie_diaria_disponivel"]:
+        assert isinstance(d["pontos"], list)
+        assert d["resumo"] is not None
+        assert "alerta_concentracao" in d["resumo"]
+        assert "share_obitos_no_dia_pico" in d["resumo"]
+    else:
+        assert d.get("motivo")
+
+
 def test_mapa_obitos(client: TestClient):
     r = client.get("/api/dashboard/mapa?metrica=obitos")
     assert r.status_code == 200

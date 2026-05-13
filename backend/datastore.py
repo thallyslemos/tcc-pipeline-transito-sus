@@ -161,6 +161,20 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
             SELECT * FROM read_parquet('{ibge_pop_path}')
         """)
 
+    eventos_path = gold_dir / "eventos_diarios_municipio.parquet"
+    if eventos_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_eventos_diarios AS
+            SELECT * FROM read_parquet('{eventos_path}')
+        """)
+
+    frota_path = gold_dir / "frota_municipio_ano.parquet"
+    if frota_path.exists():
+        con.sql(f"""
+            CREATE VIEW IF NOT EXISTS v_frota_municipio_ano AS
+            SELECT * FROM read_parquet('{frota_path}')
+        """)
+
     logger.info(
         "duckdb_inicializado",
         obitos_ocorrencia=str(ocorrencia_path),

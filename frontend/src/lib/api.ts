@@ -63,6 +63,8 @@ export interface IndicadorAnual {
   custo_per_capita: number;
   atendimentos: number;
   taxa_atend_100mil: number;
+  frota_total?: number;
+  taxa_obitos_por_10mil_veiculos?: number;
 }
 
 export interface IndicadoresMunicipio {
@@ -70,6 +72,7 @@ export interface IndicadoresMunicipio {
   municipio: string;
   uf: string;
   regiao: string;
+  dimensao_ativa?: string;
   area_km2: number;
   idh: number;
   pib_per_capita: number;
@@ -77,10 +80,41 @@ export interface IndicadoresMunicipio {
   fontes: Record<string, string>;
 }
 
-export const fetchIndicadores = (cod: string, ano?: number) =>
-  get<IndicadoresMunicipio>(
-    `/api/indicadores/municipio/${cod}${ano ? `?ano=${ano}` : ""}`
+export const fetchIndicadores = (cod: string, ano?: number, dimensao?: string) => {
+  const p = new URLSearchParams();
+  if (ano != null) p.set("ano", String(ano));
+  if (dimensao) p.set("dimensao", dimensao);
+  const q = p.toString() ? `?${p}` : "";
+  return get<IndicadoresMunicipio>(`/api/indicadores/municipio/${cod}${q}`);
+};
+
+export interface SerieDiariaResumo {
+  total_obitos_ano: number;
+  max_obitos_dia: number;
+  dia_pico: string | null;
+  share_obitos_no_dia_pico: number;
+  alerta_concentracao: boolean;
+  limiar_share: number;
+  limiar_obitos_ano: number;
+}
+
+export interface SerieDiariaResponse {
+  cod_mun_ibge: string;
+  ano: number;
+  dimensao_ativa?: string;
+  serie_diaria_disponivel: boolean;
+  motivo?: string;
+  pontos: { data: string; obitos: number }[];
+  resumo: SerieDiariaResumo | null;
+}
+
+export const fetchSerieDiaria = (cod: string, ano: number, dimensao?: string) => {
+  const p = new URLSearchParams({ ano: String(ano) });
+  if (dimensao) p.set("dimensao", dimensao);
+  return get<SerieDiariaResponse>(
+    `/api/dashboard/municipio/${cod}/serie-diaria?${p}`
   );
+};
 
 export interface RankingItem {
   cod_mun_ibge: string;

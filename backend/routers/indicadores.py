@@ -21,24 +21,54 @@ from ..ibge import (
     get_populacao,
     taxa_por_100mil,
 )
-from .utils import Regiao
+from .utils import Dimensao, Regiao, _has_view
 
 router = APIRouter(prefix="/api/indicadores", tags=["Indicadores"])
 
 
+def _view_obitos_dim(con, dimensao: Dimensao) -> str:
+    view = f"v_obitos_{dimensao.value}"
+    if _has_view(con, view):
+        return view
+    return "v_obitos"
+
+
+def _cod6_seguro(cod_mun: str) -> str | None:
+    raw = cod_mun.strip()[:6]
+    cod6 = "".join(c for c in raw if c.isdigit())
+    return cod6 if len(cod6) == 6 else None
+
+
 @router.get("/municipio/{cod_mun}")
-async def indicadores_municipio(cod_mun: str, ano: int | None = None):
+async def indicadores_municipio(
+    cod_mun: str,
+    ano: int | None = None,
+    dimensao: Dimensao = Query(Dimensao.ocorrencia, alias="dimensao"),
+):
     """Indicadores relativos por municipio com dados demograficos."""
     con = get_connection()
+    cod6 = _cod6_seguro(cod_mun)
+    if not cod6:
+        return {"error": "codigo de municipio invalido"}
+
     info = get_info(cod_mun)
     if not info:
         return {"error": "Municipio nao encontrado"}
 
-    cod6 = cod_mun[:6]
+    view_obitos = _view_obitos_dim(con, dimensao)
 
-    anos_disponveis = [2019, 2020, 2021, 2022, 2023]
-    if ano:
-        anos_disponveis = [ano]
+    anos_df = con.sql(
+        f"""
+        SELECT DISTINCT ano FROM {view_obitos}
+        WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = '{cod6}'
+        ORDER BY ano
+        """
+    ).fetchdf()
+    anos_disponveis = (
+        [int(x) for x in anos_df["ano"].tolist()] if not anos_df.empty else []
+    )
+    if ano is not None:
+        anos_disponveis = [a for a in anos_disponveis if a == ano]
 
     indicadores_anuais = []
     last_pop = None
@@ -51,42 +81,58 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
         if not effective_pop:
             continue
 
-        obitos = con.execute(
-            "SELECT COALESCE(SUM(total_obitos), 0) FROM v_obitos "
-            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
-            [cod6, a],
-        ).fetchone()[0]
+        obitos_sql = (
+            f"SELECT COALESCE(SUM(total_obitos), 0) FROM {view_obitos} "
+            "WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = ? AND ano = ?"
+        )
+        obitos = con.execute(obitos_sql, [cod6, a]).fetchone()[0]
 
         custos = con.execute(
             "SELECT COALESCE(SUM(custo_total), 0) FROM v_custos "
-            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            "WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = ? AND ano = ?",
             [cod6, a],
         ).fetchone()[0]
 
         atend = con.execute(
             "SELECT COALESCE(SUM(total_atendimentos), 0) FROM v_custos "
-            "WHERE LEFT(cod_mun_ibge, 6) = ? AND ano = ?",
+            "WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = ? AND ano = ?",
             [cod6, a],
         ).fetchone()[0]
 
-        indicadores_anuais.append(
-            {
-                "ano": a,
-                "populacao": effective_pop,
-                "obitos": int(obitos),
-                "taxa_obitos_100mil": taxa_por_100mil(float(obitos), effective_pop),
-                "custo_total": float(custos),
-                "custo_per_capita": custo_per_capita(float(custos), effective_pop),
-                "atendimentos": int(atend),
-                "taxa_atend_100mil": taxa_por_100mil(float(atend), effective_pop),
-            }
-        )
+        row: dict = {
+            "ano": a,
+            "populacao": effective_pop,
+            "obitos": int(obitos),
+            "taxa_obitos_100mil": taxa_por_100mil(float(obitos), effective_pop),
+            "custo_total": float(custos),
+            "custo_per_capita": custo_per_capita(float(custos), effective_pop),
+            "atendimentos": int(atend),
+            "taxa_atend_100mil": taxa_por_100mil(float(atend), effective_pop),
+        }
+        if _has_view(con, "v_frota_municipio_ano"):
+            ft = con.sql(
+                f"""
+                SELECT frota_total FROM v_frota_municipio_ano
+                WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = '{cod6}'
+                  AND ano = {int(a)}
+                LIMIT 1
+                """
+            ).fetchone()
+            if ft and ft[0] is not None and float(ft[0]) > 0:
+                ftot = int(ft[0])
+                row["frota_total"] = ftot
+                row["taxa_obitos_por_10mil_veiculos"] = round(
+                    float(obitos) / float(ftot) * 10_000.0, 4
+                )
+
+        indicadores_anuais.append(row)
 
     return {
         "cod_mun_ibge": cod_mun,
         "municipio": info["nome"],
         "uf": info["uf"],
         "regiao": info["regiao"],
+        "dimensao_ativa": dimensao.value,
         "area_km2": info.get("area_km2"),
         "idh": info.get("idh"),
         "pib_per_capita": info.get("pib_per_capita"),
@@ -97,6 +143,7 @@ async def indicadores_municipio(cod_mun: str, ano: int | None = None):
             "custos": "DATASUS - Sistema de Informacoes Ambulatoriais (SIA)",
             "metodologia_taxa": "Taxa por 100 mil hab = (eventos / populacao) * 100.000",
             "idh": "Atlas Brasil / PNUD (Censo 2010)",
+            "frota": "SENATRAN —frota municipal referência anual (ver data/gold/frota_municipio_ano.parquet)",
         },
     }
 
