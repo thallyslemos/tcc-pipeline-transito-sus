@@ -41,9 +41,11 @@ Exemplos:
 
 import argparse
 import gc
+from pathlib import Path
 
 from .bronze import salvar_bronze
 from .config import settings
+from .frota_gold import build_frota_municipio_ano
 from .gold import (
     gerar_gold_custos,
     gerar_gold_obitos_ocorrencia,
@@ -52,9 +54,28 @@ from .gold import (
 from .gold_timeseries import gerar_gold_diario
 from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
-from .frota_gold import build_frota_municipio_ano
 
 logger = get_logger(__name__)
+
+
+def run_sim_evidence(
+    silver_path: Path,
+    manifest_path: Path | None,
+    gold_dir: Path,
+    qa_output: Path,
+) -> None:
+    """Audita e materializa o contrato SIM-only sem baixar nem sobrescrever."""
+    from .sim_evidence import auditar_snapshot_sim, materializar_marts_sim
+
+    report = auditar_snapshot_sim(
+        silver_path, manifest_path=manifest_path, output_path=qa_output
+    )
+    marts = materializar_marts_sim(silver_path, destino_dir=gold_dir)
+    logger.info(
+        "sim_evidence_concluido",
+        resumo=report["summary"],
+        marts={role: str(path) for role, path in marts.items()},
+    )
 
 
 def run_frota_gold() -> None:
@@ -293,6 +314,29 @@ def main() -> None:
         help="Apenas Gold frota (data/frota/frota_normalizada_ibge.csv)",
     )
     parser.add_argument(
+        "--sim-evidence",
+        action="store_true",
+        help="Audita/materializa Silver v2 SIM-only existente (sem download)",
+    )
+    parser.add_argument(
+        "--silver-v2",
+        type=Path,
+        default=Path("data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet"),
+        help="Silver v2 para --sim-evidence",
+    )
+    parser.add_argument(
+        "--manifest-sim",
+        type=Path,
+        default=Path("data/silver/sim_v2_nacional_2010_2024.manifest.json"),
+        help="Manifesto SIM para --sim-evidence",
+    )
+    parser.add_argument(
+        "--qa-output",
+        type=Path,
+        default=Path("docs/metadata/sim_v2_nacional_2010_2024_contract_v2.audit.json"),
+        help="Relat?rio QA para --sim-evidence",
+    )
+    parser.add_argument(
         "--sim-only",
         action="store_true",
         help="Apenas SIM (sem SIA) - pipeline completo Bronze->Silver->Gold",
@@ -313,7 +357,14 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    if args.load_postgres:
+    if args.sim_evidence:
+        run_sim_evidence(
+            silver_path=args.silver_v2,
+            manifest_path=args.manifest_sim,
+            gold_dir=settings.resolve(settings.gold_dir),
+            qa_output=args.qa_output,
+        )
+    elif args.load_postgres:
         from .postgres_load import load_gold_to_postgres
 
         load_gold_to_postgres()

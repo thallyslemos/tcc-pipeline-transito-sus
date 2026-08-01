@@ -274,7 +274,7 @@ def processar_silver_sim_v2(
             idade_unidade_code,
             idade_quantidade,
             idade_anos AS idade,
-            idade_anos,
+            idade_anos AS idade_anos,
             CASE WHEN idade_anos IS NULL THEN 'Ignorada'
                  WHEN idade_anos BETWEEN 0 AND 14 THEN '0-14'
                  WHEN idade_anos BETWEEN 15 AND 24 THEN '15-24'
@@ -294,6 +294,8 @@ def processar_silver_sim_v2(
             CASE WHEN tipobito_raw = '1' THEN 'Fetal'
                  WHEN tipobito_raw = '2' THEN 'Nao fetal'
                  ELSE 'Ignorado' END AS tipo_obito,
+            CASE WHEN tipobito_raw = '2' THEN TRUE ELSE FALSE END
+                AS is_obito_nao_fetal,
             cod_mun_res_raw AS cod_mun_residencia,
             cod_mun_res_raw AS cod_mun_residencia_raw,
             cod_mun_residencia_6,

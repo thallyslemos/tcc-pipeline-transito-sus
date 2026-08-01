@@ -11,7 +11,7 @@
 
 ### O que o projeto faz
 
-1. **Extrai** microdados de mortalidade (SIM) e custos ambulatoriais (SIA) do DATASUS via PySUS
+1. **Extrai** microdados de mortalidade do SIM via PySUS; fontes SIA permanecem fora do escopo ativo
 2. **Transforma** em arquitetura Medallion (Bronze → Silver → Gold) com DuckDB + Parquet
 3. **Enriquece** com dados demográficos do IBGE (localidades, coordenadas, população)
 4. **Expõe** via API REST (FastAPI) para dashboards, mapas e indicadores relativos
@@ -37,7 +37,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        FONTE DE DADOS                          │
-│  DATASUS (SIM/SIA)          IBGE (SIDRA/Localidades)           │
+│  DATASUS (SIM)              IBGE (SIDRA/Localidades)           │
 └──────────┬────────────────────────────┬────────────────────────┘
            │                            │
            ▼                            ▼
@@ -253,8 +253,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 | Ação | Comando |
 |------|---------|
 | Dados amostrais (offline, ~2s) | `uv run python -m data-pipeline.run` |
-| Dados reais do DATASUS | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
+| Dados reais do DATASUS (SIM) | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
 | Apenas IBGE | `uv run python -m data-pipeline.run --ibge` |
+| Auditar/materializar SIM v2 | `uv run python -m data-pipeline.run --sim-evidence --silver-v2 ...` |
 | Apenas malhas GeoJSON | `uv run python -m data-pipeline.run --malhas` |
 | Apenas Gold (requer Silver) | `uv run python -m data-pipeline.run --gold` |
 | Carga PostgreSQL (requer `DATABASE_URL` + migrações) | `uv run python -m data-pipeline.run --load-postgres` |

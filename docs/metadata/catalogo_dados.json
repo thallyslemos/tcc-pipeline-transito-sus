@@ -1,0 +1,167 @@
+{
+  "catalog_version": "sim_evidence_v1",
+  "generated_at": "2026-08-01T17:20:02.585088+00:00",
+  "scope": "SIM-only; SIA fora do escopo ativo",
+  "datasets": [
+    {
+      "id": "sim_silver_nacional_v2",
+      "layer": "silver",
+      "status": "validated",
+      "provider": "DATASUS/SIM",
+      "source_url": "https://ftp.datasus.gov.br/dissemin/publicos/",
+      "coverage": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "ufs": 27
+      },
+      "grain": "uma linha por registro de ?bito recebido",
+      "keys": [
+        "record_id"
+      ],
+      "quality": {
+        "rows": 20410620,
+        "record_ids_unique": 20410620,
+        "att": 565383,
+        "filter": "is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'"
+      },
+      "path": "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet",
+      "bytes": 1857854228,
+      "sha256": "5869f067227d2c8ea759bbc953aa942c6c7f60fc3f8c448e663c20aa3741c74c"
+    },
+    {
+      "id": "sim_gold_municipio_mes_ocorrencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "tipo_local + munic?pio + compet?ncia + ve?culo + faixa et?ria + sexo",
+      "keys": [
+        "tipo_local",
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 482501,
+        "deaths": 565383,
+        "geography_role": "ocorrencia"
+      },
+      "path": "data/gold/sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet",
+      "bytes": 5573733,
+      "sha256": "e667c35224120488e5c3036fb0cb46a33b15adc26dbb00953cc0b7958215ee9c"
+    },
+    {
+      "id": "sim_gold_municipio_mes_residencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "tipo_local + munic?pio + compet?ncia + ve?culo + faixa et?ria + sexo",
+      "keys": [
+        "tipo_local",
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 509701,
+        "deaths": 565383,
+        "geography_role": "residencia"
+      },
+      "path": "data/gold/sim_v1_obitos_municipio_mes_residencia_v2.parquet",
+      "bytes": 6192617,
+      "sha256": "3bf1a71f0aa4a7c3d8d7fe25109122123c4d2d542e1bdca82b46fb7dda256bc9"
+    },
+    {
+      "id": "ibge_dim_municipio",
+      "layer": "dimension",
+      "status": "partial",
+      "provider": "IBGE",
+      "source_url": "https://servicodados.ibge.gov.br/api/v1/localidades/municipios",
+      "grain": "um munic?pio",
+      "keys": [
+        "cod_mun_ibge"
+      ],
+      "quality": {
+        "rows": 5537,
+        "coordinates_non_null": 0,
+        "note": "subconjunto local; GeoJSON tem 5571 features"
+      },
+      "path": "data/ibge_municipios.parquet",
+      "bytes": 81437,
+      "sha256": "2bc909833ebfcdfa2a85403bb207854ecd47cebeb72d3d18b37338ab457c2aa7"
+    },
+    {
+      "id": "ibge_populacao",
+      "layer": "dimension",
+      "status": "partial",
+      "provider": "IBGE SIDRA",
+      "source_url": "https://apisidra.ibge.gov.br/values/t/6579",
+      "grain": "munic?pio-ano",
+      "keys": [
+        "cod_mun_ibge",
+        "ano"
+      ],
+      "quality": {
+        "rows": 49206,
+        "years": [
+          2011,
+          2021,
+          2024
+        ],
+        "note": "2010, 2022 e 2023 ausentes no artefato local"
+      },
+      "path": "data/ibge_populacao.parquet",
+      "bytes": 356956,
+      "sha256": "c01a75a0b53fec9a8ec392f45d5c65b216843224a9dbb1feb1bde8d3efda3b52"
+    },
+    {
+      "id": "ibge_malhas_municipios",
+      "layer": "dimension",
+      "status": "validated",
+      "provider": "IBGE",
+      "source_url": "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR",
+      "grain": "geometria municipal",
+      "keys": [
+        "codarea"
+      ],
+      "quality": {
+        "features": 5571,
+        "null_geometry": 0
+      },
+      "path": "data/ibge_malhas_municipios.geojson",
+      "bytes": 3742533,
+      "sha256": "7d446f3784513549c379a9fb8f2f326714508f774c03d812817402af5ffad15a"
+    },
+    {
+      "id": "senatran_frota",
+      "layer": "dimension",
+      "status": "not_loaded",
+      "provider": "SENATRAN/RENAVAM",
+      "source_url": "https://dados.transportes.gov.br/pt_BR/dataset/registro-nacional-de-veiculos-automotores-renavam",
+      "grain": "munic?pio-m?s-tipo de ve?culo",
+      "keys": [
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo"
+      ],
+      "quality": {
+        "available_local_rows": 0,
+        "metric_status": "indisponivel_until_validated"
+      },
+      "notes": "Contrato descrito em docs/DICIONARIO_DADOS_SENATRAN.md"
+    }
+  ]
+}

@@ -24,7 +24,7 @@ from .logging import get_logger
 logger = get_logger(__name__)
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 METADADOS_MUN_URL = (
-    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/1100700/metadados"
+    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
 )
 MALHAS_BR_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
@@ -147,41 +147,54 @@ def _silver_paths() -> tuple[Path, Path]:
 
 
 def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
-    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver."""
-    silver_sim, silver_sia = _silver_paths()
-    combos: set[tuple[str, int, str]] = set()
+    """Infere munic?pio/ano somente do SIM, sem misturar SIA no cat?logo IBGE."""
+    silver_sim, _legacy_sia = _silver_paths()
+    candidates = [
+        settings.resolve(settings.silver_dir)
+        / "sim_v2_nacional_2010_2024_contract_v2.parquet",
+        settings.resolve(settings.silver_dir)
+        / "sim_v2_nacional_2010_2024_contract_v1.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_nacional_2010_2024.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_ba_2010_2024.parquet",
+        silver_sim,
+    ]
+    source = next((path for path in candidates if path.exists()), None)
+    if source is None:
+        return []
 
     con = duckdb.connect(":memory:")
     try:
-        if silver_sim.exists():
-            df_sim = con.sql(
-                f"""
+        columns = {
+            str(row[0]).lower()
+            for row in con.sql(
+                f"DESCRIBE SELECT * FROM read_parquet('{source}')"
+            ).fetchall()
+        }
+        if "cod_mun_ocorrencia_6" in columns:
+            query = f"""
+                SELECT DISTINCT
+                    TRIM(CAST(cod_mun_ocorrencia_6 AS VARCHAR)) AS cod_mun_ibge,
+                    ano_obito AS ano,
+                    TRIM(CAST(uf_ocorrencia AS VARCHAR)) AS uf
+                FROM read_parquet('{source}')
+                WHERE is_v01_v89 AND qa_status = 'ok'
+            """
+        else:
+            query = f"""
                 SELECT DISTINCT
                     TRIM(CAST(cod_mun_ocorrencia AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
                     TRIM(CAST(uf AS VARCHAR)) AS uf
-                FROM read_parquet('{silver_sim}')
-                """
-            ).fetchdf()
-            for _, row in df_sim.iterrows():
-                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
-
-        if silver_sia.exists():
-            df_sia = con.sql(
-                f"""
-                SELECT DISTINCT
-                    TRIM(CAST(cod_mun AS VARCHAR)) AS cod_mun_ibge,
-                    YEAR(competencia) AS ano,
-                    TRIM(CAST(uf AS VARCHAR)) AS uf
-                FROM read_parquet('{silver_sia}')
-                """
-            ).fetchdf()
-            for _, row in df_sia.iterrows():
-                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
+                FROM read_parquet('{source}')
+            """
+        rows = con.sql(query).fetchall()
     finally:
         con.close()
 
-    return sorted(combos, key=lambda t: (t[0], t[1]))
+    return sorted(
+        {(str(cod).strip(), int(ano), str(uf).strip()) for cod, ano, uf in rows},
+        key=lambda item: (item[0], item[1]),
+    )
 
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:

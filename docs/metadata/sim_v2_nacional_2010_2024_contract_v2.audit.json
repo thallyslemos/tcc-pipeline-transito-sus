@@ -1,0 +1,332 @@
+{
+  "contract": "sim_evidence_v1",
+  "generated_at": "2026-08-01T17:16:09.508736+00:00",
+  "silver": {
+    "path": "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet",
+    "bytes": 1857854228,
+    "sha256": "5869f067227d2c8ea759bbc953aa942c6c7f60fc3f8c448e663c20aa3741c74c",
+    "schema": [
+      {
+        "name": "record_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "source_file_name",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "source_file_sha256",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "source_row_number",
+        "type": "BIGINT"
+      },
+      {
+        "name": "source_snapshot_id",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "layout_version",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "raw_schema_hash",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "causabas_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "causabas",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cid_grupo",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_v01_v89",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "dt_obito_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "dt_obito",
+        "type": "DATE"
+      },
+      {
+        "name": "competencia",
+        "type": "TIMESTAMP"
+      },
+      {
+        "name": "ano_obito",
+        "type": "INTEGER"
+      },
+      {
+        "name": "mes_obito",
+        "type": "INTEGER"
+      },
+      {
+        "name": "idade_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "idade_unidade_code",
+        "type": "INTEGER"
+      },
+      {
+        "name": "idade_quantidade",
+        "type": "INTEGER"
+      },
+      {
+        "name": "idade",
+        "type": "INTEGER"
+      },
+      {
+        "name": "idade_anos",
+        "type": "INTEGER"
+      },
+      {
+        "name": "faixa_etaria",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "sexo_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "sexo",
+        "type": "INTEGER"
+      },
+      {
+        "name": "sexo_desc",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "tipobito_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "tipo_obito",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "is_obito_nao_fetal",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "cod_mun_residencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_residencia_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_residencia_6",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_residencia_ibge",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "municipio_residencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "uf_residencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "geografia_status_residencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_ocorrencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_ocorrencia_raw",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_ocorrencia_6",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "cod_mun_ocorrencia_ibge",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "municipio_ocorrencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "uf_ocorrencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "geografia_status_ocorrencia",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "uf_arquivo",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "uf_arquivo_diverge_ocorrencia",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "uf_arquivo_diverge_residencia",
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "qa_flag_principal",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "qa_status",
+        "type": "VARCHAR"
+      },
+      {
+        "name": "tipo_veiculo",
+        "type": "VARCHAR"
+      }
+    ]
+  },
+  "manifest": {
+    "path": "data/silver/sim_v2_nacional_2010_2024.manifest.json",
+    "entries": 405,
+    "approved": 405,
+    "duplicate_copies": 152
+  },
+  "analytic_filter": "is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'",
+  "summary": {
+    "linhas_silver": 20410620,
+    "record_ids_unicos": 20410620,
+    "att_analiticos": 565383,
+    "att_todos": 565383,
+    "att_nao_fetais": 565383,
+    "data_minima": "2010-01-01",
+    "data_maxima": "2024-12-31",
+    "anos": 15,
+    "ufs_ocorrencia": 27,
+    "sexo_ignorado": 8916,
+    "linhas_review": 19845237,
+    "ocorrencia_geo_encontrada": 20405447,
+    "residencia_geo_encontrada": 20350943,
+    "uf_arquivo_diverge_ocorrencia": 252156,
+    "uf_arquivo_diverge_residencia": 0
+  },
+  "por_ano": [
+    {
+      "ano": 2010,
+      "linhas": 1136947,
+      "att": 42844
+    },
+    {
+      "ano": 2011,
+      "linhas": 1170498,
+      "att": 43256
+    },
+    {
+      "ano": 2012,
+      "linhas": 1181166,
+      "att": 44812
+    },
+    {
+      "ano": 2013,
+      "linhas": 1210474,
+      "att": 42266
+    },
+    {
+      "ano": 2014,
+      "linhas": 1227039,
+      "att": 43780
+    },
+    {
+      "ano": 2015,
+      "linhas": 1264175,
+      "att": 38651
+    },
+    {
+      "ano": 2016,
+      "linhas": 1309774,
+      "att": 37345
+    },
+    {
+      "ano": 2017,
+      "linhas": 1312663,
+      "att": 35375
+    },
+    {
+      "ano": 2018,
+      "linhas": 1316719,
+      "att": 32655
+    },
+    {
+      "ano": 2019,
+      "linhas": 1349801,
+      "att": 31945
+    },
+    {
+      "ano": 2020,
+      "linhas": 1556824,
+      "att": 32716
+    },
+    {
+      "ano": 2021,
+      "linhas": 1832649,
+      "att": 33813
+    },
+    {
+      "ano": 2022,
+      "linhas": 1544266,
+      "att": 33894
+    },
+    {
+      "ano": 2023,
+      "linhas": 1465610,
+      "att": 34881
+    },
+    {
+      "ano": 2024,
+      "linhas": 1532015,
+      "att": 37150
+    }
+  ],
+  "geografia": [
+    {
+      "papel": "ocorrencia",
+      "status": "encontrado",
+      "linhas_att": 565328
+    },
+    {
+      "papel": "ocorrencia",
+      "status": "nao_encontrado",
+      "linhas_att": 55
+    },
+    {
+      "papel": "residencia",
+      "status": "encontrado",
+      "linhas_att": 561036
+    },
+    {
+      "papel": "residencia",
+      "status": "nao_encontrado",
+      "linhas_att": 4347
+    }
+  ],
+  "validacoes": {
+    "record_id_unico": true,
+    "att_nao_fetais_consistente": true,
+    "taxas_sem_denominador_nao_calculadas": true,
+    "coordenadas_nao_requeridas": true
+  }
+}
