@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import close_connection, get_connection
-from .routers import dashboard, geo, indicadores, mcp_bridge, predict
+from .routers import dashboard, geo, indicadores, mcp_bridge, predict, sim_only
 
 
 def _setup_logging() -> None:
@@ -71,8 +71,8 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Pipeline Acidentes de Trânsito no SUS",
     description=(
-        "API REST do MVP — Impacto econômico e macrotendências de "
-        "acidentes de trânsito nas bases do DATASUS (SIM e SIA)."
+        "API REST do contrato de evidencia SIM-only: mortalidade por "
+        "acidentes de transporte terrestre, dimensoes IBGE e metadados."
     ),
     version="0.1.0",
     lifespan=lifespan,
@@ -91,6 +91,7 @@ app.include_router(geo.router)
 app.include_router(indicadores.router)
 app.include_router(mcp_bridge.router)
 app.include_router(predict.router)
+app.include_router(sim_only.router)
 
 
 @app.get("/", tags=["Health"])

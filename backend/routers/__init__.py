@@ -1,10 +1,5 @@
-"""Registro dos routers carregados pela aplicação FastAPI."""
+"""Registro dos routers carregados pela aplicacao FastAPI."""
 
-from . import auditoria, dashboard
+from . import dashboard, sim_only
 
-# O dashboard já é incluído pela aplicação com o prefixo /api/dashboard.
-# A auditoria fica aninhada nele para evitar tocar no app.py, que pode conter
-# mudanças locais independentes do contrato desta entrega.
-dashboard.router.include_router(auditoria.router)
-
-__all__ = ["auditoria", "dashboard"]
+__all__ = ["dashboard", "sim_only"]
