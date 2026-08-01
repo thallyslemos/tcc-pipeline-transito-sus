@@ -1,0 +1,290 @@
+{
+  "entries": [
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "e633b9e84f5db87568d373c3acfe6b652936a4c376372c206a2a3f3b41576de5",
+        "size": 2974272
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 76337,
+      "source_identity": "7c79158c9d01b877989a0d0421867622d75806b3366d943607156c1cc20178fe",
+      "source_reference": "legacy://sim_BA_2010_3.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2010_3.parquet",
+      "uf": "BA",
+      "year": 2010
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "07fb166fa01ea509d3cea995fac68a642281d09ccde56a5af01162c480920806",
+        "size": 2957196
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 78046,
+      "source_identity": "93dfdfb5b43e906823baae111b3053f17fd7f7e051c9021f3895796b2b306eb4",
+      "source_reference": "legacy://sim_BA_2011_2.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2011_2.parquet",
+      "uf": "BA",
+      "year": 2011
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "e5437bd0b9c22cd5dd58d0f2366ed1cd5bb0496b9befd9892b25815e90ae4ccf",
+        "size": 3492285
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 80311,
+      "source_identity": "f4f838570fa802ad8ab0ff15c74164541b296f4603e506ae422c0a288e1890a9",
+      "source_reference": "legacy://sim_BA_2012_1.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2012_1.parquet",
+      "uf": "BA",
+      "year": 2012
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "103c325af133621e2b574143552d4d5031c1596a42042ec0f04f777cc533fe09",
+        "size": 3312521
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 81423,
+      "source_identity": "fd37784e042a463ff3ade17842a1780563d9d34b0f34e60f375f6698b9ea5c69",
+      "source_reference": "legacy://sim_BA_2013_0.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2013_0.parquet",
+      "uf": "BA",
+      "year": 2013
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "62983016c7250d84b88b176d6b62018698f3f0f30f06efa0c13ea2dc4ac9f0ba",
+        "size": 5107228
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 83630,
+      "source_identity": "72476ca2df8e35f81cc5f469b9393e2469bfc4d8ad01d9dd84fc4036a1140395",
+      "source_reference": "legacy://sim_BA_2014_64.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2014_64.parquet",
+      "uf": "BA",
+      "year": 2014
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "3b7edcdff395950666448eafa438ae894756b1559ec923247d98cc16c00a17e9",
+        "size": 4935620
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 87083,
+      "source_identity": "17ac43a6aa9b4bfa15480b9eca6991d9e6cb9422c542efeddb582714a5be6ed4",
+      "source_reference": "legacy://sim_BA_2015_65.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2015_65.parquet",
+      "uf": "BA",
+      "year": 2015
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "3525241818e89f519f84228e2d5487231867332876afba37c23e3e3cb1894a1a",
+        "size": 5263068
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 88094,
+      "source_identity": "6f3602cbaefa0b49d655121b13e3d652fb4209a1d56384e3235b773125db819d",
+      "source_reference": "legacy://sim_BA_2016_66.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2016_66.parquet",
+      "uf": "BA",
+      "year": 2016
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "70d65dbe229eda772fd64f44ba684a774c6f4fca5c1b569c2f3705d81c0fbe48",
+        "size": 5292266
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 90915,
+      "source_identity": "c0687f54703080ead64d4c5f856e39749b158bb4f74d765f97de940df03923ed",
+      "source_reference": "legacy://sim_BA_2017_6.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2017_6.parquet",
+      "uf": "BA",
+      "year": 2017
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "dfe5ef968823ba00ecb5bea7fd5aac679f1a03d2f19405479137e2b95a0d54ef",
+        "size": 5180207
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 90134,
+      "source_identity": "b4f1755e43c8f2f8af558091dc3675811fd01a9091426a75b0f062add5ad55f4",
+      "source_reference": "legacy://sim_BA_2018_5.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2018_5.parquet",
+      "uf": "BA",
+      "year": 2018
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 2,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "60b04f90a383307535dc45602cb2ac650a144f0855f68d99ef8849f19cdd262d",
+        "size": 5152305
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 93365,
+      "source_identity": "c66c00fef11031f354d01289b16c6f7c413135551383bbcbe60fe1362bbee3fd",
+      "source_reference": "legacy://sim_BA_2019_4.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2019_4.parquet",
+      "uf": "BA",
+      "year": 2019
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 3,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "2f08a84190d4a1569d724228f894694701504a84b9d6794addd2a22e26b65bc1",
+        "size": 6134957
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 107194,
+      "source_identity": "993755ecb56e6edee460a81d4982fbeeb2bd35a5adcaab216036ff4e001e5ae8",
+      "source_reference": "legacy://sim_BA_2020_20.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2020_20.parquet",
+      "uf": "BA",
+      "year": 2020
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 3,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "9e68122aec03b337e891f5475259b2adc1f31c182f56e7e8d070d12410b77a3f",
+        "size": 6479604
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 115392,
+      "source_identity": "9185f095f9b8ca6a0ee25f98f9bc870e87095043ec7ebe46813382e61ea46ecf",
+      "source_reference": "legacy://sim_BA_2021_2.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2021_2.parquet",
+      "uf": "BA",
+      "year": 2021
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 3,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "51d76eaf723adb2764cbd0c348d7c4498d19fb6876cfd0ee47bba7591d9d79f8",
+        "size": 6041469
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 107641,
+      "source_identity": "414ae85f1d2b820082c088e9fc1513ef79718181a3391934188d7a1237c82c30",
+      "source_reference": "legacy://sim_BA_2022_0.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2022_0.parquet",
+      "uf": "BA",
+      "year": 2022
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 3,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "e8e06f07c84070847f0c91dfb3a4aad90cb2d2f915b5c8c790b2d69d0659bc92",
+        "size": 6036619
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 103081,
+      "source_identity": "c94f3ed182129d642b35123555c1bf6612661ccf90dd146d9083a8209cfd06d8",
+      "source_reference": "legacy://sim_BA_2023_1.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2023_1.parquet",
+      "uf": "BA",
+      "year": 2023
+    },
+    {
+      "client": "local_legacy",
+      "dataset": "SIM",
+      "duplicate_copies": 3,
+      "fingerprint": {
+        "kind": "file",
+        "sha256": "87d4bb37d7999a054367e355f95f7d494a98e291945da9361aa75fe5965a6068",
+        "size": 6421771
+      },
+      "group": "CID10",
+      "registered_at": "2026-08-01T03:39:24+00:00",
+      "row_count": 106212,
+      "source_identity": "3847b8cdba8ff1b1651116e7e29174375ed020fe540d09e6013a037990967522",
+      "source_reference": "legacy://sim_BA_2024_0.parquet",
+      "status": "approved",
+      "target_path": "sim_BA_2024_0.parquet",
+      "uf": "BA",
+      "year": 2024
+    }
+  ],
+  "version": 1
+}
