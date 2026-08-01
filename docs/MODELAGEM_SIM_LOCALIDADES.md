@@ -1,13 +1,13 @@
-# Modelagem SIM: ocorr?ncia e resid?ncia
+# Modelagem SIM: ocorrencia e residencia
 
-A dimens?o f?sica ? ?nica: `dim_municipio`, com c?digo IBGE de sete d?gitos, nome, UF, regi?o e geometria. A fato SIM mant?m simultaneamente `cod_mun_ocorrencia_ibge` e `cod_mun_residencia_ibge` (mais os c?digos brutos/6 d?gitos). S?o duas chaves estrangeiras para a mesma dimens?o, em pap?is diferentes (`municipio_ocorrencia` e `municipio_residencia`).
+A dimensao fisica e unica: `dim_municipio`, com codigo IBGE de sete digitos, nome, UF, regiao e geometria. A fato SIM mantem simultaneamente `cod_mun_ocorrencia_ibge` e `cod_mun_residencia_ibge`, alem dos codigos brutos e de seis digitos. Sao duas chaves estrangeiras para a mesma dimensao, em papeis diferentes (`municipio_ocorrencia` e `municipio_residencia`).
 
-N?o ? recomend?vel criar duas dimens?es f?sicas nem uma coluna ?nica `cod_mun_ibge` sem papel. Isso confundiria o denominador e permitiria somar a mesma morte duas vezes. Para desempenho, marts separados por papel s?o aceit?veis quando gerados da mesma Silver, como neste contrato.
+Nao e recomendavel criar duas dimensoes fisicas nem uma coluna unica `cod_mun_ibge` sem papel. Isso confundiria o denominador e poderia contar a mesma morte duas vezes. Para desempenho, marts separados por papel sao aceitaveis quando gerados da mesma Silver, como neste contrato.
 
-Interpreta??o dos indicadores:
+Interpretacao dos indicadores:
 
-- resid?ncia: ?bitos de residentes / popula??o residente;
-- ocorr?ncia: ?bitos que ocorreram na ?rea / popula??o da ?rea, descrito como taxa de ocorr?ncia, sem cham?-la automaticamente de mortalidade da popula??o residente;
-- frota: usar o mesmo papel geogr?fico do numerador e o m?s/ano de refer?ncia documentado.
+- residencia: obitos de residentes / populacao residente;
+- ocorrencia: obitos que ocorreram na area / populacao da area, descrito como taxa de ocorrencia, sem chama-la automaticamente de mortalidade da populacao residente;
+- frota: usar o mesmo papel geografico do numerador e o mes/ano de referencia documentado.
 
-A API deve exigir `dimensao=ocorrencia|residencia` (ou `localidade`) e devolver a origem da chave e do denominador.
+A ausencia de municipio valido nao elimina o numerador da auditoria, mas impede a linha de entrar em mapas e taxas municipais.

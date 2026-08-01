@@ -14,7 +14,7 @@
         "end": "2024-12-31",
         "ufs": 27
       },
-      "grain": "uma linha por registro de ?bito recebido",
+      "grain": "uma linha por registro de obito recebido",
       "keys": [
         "record_id"
       ],
@@ -38,7 +38,7 @@
         "start": "2010",
         "end": "2024"
       },
-      "grain": "tipo_local + munic?pio + compet?ncia + ve?culo + faixa et?ria + sexo",
+      "grain": "tipo_local + municipio + competencia + veiculo + faixa etaria + sexo",
       "keys": [
         "tipo_local",
         "cod_mun_ibge",
@@ -66,7 +66,7 @@
         "start": "2010",
         "end": "2024"
       },
-      "grain": "tipo_local + munic?pio + compet?ncia + ve?culo + faixa et?ria + sexo",
+      "grain": "tipo_local + municipio + competencia + veiculo + faixa etaria + sexo",
       "keys": [
         "tipo_local",
         "cod_mun_ibge",
@@ -90,7 +90,7 @@
       "status": "partial",
       "provider": "IBGE",
       "source_url": "https://servicodados.ibge.gov.br/api/v1/localidades/municipios",
-      "grain": "um munic?pio",
+      "grain": "um municipio",
       "keys": [
         "cod_mun_ibge"
       ],
@@ -109,7 +109,7 @@
       "status": "partial",
       "provider": "IBGE SIDRA",
       "source_url": "https://apisidra.ibge.gov.br/values/t/6579",
-      "grain": "munic?pio-ano",
+      "grain": "municipio-ano",
       "keys": [
         "cod_mun_ibge",
         "ano"
@@ -151,7 +151,7 @@
       "status": "not_loaded",
       "provider": "SENATRAN/RENAVAM",
       "source_url": "https://dados.transportes.gov.br/pt_BR/dataset/registro-nacional-de-veiculos-automotores-renavam",
-      "grain": "munic?pio-m?s-tipo de ve?culo",
+      "grain": "municipio-mes-tipo de veiculo",
       "keys": [
         "cod_mun_ibge",
         "competencia",
