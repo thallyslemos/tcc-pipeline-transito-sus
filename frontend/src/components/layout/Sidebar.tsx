@@ -19,8 +19,8 @@ const NAV = [
   { href: "/municipio", label: "Municípios", icon: Building2 },
   { href: "/ranking", label: "Ranking", icon: BarChart3 },
   { href: "/mapa", label: "Mapa", icon: Map },
-  { href: "/previsao", label: "Previsão IA", icon: Sparkles },
-  { href: "/chat", label: "Chat IA", icon: MessageCircle },
+  { href: "/previsao", label: "Tendencias", icon: Sparkles },
+  { href: "/chat", label: "Exploracao", icon: MessageCircle },
   { href: "/dados", label: "Dados e metadados", icon: Database },
 ];
 

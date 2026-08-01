@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Acidentes de Transito no SUS",
-  description: "Painel analitico - impacto economico e macrotendencias de acidentes de transito no SUS",
+  description: "Painel SIM-only para mortalidade por acidentes de transporte terrestre no SUS",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
