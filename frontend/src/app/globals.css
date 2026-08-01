@@ -34,13 +34,6 @@
   --deaths-muted: #fca5a5;
   --deaths-glow: rgba(220, 38, 38, 0.15);
 
-  /* Semantic: Costs (Amber) */
-  --costs: #d97706;
-  --costs-soft: #fffbeb;
-  --costs-muted: #fcd34d;
-  --costs-glow: rgba(217, 119, 6, 0.15);
-
-  /* Semantic: Health/Atendimentos (Blue) */
   --health: #2563eb;
   --health-soft: #eff6ff;
   --health-muted: #93c5fd;
@@ -59,7 +52,6 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
   --shadow-glow-deaths: 0 0 20px rgba(220, 38, 38, 0.12);
-  --shadow-glow-costs: 0 0 20px rgba(217, 119, 6, 0.12);
 
   /* Radius */
   --radius: 0.75rem;
@@ -93,11 +85,6 @@
   --deaths-muted: #f87171;
   --deaths-glow: rgba(239, 68, 68, 0.25);
 
-  --costs: #f59e0b;
-  --costs-soft: rgba(245, 158, 11, 0.1);
-  --costs-muted: #fbbf24;
-  --costs-glow: rgba(245, 158, 11, 0.25);
-
   --health: #3b82f6;
   --health-soft: rgba(59, 130, 246, 0.1);
   --health-muted: #60a5fa;
@@ -113,7 +100,6 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
   --shadow-glow-deaths: 0 0 30px rgba(239, 68, 68, 0.2), 0 0 60px rgba(239, 68, 68, 0.06);
-  --shadow-glow-costs: 0 0 30px rgba(245, 158, 11, 0.2), 0 0 60px rgba(245, 158, 11, 0.06);
 }
 
 /* ─── Base ─── */

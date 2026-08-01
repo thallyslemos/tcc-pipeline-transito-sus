@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "@/components/ThemeProvider";
-import { formatCurrency, formatNumber, formatTaxa100k } from "@/lib/format";
+import { formatNumber, formatTaxa100k } from "@/lib/format";
 import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
 import type { MapPoint } from "@/lib/types";
 import MapLegend, { type MapScaleMode } from "@/components/map/MapLegend";
@@ -16,399 +16,107 @@ interface Props {
   ano?: number;
   uf?: string;
   regiao?: string;
+  tipo_veiculo?: string;
   escala: MapScaleMode;
 }
 
 function tileUrl(isDark: boolean): string[] {
-  const base = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
-  return ["a", "b", "c", "d"].map((s) => base.replace("{s}", s));
+  const base = isDark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png" : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
+  return ["a", "b", "c", "d"].map((subdomain) => base.replace("{s}", subdomain));
 }
 
-function initStyle(isDark: boolean): maplibregl.StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      carto: {
-        type: "raster",
-        tiles: tileUrl(isDark),
-        tileSize: 256,
-        attribution: "&copy; CARTO &copy; OpenStreetMap",
-      },
-    },
-    layers: [{ id: "carto-tiles", type: "raster", source: "carto" }],
-  };
+function style(isDark: boolean): maplibregl.StyleSpecification {
+  return { version: 8, sources: { carto: { type: "raster", tiles: tileUrl(isDark), tileSize: 256, attribution: "&copy; CARTO &copy; OpenStreetMap" } }, layers: [{ id: "carto-tiles", type: "raster", source: "carto" }] };
 }
 
-function primaryVisual(
-  p: Record<string, unknown>,
-  metrica: string,
-  escala: MapScaleMode
-): number | null {
+function valueOf(point: MapPoint | Record<string, unknown>, escala: MapScaleMode): number | null {
   if (escala === "total") {
-    const v = p.valor;
-    return typeof v === "number" ? v : null;
+    const value = (point as MapPoint).valor ?? (point as Record<string, unknown>).valor;
+    return typeof value === "number" ? value : null;
   }
-  if (metrica === "custos") {
-    const c = p.custo_per_capita;
-    return typeof c === "number" && c > 0 ? c : null;
-  }
-  const r = p.taxa_obitos_100mil;
-  return typeof r === "number" && r > 0 ? r : null;
+  const rate = (point as MapPoint).taxa_obitos_100mil ?? (point as Record<string, unknown>).taxa_obitos_100mil;
+  return typeof rate === "number" && rate > 0 ? rate : null;
 }
 
-function primaryFromMapPoint(
-  d: MapPoint,
-  metrica: string,
-  escala: MapScaleMode
-): number | null {
-  if (escala === "total") {
-    return typeof d.valor === "number" ? d.valor : null;
-  }
-  if (metrica === "custos") {
-    const c = d.custo_per_capita;
-    return typeof c === "number" && c > 0 ? c : null;
-  }
-  const r = d.taxa_obitos_100mil;
-  return typeof r === "number" && r > 0 ? r : null;
-}
-
-function buildCircleGeoJSON(
-  data: MapPoint[],
-  metrica: string,
-  escala: MapScaleMode,
-  isDark: boolean,
-  minV: number,
-  maxV: number
-): GeoJSON.FeatureCollection {
-  const valid = data.filter((d) => d.lat != null && d.lon != null);
-  const span = maxV - minV || 1;
-
+function circles(data: MapPoint[], escala: MapScaleMode, dark: boolean, min: number, max: number): GeoJSON.FeatureCollection {
+  const span = max - min || 1;
   return {
     type: "FeatureCollection",
-    features: valid.map((d) => {
-      const pv = primaryFromMapPoint(d, metrica, escala);
-      const ok =
-        pv != null && (escala === "total" ? pv >= 0 : pv > 0);
-      const ratio = ok ? Math.max(0, Math.min(1, (pv! - minV) / span)) : 0;
-      const color = ok ? mapChoroplethRgb(ratio, isDark) : MAP_NEUTRAL_COLOR;
-      const radiusBase = ok ? ratio : 0;
-      return {
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [d.lon!, d.lat!] },
-        properties: {
-          municipio: d.municipio,
-          uf: d.uf,
-          valor: d.valor,
-          atendimentos: d.atendimentos ?? 0,
-          populacao: d.populacao,
-          taxa_obitos_100mil: d.taxa_obitos_100mil,
-          custo_per_capita: d.custo_per_capita,
-          color,
-          radius: 7 + radiusBase * 26,
-        },
-      };
+    features: data.filter((point) => point.lat != null && point.lon != null).map((point) => {
+      const value = valueOf(point, escala);
+      const valid = value != null && (escala === "total" ? value >= 0 : value > 0);
+      const ratio = valid ? Math.max(0, Math.min(1, (value! - min) / span)) : 0;
+      const color = valid ? mapChoroplethRgb(ratio, dark) : MAP_NEUTRAL_COLOR;
+      return { type: "Feature", geometry: { type: "Point", coordinates: [point.lon!, point.lat!] }, properties: { ...point, color, radius: 7 + ratio * 25 } };
     }),
   };
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-export default function MapView({
-  data,
-  metrica,
-  dimensao,
-  ano,
-  uf,
-  regiao,
-  escala,
-}: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const popupRef = useRef<maplibregl.Popup | null>(null);
-  const layerReady = useRef(false);
+export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, regiao, tipo_veiculo, escala }: Props) {
+  const container = useRef<HTMLDivElement>(null);
+  const map = useRef<maplibregl.Map | null>(null);
+  const popup = useRef<maplibregl.Popup | null>(null);
   const { theme } = useTheme();
-  const isDark = theme === "dark";
-  const [mode, setMode] = useState<"circles" | "polygons">("polygons");
+  const dark = theme === "dark";
+  const [mode, setMode] = useState<"polygons" | "circles">("polygons");
   const [geoData, setGeoData] = useState<GeoJSON.FeatureCollection | null>(null);
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
-
-  const visualExtent = useMemo(() => {
-    const collectPoly = () => {
-      const feats = geoData?.features ?? [];
-      const vals: number[] = [];
-      for (const f of feats) {
-        const p = (f.properties || {}) as Record<string, unknown>;
-        const v = primaryVisual(p, metrica, escala);
-        if (v == null) continue;
-        if (escala === "relative" && v <= 0) continue;
-        vals.push(v);
-      }
-      return vals;
-    };
-    const collectCircles = () => {
-      const vals: number[] = [];
-      for (const d of data) {
-        const v = primaryFromMapPoint(d, metrica, escala);
-        if (v == null) continue;
-        if (escala === "relative" && v <= 0) continue;
-        vals.push(v);
-      }
-      return vals;
-    };
-
-    const vals =
-      mode === "polygons" && geoData?.features?.length ? collectPoly() : collectCircles();
-    if (!vals.length) {
-      return { minV: 0, maxV: 0, relativeCount: 0 };
-    }
-    const minV = Math.min(...vals);
-    const maxV = Math.max(...vals);
-    return {
-      minV,
-      maxV: minV === maxV ? minV + 1e-6 : maxV,
-      relativeCount: vals.length,
-    };
-  }, [data, geoData, metrica, escala, mode]);
+  const visual = useMemo(() => {
+    const values = (mode === "polygons" && geoData?.features?.length ? geoData.features.map((feature) => valueOf((feature.properties ?? {}) as Record<string, unknown>, escala)) : data.map((point) => valueOf(point, escala))).filter((value): value is number => value != null && (escala === "total" || value > 0));
+    if (!values.length) return { min: 0, max: 1, count: 0 };
+    return { min: Math.min(...values), max: Math.max(...values) || 1, count: values.length };
+  }, [data, escala, geoData, mode]);
 
   useEffect(() => {
-    const params = new URLSearchParams({ metrica });
+    const params = new URLSearchParams({ metrica: "obitos" });
     if (dimensao) params.set("dimensao", dimensao);
     if (ano) params.set("ano", String(ano));
     if (uf) params.set("uf", uf);
     if (regiao) params.set("regiao", regiao);
-    fetch(`${API_URL}/api/geo/municipios?${params}`)
-      .then((r) => r.json())
-      .then((fc) => {
-        const hasPolygons = fc.features?.some(
-          (f: GeoJSON.Feature) =>
-            f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon"
-        );
-        setGeoData(fc);
-        if (!hasPolygons) setMode("circles");
+    if (tipo_veiculo) params.set("tipo_veiculo", tipo_veiculo);
+    fetch(`/api/sim/geo?${params}`)
+      .then((response) => response.json())
+      .then((featureCollection) => {
+        setGeoData(featureCollection);
+        if (!featureCollection.features?.some((feature: GeoJSON.Feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""))) setMode("circles");
       })
-      .catch(() => setMode("circles"));
-  }, [metrica, dimensao, ano, uf, regiao]);
+      .catch(() => setGeoData(null));
+  }, [ano, dimensao, regiao, tipo_veiculo, uf]);
 
-  const isCustos = metrica === "custos";
-  const fmt = useCallback(
-    (v: number) => (isCustos ? formatCurrency(v) : formatNumber(v)),
-    [isCustos]
-  );
-
-  const popupHtml = useCallback(
-    (p: Record<string, unknown>) => {
-      const atend = p.atendimentos
-        ? `<br/><span style="opacity:.7">Atendimentos:</span> <b>${formatNumber(Number(p.atendimentos))}</b>`
-        : "";
-      const pop =
-        p.populacao != null && Number(p.populacao) > 0
-          ? `<br/><span style="opacity:.7">População:</span> <b>${formatNumber(Number(p.populacao))}</b>`
-          : "";
-      let rel = "";
-      if (metrica !== "custos" && p.taxa_obitos_100mil != null) {
-        rel = `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(p.taxa_obitos_100mil))}</b> / 100 mil hab.`;
-      } else if (metrica === "custos" && p.custo_per_capita != null) {
-        rel = `<br/><span style="opacity:.7">Per capita:</span> <b>${formatCurrency(Number(p.custo_per_capita))}</b>`;
-      }
-      const cust = modeRef.current === "circles" ? isCustos : isCustos;
-      return `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6">
-            <b style="font-size:13px">${p.municipio}</b>
-            <span style="opacity:.6;margin-left:4px">${p.uf}</span><br/>
-            <span style="opacity:.7">${cust ? "Custo" : "Óbitos"}:</span> <b>${fmt(Number(p.valor))}</b>${atend}${pop}${rel}
-          </div>`;
-    },
-    [fmt, isCustos, metrica]
-  );
-
-  const setupPopup = useCallback(
-    (map: maplibregl.Map, layerId: string) => {
-      map.on("mouseenter", layerId, () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", layerId, () => {
-        map.getCanvas().style.cursor = "";
-        popupRef.current?.remove();
-      });
-      map.on("mousemove", layerId, (e) => {
-        if (!e.features?.length) return;
-        const p = e.features[0].properties as Record<string, unknown>;
-        popupRef.current?.setLngLat(e.lngLat).setHTML(popupHtml(p)).addTo(map);
-      });
-    },
-    [popupHtml]
-  );
-
-  const addLayers = useCallback(
-    (map: maplibregl.Map) => {
-      ["pontos-circle", "poly-fill", "poly-outline"].forEach((id) => {
-        if (map.getLayer(id)) map.removeLayer(id);
-      });
-      ["pontos", "polygons"].forEach((id) => {
-        if (map.getSource(id)) map.removeSource(id);
-      });
-
-      const { minV, maxV } = visualExtent;
-      const span = maxV - minV || 1;
-
-      if (modeRef.current === "polygons" && geoData) {
-        const enriched: GeoJSON.FeatureCollection = {
-          type: "FeatureCollection",
-          features: geoData.features.map((f) => {
-            const p = (f.properties || {}) as Record<string, unknown>;
-            const pv = primaryVisual(p, metrica, escala);
-            const ok =
-              pv != null && (escala === "total" ? pv >= 0 : pv > 0);
-            const ratio = ok ? Math.max(0, Math.min(1, (pv! - minV) / span)) : 0;
-            const fillColor = ok ? mapChoroplethRgb(ratio, isDark) : MAP_NEUTRAL_COLOR;
-            return {
-              ...f,
-              properties: {
-                ...p,
-                fillColor,
-              },
-            };
-          }),
-        };
-
-        map.addSource("polygons", { type: "geojson", data: enriched });
-        map.addLayer({
-          id: "poly-fill",
-          type: "fill",
-          source: "polygons",
-          paint: {
-            "fill-color": ["get", "fillColor"],
-            "fill-opacity": 0.90,
-          },
-        });
-        setupPopup(map, "poly-fill");
-      } else {
-        const geojson = buildCircleGeoJSON(
-          data,
-          metrica,
-          escala,
-          isDark,
-          minV,
-          maxV
-        );
-        map.addSource("pontos", { type: "geojson", data: geojson });
-        map.addLayer({
-          id: "pontos-circle",
-          type: "circle",
-          source: "pontos",
-          paint: {
-            "circle-radius": ["get", "radius"],
-            "circle-color": ["get", "color"],
-            "circle-opacity": 0.52,
-            "circle-stroke-width": 1.2,
-            "circle-stroke-color": ["get", "color"],
-            "circle-stroke-opacity": 0.9,
-          },
-        });
-        setupPopup(map, "pontos-circle");
-      }
-      layerReady.current = true;
-    },
-    [
-      data,
-      geoData,
-      setupPopup,
-      metrica,
-      escala,
-      isDark,
-      visualExtent,
-    ]
-  );
-
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: initStyle(isDark),
-      center: [-49.5, -14.5],
-      zoom: 3.8,
-      pitchWithRotate: true,
-      dragRotate: true,
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
-    popupRef.current = new maplibregl.Popup({
-      closeButton: false,
-      closeOnClick: false,
-      maxWidth: "280px",
-    });
-    map.on("load", () => addLayers(map));
-    mapRef.current = map;
-    return () => {
-      popupRef.current?.remove();
-      map.remove();
-      mapRef.current = null;
-      layerReady.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const popupHtml = useCallback((properties: Record<string, unknown>) => {
+    const population = properties.populacao != null ? `<br/><span style="opacity:.7">Populacao:</span> <b>${formatNumber(Number(properties.populacao))}</b>` : "";
+    const rate = properties.taxa_obitos_100mil != null ? `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(properties.taxa_obitos_100mil))}</b> / 100 mil hab.` : "";
+    return `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6"><b style="font-size:13px">${properties.municipio ?? "Municipio"}</b> <span style="opacity:.6">${properties.uf ?? ""}</span><br/><span style="opacity:.7">Obitos:</span> <b>${formatNumber(Number(properties.valor ?? 0))}</b>${population}${rate}</div>`;
   }, []);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    (map.getSource("carto") as maplibregl.RasterTileSource | undefined)?.setTiles(
-      tileUrl(isDark)
-    );
-  }, [isDark]);
+  const addLayers = useCallback(() => {
+    const instance = map.current;
+    if (!instance || !instance.isStyleLoaded()) return;
+    ["poly-fill", "poly-outline", "points-circle"].forEach((id) => { if (instance.getLayer(id)) instance.removeLayer(id); });
+    ["polygons", "points"].forEach((id) => { if (instance.getSource(id)) instance.removeSource(id); });
+    const span = visual.max - visual.min || 1;
+    if (mode === "polygons" && geoData) {
+      const enriched = { ...geoData, features: geoData.features.map((feature) => { const props = (feature.properties ?? {}) as Record<string, unknown>; const value = valueOf(props, escala); const valid = value != null && (escala === "total" ? value >= 0 : value > 0); const ratio = valid ? Math.max(0, Math.min(1, (value! - visual.min) / span)) : 0; return { ...feature, properties: { ...props, fillColor: valid ? mapChoroplethRgb(ratio, dark) : MAP_NEUTRAL_COLOR } }; }) };
+      instance.addSource("polygons", { type: "geojson", data: enriched });
+      instance.addLayer({ id: "poly-fill", type: "fill", source: "polygons", paint: { "fill-color": ["get", "fillColor"], "fill-opacity": 0.9 } });
+      instance.on("mousemove", "poly-fill", (event) => { const feature = event.features?.[0]; if (!feature) return; popup.current?.setLngLat(event.lngLat).setHTML(popupHtml(feature.properties as Record<string, unknown>)).addTo(instance); });
+    } else {
+      instance.addSource("points", { type: "geojson", data: circles(data, escala, dark, visual.min, visual.max) });
+      instance.addLayer({ id: "points-circle", type: "circle", source: "points", paint: { "circle-radius": ["get", "radius"], "circle-color": ["get", "color"], "circle-opacity": 0.58, "circle-stroke-width": 1, "circle-stroke-color": ["get", "color"] } });
+      instance.on("mousemove", "points-circle", (event) => { const feature = event.features?.[0]; if (!feature) return; popup.current?.setLngLat(event.lngLat).setHTML(popupHtml(feature.properties as Record<string, unknown>)).addTo(instance); });
+    }
+  }, [data, dark, escala, geoData, mode, popupHtml, visual]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-    addLayers(map);
-  }, [mode, geoData, data, metrica, escala, isDark, addLayers]);
+    if (!container.current || map.current) return;
+    const instance = new maplibregl.Map({ container: container.current, style: style(dark), center: [-49.5, -14.5], zoom: 3.8 });
+    instance.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+    popup.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "280px" });
+    instance.on("load", addLayers);
+    map.current = instance;
+    return () => { popup.current?.remove(); instance.remove(); map.current = null; };
+  }, [addLayers, dark]);
 
-  const hasPolygons = geoData?.features?.some(
-    (f) => f.geometry?.type === "Polygon" || f.geometry?.type === "MultiPolygon"
-  );
-
-  return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
-      {hasPolygons && (
-        <div
-          className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg"
-          style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
-        >
-          <button
-            type="button"
-            onClick={() => setMode("polygons")}
-            className="px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: mode === "polygons" ? "var(--primary)" : "var(--bg-card)",
-              color: mode === "polygons" ? "var(--primary-fg)" : "var(--fg-secondary)",
-            }}
-          >
-            Polígonos
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("circles")}
-            className="px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              backgroundColor: mode === "circles" ? "var(--primary)" : "var(--bg-card)",
-              color: mode === "circles" ? "var(--primary-fg)" : "var(--fg-secondary)",
-              borderLeft: "1px solid var(--border)",
-            }}
-          >
-            Círculos
-          </button>
-        </div>
-      )}
-      <div className="absolute bottom-3 left-3 z-10 max-w-[min(100%,280px)]">
-        <MapLegend
-          metrica={metrica}
-          escala={escala}
-          minV={visualExtent.minV}
-          maxV={visualExtent.maxV}
-          relativeCount={visualExtent.relativeCount}
-        />
-      </div>
-    </div>
-  );
+  useEffect(() => { addLayers(); }, [addLayers]);
+  const hasPolygons = geoData?.features?.some((feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""));
+  return <div className="relative h-full w-full"><div ref={container} className="h-full w-full" />{hasPolygons && <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}><button type="button" onClick={() => setMode("polygons")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "polygons" ? "var(--primary)" : "var(--bg-card)", color: mode === "polygons" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Poligonos</button><button type="button" onClick={() => setMode("circles")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "circles" ? "var(--primary)" : "var(--bg-card)", color: mode === "circles" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Circulos</button></div>}<div className="absolute bottom-3 left-3 z-10"><MapLegend escala={escala} minV={visual.min} maxV={visual.max} relativeCount={visual.count} /></div></div>;
 }

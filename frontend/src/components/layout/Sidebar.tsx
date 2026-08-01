@@ -8,7 +8,7 @@ import {
   Map,
   Sparkles,
   MessageCircle,
-  ShieldCheck,
+  Database,
   Sun,
   Moon,
 } from "lucide-react";
@@ -21,7 +21,7 @@ const NAV = [
   { href: "/mapa", label: "Mapa", icon: Map },
   { href: "/previsao", label: "Previsão IA", icon: Sparkles },
   { href: "/chat", label: "Chat IA", icon: MessageCircle },
-  { href: "/auditoria", label: "Auditoria", icon: ShieldCheck },
+  { href: "/dados", label: "Dados e metadados", icon: Database },
 ];
 
 interface Props {
@@ -113,7 +113,7 @@ export default function Sidebar({ open, onClose }: Props) {
             TCC — Sistemas de Informação
           </p>
           <p className="text-[10px]" style={{ color: "var(--fg-muted)" }}>
-            IFBA — DATASUS (SIM/SIA)
+            IFBA — DATASUS (SIM)
           </p>
         </div>
       </aside>

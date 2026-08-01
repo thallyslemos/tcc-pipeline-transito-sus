@@ -1,388 +1,56 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
+import { useEffect, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
-import { fetchAnos, fetchMunicipios, fetchMapa } from "@/lib/api";
-import { formatCurrency, formatNumber, formatTaxa100k } from "@/lib/format";
-import type { MapPoint, FilterValues, Municipio } from "@/lib/types";
+import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
+import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
-
-const TABLE_PAGE_SIZE = 30;
-
-const REGIOES = {
-  "Norte": ["AC", "AP", "AM", "PA", "RO", "RR", "TO"],
-  "Nordeste": ["AL", "BA", "CE", "MA", "PB", "PE", "PI", "RN", "SE"],
-  "Sudeste": ["ES", "MG", "RJ", "SP"],
-  "Sul": ["PR", "RS", "SC"],
-  "Centro-Oeste": ["DF", "GO", "MT", "MS"],
-};
+const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
 export default function MapaPage() {
-  const [anos, setAnos] = useState<number[]>([]);
-  const [municipios, setMunicipios] = useState<Municipio[]>([]);
-  const [ufs, setUfs] = useState<string[]>([]);
-
   const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
-  const [metrica, setMetrica] = useState("obitos");
-  /** Cores no mapa: absoluto vs taxa / 100k ou per capita */
-  const [escalaMapa, setEscalaMapa] = useState<MapScaleMode>("total");
+  const [anos, setAnos] = useState<number[]>([]);
+  const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
+  const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [escala, setEscala] = useState<MapScaleMode>("total");
   const [loading, setLoading] = useState(true);
-  const [tablePage, setTablePage] = useState(0);
 
   useEffect(() => {
-    fetchAnos().then((a) => {
-      setAnos(a.anos);
-      if (a.anos.length > 0) {
-        setFilters((f) => ({ ...f, ano: f.ano ?? a.anos.at(-1)! }));
-      }
-    });
-  }, []);
-
-  // UF/região vêm dos dados agregados; ano não é parâmetro deste endpoint, mas dimensão sim.
+    fetchSimAnos(filters.dimensao).then((result) => { setAnos(result.anos); if (!filters.ano && result.anos.length) setFilters((current) => ({ ...current, ano: result.anos.at(-1) })); });
+  }, [filters.dimensao, filters.ano]);
   useEffect(() => {
-    const dim = filters.dimensao ?? "ocorrencia";
-    fetchMunicipios({ dimensao: dim }).then((m) => {
-      setMunicipios(m.municipios);
-      const availableUfs = [...new Set(m.municipios.map((mun) => mun.uf))].sort();
-      setUfs(availableUfs);
-    });
+    fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
+    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
   }, [filters.dimensao]);
-
-  const load = useCallback(() => {
+  useEffect(() => {
     setLoading(true);
-    setTablePage(0);
-    fetchMapa(metrica, filters)
-      .then((r) => setData(r.dados))
-      .finally(() => setLoading(false));
-  }, [metrica, filters]);
+    fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
+  }, [filters]);
 
-  useEffect(load, [load]);
-
-  const handleFilterChange = (key: string, value: string) => {
-    if (key === "metrica") {
-      setMetrica(value || "obitos");
-      return;
-    }
-
-    const newFilters: FilterValues = { ...filters };
-
-    if (key === "regiao") {
-      newFilters.uf = undefined;
-      newFilters.regiao = value ? (value as FilterValues["regiao"]) : undefined;
-    } else if (key === "uf") {
-      newFilters.regiao = undefined;
-      newFilters.uf = value || undefined;
-    } else if (key === "ano") {
-      newFilters.ano = value ? Number(value) : undefined;
-    } else if (key === "dimensao") {
-      newFilters.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
-    }
-
-    setFilters(newFilters);
+  const change = (key: string, value: string) => {
+    setFilters((current) => {
+      const next = { ...current };
+      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
+      if (key === "ano") next.ano = value ? Number(value) : undefined;
+      if (key === "uf") next.uf = value || undefined;
+      if (key === "regiao") next.regiao = value || undefined;
+      if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
+      return next;
+    });
   };
-
-  const handleReset = () => {
-    const latestYear = anos.length > 0 ? anos.at(-1) : undefined;
-    setFilters({ ano: latestYear, dimensao: "ocorrencia" });
-  };
-
-  const total = data.reduce((s, d) => s + d.valor, 0);
-  const sorted = [...data].sort((a, b) => b.valor - a.valor);
-  const totalTablePages = Math.ceil(sorted.length / TABLE_PAGE_SIZE);
-  const pagedData = sorted.slice(
-    tablePage * TABLE_PAGE_SIZE,
-    (tablePage + 1) * TABLE_PAGE_SIZE
-  );
-
+  const total = data.reduce((sum, row) => sum + row.valor, 0);
   const filterDefs = [
-    {
-      key: "dimensao",
-      label: "Dimensão",
-      options: [
-        { value: "ocorrencia", label: "Ocorrência" },
-        { value: "residencia", label: "Residência" },
-      ],
-    },
-    {
-      key: "regiao",
-      label: "Região",
-      options: Object.keys(REGIOES).map((r) => ({ value: r, label: r })),
-      placeholder: "Todas as regiões",
-    },
-    {
-      key: "uf",
-      label: "UF",
-      options: ufs.map((u) => ({ value: u, label: u })),
-      placeholder: "Todos os estados",
-    },
-    {
-      key: "ano",
-      label: "Ano",
-      options: anos.map((a) => ({ value: String(a), label: String(a) })),
-    },
-    {
-      key: "metrica",
-      label: "Métrica",
-      options: [
-        { value: "obitos", label: "Óbitos" },
-        { value: "custos", label: "Custos (R$)" },
-      ],
-      placeholder: "Óbitos",
-    },
+    { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
+    { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
+    { key: "uf", label: "UF", options: ufs.map((value) => ({ value, label: value })), placeholder: "Todas" },
+    { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
+    { key: "tipo_veiculo", label: "Veiculo", options: tipos.map((value) => ({ value, label: value })), placeholder: "Todos" },
   ];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
-            Mapa de Calor
-          </h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
-            Distribuição geográfica por município · {data.length} municípios
-          </p>
-        </div>
-        <FilterBar
-          filters={filterDefs}
-          values={{
-            dimensao: filters.dimensao ?? "ocorrencia",
-            regiao: filters.regiao ?? "",
-            uf: filters.uf ?? "",
-            ano: filters.ano != null ? String(filters.ano) : "",
-            metrica,
-          }}
-          onChange={(k, v) => handleFilterChange(k as keyof FilterValues, v)}
-          onReset={handleReset}
-        />
-      </div>
-
-      {/* Summary + escala do mapa */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div
-          className="rounded-lg px-4 py-2"
-          style={{
-            backgroundColor: "var(--bg-card)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          <p
-            className="text-[10px] font-medium uppercase tracking-wider"
-            style={{ color: "var(--fg-muted)" }}
-          >
-            Total {metrica === "custos" ? "custos" : "óbitos"}
-          </p>
-          <p className="text-lg font-bold" style={{ color: "var(--fg)" }}>
-            {metrica === "custos" ? formatCurrency(total) : formatNumber(total)}
-          </p>
-        </div>
-
-        <div
-          className="flex overflow-hidden rounded-lg"
-          style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-md)" }}
-        >
-          <button
-            type="button"
-            onClick={() => setEscalaMapa("total")}
-            className="px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              backgroundColor:
-                escalaMapa === "total" ? "var(--primary)" : "var(--bg-card)",
-              color:
-                escalaMapa === "total" ? "var(--primary-fg)" : "var(--fg-secondary)",
-            }}
-          >
-            Mapa: absoluto
-          </button>
-          <button
-            type="button"
-            onClick={() => setEscalaMapa("relative")}
-            className="px-3 py-1.5 text-xs font-medium transition-colors"
-            style={{
-              backgroundColor:
-                escalaMapa === "relative" ? "var(--primary)" : "var(--bg-card)",
-              color:
-                escalaMapa === "relative"
-                  ? "var(--primary-fg)"
-                  : "var(--fg-secondary)",
-              borderLeft: "1px solid var(--border)",
-            }}
-          >
-            {metrica === "custos"
-              ? "Mapa: R$ / hab."
-              : "Mapa: óbitos / 100k"}
-          </button>
-        </div>
-      </div>
-
-      {/* Map */}
-      <div
-        className="relative overflow-hidden rounded-xl"
-        style={{
-          height: "calc(100vh - 280px)",
-          minHeight: "400px",
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border)",
-        }}
-      >
-        {loading && (
-          <div
-            className="absolute inset-0 z-10 flex items-center justify-center"
-            style={{
-              backgroundColor:
-                "color-mix(in srgb, var(--bg-card) 60%, transparent)",
-            }}
-          >
-            <div
-              className="h-8 w-8 animate-spin rounded-full border-4"
-              style={{
-                borderColor: "var(--border)",
-                borderTopColor: "var(--primary)",
-              }}
-            />
-          </div>
-        )}
-        <MapView
-          data={data}
-          metrica={metrica}
-          dimensao={filters.dimensao}
-          ano={filters.ano}
-          uf={filters.uf ?? undefined}
-          regiao={filters.regiao ?? undefined}
-          escala={escalaMapa}
-        />
-      </div>
-
-      {/* Table with Pagination */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border)",
-        }}
-      >
-        <div
-          className="px-4 py-3"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
-          <h3 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
-            Ranking por Município
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead style={{ backgroundColor: "var(--bg-muted)" }}>
-              <tr className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                <th className="px-4 py-2">#</th>
-                <th className="px-4 py-2">Município</th>
-                <th className="px-4 py-2">UF</th>
-                <th className="px-4 py-2 text-right">
-                  {metrica === "custos" ? "Custo Total" : "Óbitos"}
-                </th>
-                <th className="px-4 py-2 text-right">
-                  {metrica === "custos" ? "Per capita" : "Taxa / 100k"}
-                </th>
-                <th className="px-4 py-2 text-right">%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedData.map((d, i) => (
-                <tr
-                  key={d.cod_mun_ibge}
-                  style={{ borderBottom: "1px solid var(--border)" }}
-                >
-                  <td
-                    className="px-4 py-2"
-                    style={{ color: "var(--fg-muted)" }}
-                  >
-                    {tablePage * TABLE_PAGE_SIZE + i + 1}
-                  </td>
-                  <td
-                    className="px-4 py-2 font-medium"
-                    style={{ color: "var(--fg)" }}
-                  >
-                    {d.municipio}
-                  </td>
-                  <td
-                    className="px-4 py-2"
-                    style={{ color: "var(--fg-secondary)" }}
-                  >
-                    {d.uf}
-                  </td>
-                  <td
-                    className="px-4 py-2 text-right font-mono"
-                    style={{ color: "var(--fg)" }}
-                  >
-                    {metrica === "custos"
-                      ? formatCurrency(d.valor)
-                      : formatNumber(d.valor)}
-                  </td>
-                  <td
-                    className="px-4 py-2 text-right text-xs font-mono"
-                    style={{ color: "var(--fg-secondary)" }}
-                  >
-                    {metrica === "custos"
-                      ? d.custo_per_capita != null && d.custo_per_capita > 0
-                        ? formatCurrency(d.custo_per_capita)
-                        : "—"
-                      : d.taxa_obitos_100mil != null && d.taxa_obitos_100mil > 0
-                        ? formatTaxa100k(d.taxa_obitos_100mil)
-                        : "—"}
-                  </td>
-                  <td
-                    className="px-4 py-2 text-right"
-                    style={{ color: "var(--fg-muted)" }}
-                  >
-                    {total > 0 ? ((d.valor / total) * 100).toFixed(1) : 0}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {totalTablePages > 1 && (
-          <div
-            className="flex items-center justify-center gap-2 py-3"
-            style={{ borderTop: "1px solid var(--border)" }}
-          >
-            <button
-              onClick={() => setTablePage((p) => Math.max(0, p - 1))}
-              disabled={tablePage === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-lg disabled:opacity-30"
-              style={{
-                border: "1px solid var(--border)",
-                color: "var(--fg-secondary)",
-              }}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span
-              className="text-xs tabular-nums"
-              style={{ color: "var(--fg-secondary)" }}
-            >
-              {tablePage + 1} / {totalTablePages}
-            </span>
-            <button
-              onClick={() =>
-                setTablePage((p) => Math.min(totalTablePages - 1, p + 1))
-              }
-              disabled={tablePage >= totalTablePages - 1}
-              className="flex h-7 w-7 items-center justify-center rounded-lg disabled:opacity-30"
-              style={{
-                border: "1px solid var(--border)",
-                color: "var(--fg-secondary)",
-              }}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <div className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1><p className="text-xs" style={{ color: "var(--fg-muted)" }}>Obitos por municipio - {formatNumber(total)} no filtro atual</p></div><FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={change} onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })} /></div><div className="flex items-center gap-2 text-xs"><button onClick={() => setEscala("total")} className="rounded-lg px-3 py-1.5" style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}>Obitos absolutos</button><button onClick={() => setEscala("relative")} className="rounded-lg px-3 py-1.5" style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}>Taxa / 100 mil</button></div><div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>{loading ? <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando mapa...</div> : <MapView data={data} metrica="obitos" dimensao={filters.dimensao} ano={filters.ano} uf={filters.uf} regiao={filters.regiao} tipo_veiculo={filters.tipo_veiculo} escala={escala} />}</div><div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE. {municipios.length} municipios disponiveis para consulta.</div></div>;
 }

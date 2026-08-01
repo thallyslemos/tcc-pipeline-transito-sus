@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 
-type Semantic = "deaths" | "costs" | "health" | "success";
+type Semantic = "deaths" | "health" | "success";
 
 interface Props {
   title: string;
@@ -18,7 +18,6 @@ interface Props {
 
 const tokens: Record<Semantic, { color: string; softVar: string; glowVar: string; sparkColor: string }> = {
   deaths:  { color: "var(--deaths)",  softVar: "var(--deaths-soft)",  glowVar: "var(--shadow-glow-deaths)", sparkColor: "#ef4444" },
-  costs:   { color: "var(--costs)",   softVar: "var(--costs-soft)",   glowVar: "var(--shadow-glow-costs)",  sparkColor: "#f59e0b" },
   health:  { color: "var(--health)",  softVar: "var(--health-soft)",  glowVar: "none",                      sparkColor: "#3b82f6" },
   success: { color: "var(--success)", softVar: "var(--success-soft)", glowVar: "none",                      sparkColor: "#10b981" },
 };

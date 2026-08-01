@@ -7,13 +7,63 @@ export interface FilterValues {
   dimensao?: "ocorrencia" | "residencia";
 }
 
-export interface Municipio {
+export interface SimSummary {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
+  total_obitos: number;
+  municipios: number;
+  periodo: string;
+  obitos_por_ano: { ano: number; total: number }[];
+  denominadores: { populacao: string; frota: string };
+}
+
+export interface SimMunicipio {
+  cod_mun_ibge: string;
+  cod_mun_ibge_6?: string;
+  municipio: string;
+  uf: string;
+  obitos: number;
+  populacao: number | null;
+  taxa_obitos_100mil: number | null;
+  populacao_status: "disponivel" | "indisponivel";
+}
+
+export interface SimMunicipioDetail {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
   cod_mun_ibge: string;
   municipio: string;
   uf: string;
-  lat: number | null;
-  lon: number | null;
-  obitos?: number;
+  total_obitos: number;
+  populacao: number | null;
+  taxa_obitos_100mil: number | null;
+  populacao_status: "disponivel" | "indisponivel";
+  frota_status: "disponivel" | "indisponivel";
+  serie_mensal: { competencia: string; obitos: number }[];
+}
+
+export interface SimCatalogDataset {
+  id: string;
+  layer: string;
+  status: string;
+  provider: string;
+  source_url?: string;
+  source_dataset?: string;
+  coverage?: Record<string, unknown>;
+  grain?: string;
+  keyso: string[];
+  quality?: Record<string, unknown>;
+  path?: string;
+  byteso: number;
+  sha256?: string;
+  noteso: string;
+}
+
+export interface SimCatalog {
+  catalog_version: string;
+  generated_at: string;
+  scope: string;
+  datasets: SimCatalogDataset[];
 }
 
 export interface MapPoint {
@@ -23,45 +73,13 @@ export interface MapPoint {
   valor: number;
   lat: number | null;
   lon: number | null;
-  atendimentos?: number;
-  /** População (IBGE / Gold) quando disponível */
   populacao?: number | null;
-  /** Mortes por 100 mil hab. (apenas métrica óbitos) */
   taxa_obitos_100mil?: number | null;
-  /** Custo per capita em R$ (métrica custos, requer dim_ibge_populacao / join) */
-  custo_per_capita?: number | null;
 }
 
-export interface DashboardData {
-  total_obitos: number;
-  total_custos: number;
-  total_atendimentos: number;
-  municipios: number;
-  periodo: string;
-  obitos_por_ano: { ano: number; total: number }[];
-  custos_por_ano: { ano: number; total: number }[];
-  obitos_por_tipo_veiculo: { tipo_veiculo: string; total: number }[];
-  custos_por_tipo_veiculo: { tipo_veiculo: string; total: number }[];
-  obitos_por_municipio: { municipio: string; total: number }[];
-  custos_por_municipio: { municipio: string; total: number }[];
-  serie_temporal_obitos: { competencia: string; valor: number }[];
-  serie_temporal_custos: { competencia: string; valor: number }[];
-  obitos_por_faixa_etaria: { faixa_etaria: string; total: number }[];
-  obitos_por_sexo: { sexo: string; total: number }[];
-}
+export interface RankingItem extends SimMunicipio {}
 
-export interface MunicipioDetail {
-  cod_mun_ibge: string;
-  municipio: string;
-  uf: string;
-  lat: number | null;
-  lon: number | null;
-  total_obitos: number;
-  total_custos: number;
-  total_atendimentos: number;
-  serie_obitos: { competencia: string; valor: number }[];
-  serie_custos: { competencia: string; valor: number }[];
-  obitos_por_tipo_veiculo: { tipo_veiculo: string; total: number }[];
-  obitos_por_faixa_etaria: { faixa_etaria: string; total: number }[];
-  obitos_por_sexo: { sexo: string; total: number }[];
+export interface ForecastPoint {
+  competencia: string;
+  valor: number;
 }
