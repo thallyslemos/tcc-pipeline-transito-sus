@@ -19,6 +19,8 @@ function simQuery(filters: FilterValues = {}): string {
   const params = new URLSearchParams();
   if (filters.ano) params.set("ano", String(filters.ano));
   if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
   if (filters.dimensao) params.set("dimensao", filters.dimensao);
   const query = params.toString();
   return query ? `?${query}` : "";
