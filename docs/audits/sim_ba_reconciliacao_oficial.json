@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-08-01",
+  "observed_scope": "residencia_ba_snapshot_local",
+  "observed": {
+    "2010": 2593,
+    "2011": 2630,
+    "2012": 2854,
+    "2013": 2666,
+    "2014": 2737,
+    "2015": 2265,
+    "2016": 2389,
+    "2017": 2330,
+    "2018": 2112,
+    "2019": 2314,
+    "2020": 2311,
+    "2021": 2345,
+    "2022": 2441,
+    "2023": 2747,
+    "2024": 3041
+  },
+  "comparisons": [
+    {
+      "name": "RAG SESAB 2024",
+      "year": 2023,
+      "scope": "residencia_ba",
+      "count": 2754,
+      "snapshot": "SIM atualizado em 2025-01-10",
+      "url": "https://www.ba.gov.br/saude/sites/site-sesab/files/migracao_2024/arquivos/wp-content/uploads/2025/10/RAG-2024-versao-final.pdf",
+      "observed": 2747,
+      "difference": -7,
+      "relative_difference": -0.002542,
+      "comparability": "diagnostico_mesmo_conceito_snapshot_diferente"
+    },
+    {
+      "name": "RAG SESAB 2024",
+      "year": 2024,
+      "scope": "residencia_ba",
+      "count": 2673,
+      "snapshot": "SIM atualizado em 2025-01-10",
+      "url": "https://www.ba.gov.br/saude/sites/site-sesab/files/migracao_2024/arquivos/wp-content/uploads/2025/10/RAG-2024-versao-final.pdf",
+      "observed": 3041,
+      "difference": 368,
+      "relative_difference": 0.137673,
+      "comparability": "diagnostico_mesmo_conceito_snapshot_diferente"
+    },
+    {
+      "name": "Boletim SESAB ATT 2024",
+      "year": 2023,
+      "scope": "ocorrencia_ba",
+      "count": 2723,
+      "snapshot": "SIM preliminar; consulta 2024-09-11",
+      "url": "https://www.ba.gov.br/saude/sites/site-sesab/files/migracao_2024/arquivos/wp-content/uploads/2017/11/boletinATT_No1_2024.pdf",
+      "observed": 2747,
+      "comparability": "nao_comparavel_residencia_vs_ocorrencia"
+    },
+    {
+      "name": "Infografico SEI ATT 2025",
+      "year": 2024,
+      "scope": "ocorrencia_ba",
+      "count": 2993,
+      "snapshot": "extracao 2025-05-06",
+      "url": "https://www.ba.gov.br/sei/sites/site-sei/files/migracao_2024/arquivos/images/publicacoes/infograficos/acidente_de_transito_2025.pdf",
+      "observed": 3041,
+      "comparability": "nao_comparavel_residencia_vs_ocorrencia"
+    }
+  ],
+  "decision": "nao_fixar_tolerancia_ate_reproduzir_TABNET_com_mesmo_snapshot"
+}
