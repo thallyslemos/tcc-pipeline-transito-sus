@@ -8,6 +8,7 @@ import {
   Map,
   Sparkles,
   MessageCircle,
+  ShieldCheck,
   Sun,
   Moon,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/mapa", label: "Mapa", icon: Map },
   { href: "/previsao", label: "Previsão IA", icon: Sparkles },
   { href: "/chat", label: "Chat IA", icon: MessageCircle },
+  { href: "/auditoria", label: "Auditoria", icon: ShieldCheck },
 ];
 
 interface Props {

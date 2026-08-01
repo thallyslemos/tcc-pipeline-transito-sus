@@ -34,3 +34,6 @@ frontend/out/
 .DS_Store
 Thumbs.db
 data/ibge_malhas_municipios.geojson
+
+# Playwright artifacts
+frontend/test-results/
