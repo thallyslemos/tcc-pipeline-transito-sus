@@ -9,8 +9,8 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Painel Geral')).toBeInTheDocument();
     expect(screen.getByText('Municípios')).toBeInTheDocument();
     expect(screen.getByText('Mapa')).toBeInTheDocument();
-    expect(screen.getByText('Previsão IA')).toBeInTheDocument();
-    expect(screen.getByText('Chat IA')).toBeInTheDocument();
+    expect(screen.getByText('Tendencias')).toBeInTheDocument();
+    expect(screen.getByText('Exploracao')).toBeInTheDocument();
   });
 
   it('should display the logo correctly', () => {
