@@ -76,3 +76,58 @@ def test_sim_filters_and_geojson_are_sim_only(client):
 def test_onsv_comparison_is_not_a_public_feature(client):
     response = client.get("/api/dashboard/auditoria/onsv-2024")
     assert response.status_code == 404
+
+
+def test_sim_geo_applies_vehicle_filter_and_keeps_region_polygons(client):
+    params = {"dimensao": "ocorrencia", "ano": 2024, "uf": "BA"}
+    baseline_response = client.get("/api/sim/geo", params=params)
+    assert baseline_response.status_code == 200
+    baseline = baseline_response.json()
+    baseline_features = baseline["features"]
+    assert len(baseline_features) >= 400
+    assert all(feature["properties"]["uf"] == "BA" for feature in baseline_features)
+    baseline_total = sum(feature["properties"]["valor"] for feature in baseline_features)
+
+    tipos_response = client.get("/api/sim/tipos-veiculo", params={"dimensao": "ocorrencia"})
+    assert tipos_response.status_code == 200
+    filtered = None
+    for tipo in tipos_response.json()["tipos"]:
+        response = client.get("/api/sim/geo", params={**params, "tipo_veiculo": tipo})
+        assert response.status_code == 200
+        payload = response.json()
+        total = sum(feature["properties"]["valor"] for feature in payload["features"])
+        if total != baseline_total:
+            filtered = payload
+            break
+
+    assert filtered is not None
+    assert len(filtered["features"]) == len(baseline_features)
+    assert sum(feature["properties"]["valor"] for feature in filtered["features"]) != baseline_total
+    assert any(feature["properties"]["has_data"] is False for feature in baseline_features)
+
+
+def test_sim_geo_exposes_vehicle_rate_contract_without_zero_fallback(client):
+    response = client.get(
+        "/api/sim/geo",
+        params={"dimensao": "ocorrencia", "ano": 2024, "uf": "BA"},
+    )
+    assert response.status_code == 200
+    features = response.json()["features"]
+    assert features
+    for feature in features:
+        properties = feature["properties"]
+        assert "frota_status" in properties
+        assert "taxa_obitos_10mil_veiculos" in properties
+        if properties["frota_status"] == "indisponivel":
+            assert properties["taxa_obitos_10mil_veiculos"] is None
+
+    historical = client.get(
+        "/api/sim/geo",
+        params={"dimensao": "ocorrencia", "uf": "BA"},
+    )
+    assert historical.status_code == 200
+    assert all(
+        feature["properties"]["frota_status"] == "indisponivel"
+        and feature["properties"]["taxa_obitos_10mil_veiculos"] is None
+        for feature in historical.json()["features"]
+    )

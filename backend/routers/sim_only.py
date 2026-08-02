@@ -46,6 +46,37 @@ def _source(path: Path) -> str:
     return f"read_parquet('{str(path).replace(chr(39), chr(39) * 2)}')"
 
 
+_MUNICIPIO_LABELS: dict[str, dict[str, str]] | None = None
+
+
+def _municipio_labels(con) -> dict[str, dict[str, str]]:
+    """Carrega nomes e UFs canonicos para preencher municipios sem obitos."""
+    global _MUNICIPIO_LABELS
+    if _MUNICIPIO_LABELS is not None:
+        return _MUNICIPIO_LABELS
+    try:
+        rows = con.sql(
+            """
+            SELECT LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) AS cod6,
+                   MAX(nome) AS municipio,
+                   MAX(uf) AS uf
+            FROM v_ibge_municipios
+            GROUP BY 1
+            """
+        ).fetchall()
+    except Exception:
+        _MUNICIPIO_LABELS = {}
+        return _MUNICIPIO_LABELS
+    _MUNICIPIO_LABELS = {
+        str(cod6): {
+            "municipio": str(municipio or ""),
+            "uf": str(uf or ""),
+        }
+        for cod6, municipio, uf in rows
+    }
+    return _MUNICIPIO_LABELS
+
+
 def _text(value: str | None) -> str | None:
     if value is None:
         return None
@@ -339,19 +370,29 @@ async def geo(
     if ano is None:
         population = "CAST(NULL AS BIGINT)"
         rate = "CAST(NULL AS DOUBLE)"
+        vehicle_rate = "CAST(NULL AS DOUBLE)"
+        fleet_status = "'indisponivel'"
     else:
         population = "MAX(populacao_estimada)"
         rate = (
             "CASE WHEN MAX(populacao_estimada) > 0 THEN "
             "SUM(total_obitos) * 100000.0 / MAX(populacao_estimada) ELSE NULL END"
         )
+        vehicle_rate = (
+            "CASE WHEN MAX(frota_total) > 0 THEN "
+            "SUM(total_obitos) * 10000.0 / MAX(frota_total) ELSE NULL END"
+        )
+        fleet_status = "CASE WHEN MAX(frota_total) > 0 THEN 'disponivel' ELSE 'indisponivel' END"
     rows = (
         con.sql(
             f"""
         SELECT cod_mun_ibge_6 AS cod6, MAX(cod_mun_ibge) AS cod_mun_ibge,
                MAX(municipio) AS municipio, MAX(uf) AS uf,
                SUM(total_obitos) AS valor,
-               {population} AS populacao, {rate} AS taxa_obitos_100mil
+               {population} AS populacao, {rate} AS taxa_obitos_100mil,
+               MAX(frota_total) AS frota_total,
+               {fleet_status} AS frota_status,
+               {vehicle_rate} AS taxa_obitos_10mil_veiculos
         FROM {source}
         WHERE {where}
         GROUP BY cod_mun_ibge_6
@@ -361,27 +402,43 @@ async def geo(
         .to_dict(orient="records")
     )
     metrics = {str(row["cod6"]): row for row in rows}
+    labels = _municipio_labels(con)
+    requested_uf = uf.upper() if uf else None
     features = []
     for feature in malhas.get("features", []):
         props = feature.get("properties") or {}
         codarea = str(props.get("codarea", ""))
-        metric = metrics.get(codarea[:6])
-        if metric is None:
+        cod6 = codarea[:6]
+        metric = metrics.get(cod6)
+        label = labels.get(cod6, {})
+        feature_uf = str((metric or {}).get("uf") or label.get("uf") or "")
+        if requested_uf and feature_uf != requested_uf:
             continue
+        if regiao and feature_uf not in REGIOES[regiao]:
+            continue
+        metric = metric or {}
         features.append(
             {
                 "type": "Feature",
                 "geometry": feature.get("geometry"),
                 "properties": {
-                    "cod_mun_ibge": metric.get("cod_mun_ibge"),
-                    "municipio": metric.get("municipio"),
-                    "uf": metric.get("uf"),
+                    "cod_mun_ibge": codarea,
+                    "municipio": metric.get("municipio") or label.get("municipio") or codarea,
+                    "uf": feature_uf,
                     "valor": int(metric.get("valor") or 0),
+                    "has_data": bool(metric),
                     "populacao": int(metric["populacao"])
                     if metric.get("populacao") is not None
                     else None,
                     "taxa_obitos_100mil": float(metric["taxa_obitos_100mil"])
                     if metric.get("taxa_obitos_100mil") is not None
+                    else None,
+                    "frota_total": int(metric["frota_total"])
+                    if metric.get("frota_total") is not None
+                    else None,
+                    "frota_status": metric.get("frota_status", "indisponivel"),
+                    "taxa_obitos_10mil_veiculos": float(metric["taxa_obitos_10mil_veiculos"])
+                    if metric.get("taxa_obitos_10mil_veiculos") is not None
                     else None,
                 },
             }
