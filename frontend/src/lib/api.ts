@@ -69,7 +69,7 @@ export interface SimGeoFeatureCollection {
 }
 
 export const fetchSimGeo = (filters: FilterValues = {}) =>
-  get<SimGeoFeatureCollection>(`/api/sim/geo${simQuery(filters)}`);
+  get<SimGeoFeatureCollection>(`/api/geo/municipios${simQuery(filters)}`);
 
 export const fetchMapa = async (filters: FilterValues = {}) => {
   const collection = await fetchSimGeo(filters);

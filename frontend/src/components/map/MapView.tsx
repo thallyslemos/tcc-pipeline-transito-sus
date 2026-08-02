@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { fetchSimGeo } from "@/lib/api";
 import { useTheme } from "@/components/ThemeProvider";
 import { formatNumber, formatTaxa100k } from "@/lib/format";
 import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
@@ -12,7 +13,7 @@ import MapLegend, { type MapScaleMode } from "@/components/map/MapLegend";
 interface Props {
   data: MapPoint[];
   metrica: string;
-  dimensao?: string;
+  dimensao?: "ocorrencia" | "residencia";
   ano?: number;
   uf?: string;
   regiao?: string;
@@ -67,14 +68,7 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
   }, [data, escala, geoData, mode]);
 
   useEffect(() => {
-    const params = new URLSearchParams({ metrica: "obitos" });
-    if (dimensao) params.set("dimensao", dimensao);
-    if (ano) params.set("ano", String(ano));
-    if (uf) params.set("uf", uf);
-    if (regiao) params.set("regiao", regiao);
-    if (tipo_veiculo) params.set("tipo_veiculo", tipo_veiculo);
-    fetch(`/api/sim/geo?${params}`)
-      .then((response) => response.json())
+    fetchSimGeo({ dimensao, ano, uf, regiao, tipo_veiculo })
       .then((featureCollection) => {
         setGeoData(featureCollection);
         if (!featureCollection.features?.some((feature: GeoJSON.Feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""))) setMode("circles");
