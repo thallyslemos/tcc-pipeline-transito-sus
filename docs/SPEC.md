@@ -108,10 +108,20 @@ taxa_veiculos = (total_obitos / frota_municipio) * 10.000
 ```
 
 - **Fonte frota**: arquivo normalizado (`data/frota/frota_normalizada_ibge.csv`) → Gold `frota_municipio_ano.parquet` (`--frota` no `run.py`).
-- **API**: campos opcionais `frota_total` e `taxa_obitos_por_10mil_veiculos` em `GET /api/indicadores/municipio/{cod}` quando a view DuckDB `v_frota_municipio_ano` está disponível.
+- **API**: campos opcionais `frota_total` e `taxa_obitos_10mil_veiculos` em `GET /api/indicadores/municipio/{cod}` quando a view DuckDB `v_frota_municipio_ano` está disponível.
 - **Granularidade diária**: apenas dimensão **ocorrência** (`GET /api/dashboard/municipio/{cod}/serie-diaria?ano=&dimensao=ocorrencia`).
 
 ---
+
+## 3.4 Contrato SIM do mapa
+
+`GET /api/sim/geo` retorna um `FeatureCollection` filtrado pelo SIM e enriquecido com a malha municipal IBGE.
+
+Cada propriedade municipal inclui `cod_mun_ibge`, `municipio`, `uf`, `valor`, `has_data`, `populacao`, `taxa_obitos_100mil`, `frota_total`, `frota_status` e `taxa_obitos_10mil_veiculos`.
+
+- `has_data=false` significa que o municipio pertence ao recorte geografico, mas nao possui obito no filtro atual; o poligono deve continuar visivel em cor neutra.
+- `frota_status=indisponivel` exige `taxa_obitos_10mil_veiculos=null`; nao usar zero nem outro denominador como fallback.
+- a taxa veicular so pode ser exibida quando a frota SENATRAN do mesmo municipio e ano estiver materializada e validada.
 
 ## 4. Status de Implementação por Camada
 
@@ -137,7 +147,8 @@ taxa_veiculos = (total_obitos / frota_municipio) * 10.000
 | `GET /api/dashboard/municipio/{cod}` | ✅ | ano, dimensao |
 | `GET /api/dashboard/municipio/{cod}/serie-diaria` | ✅ | `ano` (query), `dimensao` (só ocorrência tem série diária) |
 | `GET /api/dashboard/mapa` | ✅ | ano, uf, regiao, dimensao, metrica |
-| `GET /api/geo/municipios` | ✅ | ano, uf, regiao, dimensao, metrica |
+| `GET /api/sim/geo` | SIM-only; ano, UF, regiao, dimensao e tipo_veiculo; retorna todos os poligonos IBGE do recorte e campos opcionais de frota |
+| `GET /api/geo/municipios` | Legado; nao usado pelo mapa SIM ativo |
 | `GET /api/indicadores/municipio/{cod}` | ✅ | ano, dimensao; anos com dados via `DISTINCT ano` na view SIM |
 | `GET /api/indicadores/ranking` | ✅ | ano, metrica, uf, regiao |
 
@@ -149,7 +160,7 @@ Resposta resumida `GET /api/dashboard/municipio/{cod}/serie-diaria`: `serie_diar
 |--------|--------|--------|
 | `/dashboard` | ✅ | dimensao, regiao, uf, ano, municipio, tipo_veiculo |
 | `/municipio` | ✅ | dimensao, regiao, uf, ano, municipio; gráficos anual/mensal/diário, export CSV anual, alerta de concentração |
-| `/mapa` | ✅ | dimensao, regiao, uf, ano, metrica |
+| `/mapa` | SIM-only; dimensao, regiao, UF, ano e tipo_veiculo; poligonos sem registro permanecem neutros |
 | `/ranking` | ✅ | metrica, regiao, uf, ano |
 | `/previsao` | 🔄 Em desenvolvimento | — |
 | `/chat` | 🔄 Em desenvolvimento | — |
