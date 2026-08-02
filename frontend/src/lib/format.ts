@@ -24,3 +24,11 @@ export function formatTaxa100k(value: number): string {
     maximumFractionDigits: 1,
   }).format(value);
 }
+
+/** Taxa de obitos por 10 mil veiculos, quando a frota SENATRAN esta disponivel. */
+export function formatTaxa10k(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}

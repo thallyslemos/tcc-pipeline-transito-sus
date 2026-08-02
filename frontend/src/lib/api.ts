@@ -69,7 +69,7 @@ export interface SimGeoFeatureCollection {
 }
 
 export const fetchSimGeo = (filters: FilterValues = {}) =>
-  get<SimGeoFeatureCollection>(`/api/geo/municipios${simQuery(filters)}`);
+  get<SimGeoFeatureCollection>(`/api/sim/geo${simQuery(filters)}`);
 
 export const fetchMapa = async (filters: FilterValues = {}) => {
   const collection = await fetchSimGeo(filters);
@@ -84,6 +84,13 @@ export const fetchMapa = async (filters: FilterValues = {}) => {
       lon: null,
       populacao: properties.populacao == null ? null : Number(properties.populacao),
       taxa_obitos_100mil: properties.taxa_obitos_100mil == null ? null : Number(properties.taxa_obitos_100mil),
+      frota_total: properties.frota_total == null ? null : Number(properties.frota_total),
+      frota_status: properties.frota_status === "disponivel" ? "disponivel" : "indisponivel",
+      taxa_obitos_10mil_veiculos:
+        properties.taxa_obitos_10mil_veiculos == null
+          ? null
+          : Number(properties.taxa_obitos_10mil_veiculos),
+      has_data: properties.has_data !== false,
     };
   });
   return { metrica: "obitos", ano: filters.ano ?? null, dados, geojson: collection };

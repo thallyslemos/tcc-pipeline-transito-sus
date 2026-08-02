@@ -20,11 +20,24 @@ test('carrega a camada geográfica do mapa', async ({ page }) => {
     }
   });
   const geoResponse = page.waitForResponse(
-    (response) => response.url().includes('/api/geo/municipios') && response.status() === 200,
+    (response) => response.url().includes('/api/sim/geo') && response.status() === 200,
   );
   await page.goto('/mapa');
   await expect(page.getByRole('heading', { name: 'Mapa SIM' })).toBeVisible();
   await expect(page.locator('.maplibregl-canvas')).toBeVisible();
   expect((await geoResponse).status()).toBe(200);
   expect(apiErrors).toEqual([]);
+});
+
+test('aplica filtro de veiculo no mapa e sinaliza denominador ausente', async ({ page }) => {
+  await page.goto('/mapa');
+  const vehicleFilter = page.locator('#filter-tipo_veiculo');
+  await expect(vehicleFilter.locator('option[value=\"Automovel\"]')).toHaveText('Automovel');
+  const filteredResponse = page.waitForResponse(
+    (response) => response.url().includes('/api/sim/geo') && response.url().includes('tipo_veiculo=Automovel') && response.status() === 200,
+  );
+  await vehicleFilter.selectOption('Automovel');
+  expect((await filteredResponse).status()).toBe(200);
+  await expect(page.getByRole('button', { name: 'Taxa / 10 mil veiculos' })).toBeDisabled();
+  await expect(page.getByText('Taxa veicular indisponivel')).toBeVisible();
 });

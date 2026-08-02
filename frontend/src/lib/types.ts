@@ -75,6 +75,10 @@ export interface MapPoint {
   lon: number | null;
   populacao?: number | null;
   taxa_obitos_100mil?: number | null;
+  frota_total?: number | null;
+  frota_status?: "disponivel" | "indisponivel";
+  taxa_obitos_10mil_veiculos?: number | null;
+  has_data?: boolean;
 }
 
 export interface RankingItem extends SimMunicipio {}

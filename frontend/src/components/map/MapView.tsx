@@ -5,7 +5,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { fetchSimGeo } from "@/lib/api";
 import { useTheme } from "@/components/ThemeProvider";
-import { formatNumber, formatTaxa100k } from "@/lib/format";
+import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
 import type { MapPoint } from "@/lib/types";
 import MapLegend, { type MapScaleMode } from "@/components/map/MapLegend";
@@ -31,11 +31,14 @@ function style(isDark: boolean): maplibregl.StyleSpecification {
 }
 
 function valueOf(point: MapPoint | Record<string, unknown>, escala: MapScaleMode): number | null {
+  const record = point as Record<string, unknown>;
+  if (record.has_data === false) return null;
   if (escala === "total") {
-    const value = (point as MapPoint).valor ?? (point as Record<string, unknown>).valor;
+    const value = record.valor;
     return typeof value === "number" ? value : null;
   }
-  const rate = (point as MapPoint).taxa_obitos_100mil ?? (point as Record<string, unknown>).taxa_obitos_100mil;
+  const field = escala === "vehicle_rate" ? "taxa_obitos_10mil_veiculos" : "taxa_obitos_100mil";
+  const rate = record[field];
   return typeof rate === "number" && rate > 0 ? rate : null;
 }
 
@@ -77,9 +80,16 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
   }, [ano, dimensao, regiao, tipo_veiculo, uf]);
 
   const popupHtml = useCallback((properties: Record<string, unknown>) => {
+    const hasData = properties.has_data !== false;
     const population = properties.populacao != null ? `<br/><span style="opacity:.7">Populacao:</span> <b>${formatNumber(Number(properties.populacao))}</b>` : "";
     const rate = properties.taxa_obitos_100mil != null ? `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(properties.taxa_obitos_100mil))}</b> / 100 mil hab.` : "";
-    return `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6"><b style="font-size:13px">${properties.municipio ?? "Municipio"}</b> <span style="opacity:.6">${properties.uf ?? ""}</span><br/><span style="opacity:.7">Obitos:</span> <b>${formatNumber(Number(properties.valor ?? 0))}</b>${population}${rate}</div>`;
+    const vehicleRate = properties.taxa_obitos_10mil_veiculos != null
+      ? `<br/><span style="opacity:.7">Taxa veicular:</span> <b>${formatTaxa10k(Number(properties.taxa_obitos_10mil_veiculos))}</b> / 10 mil veiculos`
+      : properties.frota_status === "indisponivel"
+        ? `<br/><span style="opacity:.7">Taxa veicular:</span> <b>N/D</b> (frota SENATRAN indisponivel)`
+        : "";
+    const deaths = hasData ? formatNumber(Number(properties.valor ?? 0)) : "Sem registro";
+    return `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6"><b style="font-size:13px">${properties.municipio ?? "Municipio"}</b> <span style="opacity:.6">${properties.uf ?? ""}</span><br/><span style="opacity:.7">Obitos:</span> <b>${deaths}</b>${population}${rate}${vehicleRate}</div>`;
   }, []);
 
   const addLayers = useCallback(() => {

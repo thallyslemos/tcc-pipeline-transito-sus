@@ -32,7 +32,6 @@ export default function MapaPage() {
     setLoading(true);
     fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
   }, [filters]);
-
   const change = (key: string, value: string) => {
     setFilters((current) => {
       const next = { ...current };
@@ -45,6 +44,11 @@ export default function MapaPage() {
     });
   };
   const total = data.reduce((sum, row) => sum + row.valor, 0);
+  const vehicleRateAvailable = data.some((row) => row.taxa_obitos_10mil_veiculos != null);
+
+  useEffect(() => {
+    if (!vehicleRateAvailable && escala === "vehicle_rate") setEscala("total");
+  }, [escala, vehicleRateAvailable]);
   const filterDefs = [
     { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
     { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
@@ -52,5 +56,77 @@ export default function MapaPage() {
     { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
     { key: "tipo_veiculo", label: "Veiculo", options: tipos.map((value) => ({ value, label: value })), placeholder: "Todos" },
   ];
-  return <div className="space-y-4"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1><p className="text-xs" style={{ color: "var(--fg-muted)" }}>Obitos por municipio - {formatNumber(total)} no filtro atual</p></div><FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={change} onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })} /></div><div className="flex items-center gap-2 text-xs"><button onClick={() => setEscala("total")} className="rounded-lg px-3 py-1.5" style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}>Obitos absolutos</button><button onClick={() => setEscala("relative")} className="rounded-lg px-3 py-1.5" style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}>Taxa / 100 mil</button></div><div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>{loading ? <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando mapa...</div> : <MapView data={data} metrica="obitos" dimensao={filters.dimensao} ano={filters.ano} uf={filters.uf} regiao={filters.regiao} tipo_veiculo={filters.tipo_veiculo} escala={escala} />}</div><div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE. {municipios.length} municipios disponiveis para consulta.</div></div>;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1>
+          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            Obitos por municipio - {formatNumber(total)} no filtro atual
+          </p>
+        </div>
+        <FilterBar
+          filters={filterDefs}
+          values={filters as Record<string, string>}
+          onChange={change}
+          onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
+        />
+      </div>
+      <div className="flex items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => setEscala("total")}
+          className="rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Obitos absolutos
+        </button>
+        <button
+          type="button"
+          onClick={() => setEscala("relative")}
+          className="rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Taxa / 100 mil
+        </button>
+        <button
+          type="button"
+          onClick={() => setEscala("vehicle_rate")}
+          disabled={!vehicleRateAvailable}
+          title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
+          className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Taxa / 10 mil veiculos
+        </button>
+      </div>
+      {!vehicleRateAvailable && (
+        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi materializado para este recorte.
+        </p>
+      )}
+      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {loading ? (
+          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+            Carregando mapa...
+          </div>
+        ) : (
+          <MapView
+            data={data}
+            metrica="obitos"
+            dimensao={filters.dimensao}
+            ano={filters.ano}
+            uf={filters.uf}
+            regiao={filters.regiao}
+            tipo_veiculo={filters.tipo_veiculo}
+            escala={escala}
+          />
+        )}
+      </div>
+      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
+        Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE.
+        Os municipios sem registro permanecem no mapa em estado neutro. {municipios.length} municipios disponiveis para consulta.
+      </div>
+    </div>
+  );
 }
