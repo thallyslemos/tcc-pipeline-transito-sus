@@ -236,6 +236,24 @@ async def summary(
         GROUP BY 1 ORDER BY total DESC, sexo
         """
     ).fetchall()
+    if ano is not None:
+        with_fleet, total_mun = con.sql(
+            f"""
+            SELECT COUNT(DISTINCT CASE WHEN frota_total > 0 THEN cod_mun_ibge_6 END),
+                   COUNT(DISTINCT cod_mun_ibge_6)
+            FROM {source}
+            WHERE {where} AND geografia_status = 'encontrado'
+            """
+        ).fetchone()
+        pct = (100.0 * with_fleet / total_mun) if total_mun else 0.0
+        frota_label = (
+            f"{pct:.1f}% dos municipios com frota SENATRAN no recorte "
+            f"(estoque de dezembro/{ano})"
+        )
+    else:
+        frota_label = (
+            "informe ano para parear frota SENATRAN de dezembro do mesmo exercicio"
+        )
     return {
         "fonte": "SIM",
         "dimensao": dimensao,
@@ -261,7 +279,7 @@ async def summary(
         ],
         "denominadores": {
             "populacao": "disponivel somente quando o municipio/ano existe no IBGE",
-            "frota": "indisponivel ate validacao do SENATRAN",
+            "frota": frota_label,
         },
     }
 
@@ -302,6 +320,18 @@ async def municipios(
         else "CAST(NULL AS DOUBLE)"
     )
     status_expr = "MAX(populacao_status)" if ano is not None else "'indisponivel'"
+    fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
+    fleet_rate_expr = (
+        "CASE WHEN MAX(frota_total) > 0 THEN "
+        "SUM(total_obitos) * 10000.0 / MAX(frota_total) ELSE NULL END"
+        if ano is not None
+        else "CAST(NULL AS DOUBLE)"
+    )
+    fleet_status_expr = (
+        "CASE WHEN MAX(frota_total) > 0 THEN 'disponivel' ELSE 'indisponivel' END"
+        if ano is not None
+        else "'indisponivel'"
+    )
     total = con.sql(
         f"""
         SELECT COUNT(*)
@@ -320,7 +350,10 @@ async def municipios(
                SUM(total_obitos) AS obitos,
                {population_expr} AS populacao,
                {rate_expr} AS taxa_obitos_100mil,
-               {status_expr} AS populacao_status
+               {status_expr} AS populacao_status,
+               {fleet_expr} AS frota_total,
+               {fleet_rate_expr} AS taxa_obitos_10mil_veiculos,
+               {fleet_status_expr} AS frota_status
         FROM {source}
         WHERE {where}
         GROUP BY cod_mun_ibge, cod_mun_ibge_6, municipio, uf
@@ -335,6 +368,8 @@ async def municipios(
         row["obitos"] = int(row["obitos"] or 0)
         if row.get("populacao") is not None:
             row["populacao"] = int(row["populacao"])
+        if row.get("frota_total") is not None:
+            row["frota_total"] = int(row["frota_total"])
     return {
         "fonte": "SIM",
         "dimensao": dimensao,
@@ -373,13 +408,28 @@ async def municipio(
         else "CAST(NULL AS DOUBLE)"
     )
     status_expr = "MAX(populacao_status)" if ano is not None else "'indisponivel'"
+    fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
+    fleet_rate_expr = (
+        "CASE WHEN MAX(frota_total) > 0 THEN "
+        "SUM(total_obitos) * 10000.0 / MAX(frota_total) ELSE NULL END"
+        if ano is not None
+        else "CAST(NULL AS DOUBLE)"
+    )
+    fleet_status_expr = (
+        "CASE WHEN MAX(frota_total) > 0 THEN 'disponivel' ELSE 'indisponivel' END"
+        if ano is not None
+        else "'indisponivel'"
+    )
     base = con.sql(
         f"""
         SELECT MAX(cod_mun_ibge) AS cod_mun_ibge, MAX(municipio) AS municipio,
                MAX(uf) AS uf, SUM(total_obitos) AS total_obitos,
                {population_expr} AS populacao,
                {rate_expr} AS taxa_obitos_100mil,
-               {status_expr} AS populacao_status
+               {status_expr} AS populacao_status,
+               {fleet_expr} AS frota_total,
+               {fleet_rate_expr} AS taxa_obitos_10mil_veiculos,
+               {fleet_status_expr} AS frota_status
         FROM {source} WHERE {where}
         """
     ).fetchone()
@@ -399,10 +449,12 @@ async def municipio(
         "populacao": int(base[4]) if base[4] is not None else None,
         "taxa_obitos_100mil": float(base[5]) if base[5] is not None else None,
         "populacao_status": base[6],
+        "frota_total": int(base[7]) if base[7] is not None else None,
+        "taxa_obitos_10mil_veiculos": float(base[8]) if base[8] is not None else None,
+        "frota_status": base[9],
         "serie_mensal": [
             {"competencia": str(comp), "obitos": int(obitos)} for comp, obitos in series
         ],
-        "frota_status": "indisponivel",
     }
 
 

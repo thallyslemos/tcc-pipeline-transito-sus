@@ -14,7 +14,7 @@ def test_sim_summary_is_sim_only(client):
     assert payload["fonte"] == "SIM"
     assert payload["total_obitos"] == 565383
     assert "total_custos" not in payload
-    assert payload["denominadores"]["frota"].startswith("indisponivel")
+    assert payload["denominadores"]["frota"].startswith("informe ano")
 
 
 def test_sim_summary_exposes_global_breakdowns(client):
@@ -64,6 +64,23 @@ def test_sim_municipios_has_pagination_and_null_safe_rates(client):
     assert len(payload["municipios"]) <= 3
     assert payload["total"] > 0
     assert all("populacao_status" in row for row in payload["municipios"])
+    assert all("frota_status" in row for row in payload["municipios"])
+
+
+def test_sim_geo_ba_2024_has_fleet_rate_when_mart_joined(client):
+    response = client.get(
+        "/api/sim/geo",
+        params={"dimensao": "ocorrencia", "ano": 2024, "uf": "BA"},
+    )
+    assert response.status_code == 200
+    features = response.json()["features"]
+    with_fleet = [
+        feature
+        for feature in features
+        if feature["properties"]["frota_status"] == "disponivel"
+        and feature["properties"]["taxa_obitos_10mil_veiculos"] is not None
+    ]
+    assert with_fleet, "esperado ao menos um municipio BA/2024 com frota pareada"
 
 
 def test_sim_metadata_catalog(client):
