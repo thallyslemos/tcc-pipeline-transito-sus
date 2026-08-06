@@ -6,7 +6,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import ChartCard from "@/components/charts/ChartCard";
 import KpiCard from "@/components/charts/KpiCard";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatTaxa10k } from "@/lib/format";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
 export default function MunicipioPage() {
@@ -60,10 +60,11 @@ export default function MunicipioPage() {
       {loading && <div className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando...</div>}
       {!loading && detail && (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <KpiCard title="Obitos" value={formatNumber(detail.total_obitos)} subtitle={`${detail.municipio} - ${detail.uf}`} icon={<AlertTriangle className="h-4 w-4" />} semantic="deaths" />
             <KpiCard title="Taxa / 100 mil" value={detail.taxa_obitos_100mil == null ? "N/D" : detail.taxa_obitos_100mil.toFixed(1)} subtitle={detail.populacao_status === "disponivel" ? "Populacao do mesmo ano" : "Denominador indisponivel"} icon={<Gauge className="h-4 w-4" />} semantic="health" />
-            <KpiCard title="Populacao" value={detail.populacao == null ? "N/D" : formatNumber(detail.populacao)} subtitle="IBGE" icon={<Users className="h-4 w-4" />} semantic="success" />
+            <KpiCard title="Frota SENATRAN" value={detail.frota_total == null ? "N/D" : formatNumber(detail.frota_total)} subtitle={detail.frota_status === "disponivel" ? "Estoque dez./mesmo ano" : "Denominador indisponivel"} icon={<Users className="h-4 w-4" />} semantic="success" />
+            <KpiCard title="Taxa / 10 mil veic." value={detail.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(detail.taxa_obitos_10mil_veiculos)} subtitle={detail.frota_status === "disponivel" ? "Obitos ATT / frota" : "Sem frota pareada"} icon={<Gauge className="h-4 w-4" />} semantic="health" />
             <KpiCard title="Dimensao" value={detail.dimensao} subtitle="Papel geografico" icon={<MapPinned className="h-4 w-4" />} semantic="success" />
           </div>
           <ChartCard title="Serie mensal" subtitle="Obitos ATT no periodo selecionado">
@@ -77,7 +78,10 @@ export default function MunicipioPage() {
               </LineChart>
             </ResponsiveContainer>
           </ChartCard>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>Frota SENATRAN: {detail.frota_status}. Sem denominador, a taxa nao e estimada.</p>
+          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            Populacao IBGE: {detail.populacao == null ? "N/D" : formatNumber(detail.populacao)} ({detail.populacao_status}).
+            Frota SENATRAN: {detail.frota_status}. Taxa veicular so e estimada com frota do mesmo municipio e ano.
+          </p>
         </>
       )}
     </div>

@@ -30,6 +30,9 @@ export interface SimMunicipio {
   populacao: number | null;
   taxa_obitos_100mil: number | null;
   populacao_status: "disponivel" | "indisponivel";
+  frota_total?: number | null;
+  frota_status?: "disponivel" | "indisponivel";
+  taxa_obitos_10mil_veiculos?: number | null;
 }
 
 export interface SimMunicipioDetail {
@@ -42,6 +45,8 @@ export interface SimMunicipioDetail {
   populacao: number | null;
   taxa_obitos_100mil: number | null;
   populacao_status: "disponivel" | "indisponivel";
+  frota_total: number | null;
+  taxa_obitos_10mil_veiculos: number | null;
   frota_status: "disponivel" | "indisponivel";
   serie_mensal: { competencia: string; obitos: number }[];
 }

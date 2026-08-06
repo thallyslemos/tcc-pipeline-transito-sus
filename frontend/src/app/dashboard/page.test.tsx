@@ -43,7 +43,7 @@ const mockSummary: SimSummary = {
   ],
   denominadores: {
     populacao: "disponivel somente quando o municipio/ano existe no IBGE",
-    frota: "indisponivel ate validacao do SENATRAN",
+    frota: "100.0% dos municipios com frota SENATRAN no recorte (estoque de dezembro/2024)",
   },
 };
 

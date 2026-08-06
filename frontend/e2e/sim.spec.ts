@@ -52,8 +52,8 @@ test('carrega a camada geográfica do mapa', async ({ page }) => {
   expect(apiErrors).toEqual([]);
 });
 
-test('aplica filtro de veiculo no mapa e sinaliza denominador ausente', async ({ page }) => {
-  await page.goto('/mapa');
+test('aplica filtro de veiculo no mapa e habilita taxa veicular com frota pareada', async ({ page }) => {
+  await page.goto('/mapa?ano=2024&uf=BA');
   const vehicleFilter = page.locator('#filter-tipo_veiculo');
   await expect(vehicleFilter.locator('option[value=\"Automovel\"]')).toHaveText('Automovel');
   const filteredResponse = page.waitForResponse(
@@ -61,6 +61,8 @@ test('aplica filtro de veiculo no mapa e sinaliza denominador ausente', async ({
   );
   await vehicleFilter.selectOption('Automovel');
   expect((await filteredResponse).status()).toBe(200);
-  await expect(page.getByRole('button', { name: 'Taxa / 10 mil veiculos' })).toBeDisabled();
-  await expect(page.getByText('Taxa veicular indisponivel')).toBeVisible();
+  const vehicleRateButton = page.getByRole('button', { name: 'Taxa / 10 mil veiculos' });
+  await expect(vehicleRateButton).toBeEnabled();
+  await vehicleRateButton.click();
+  await expect(vehicleRateButton).toHaveAttribute('style', /primary-soft/);
 });
