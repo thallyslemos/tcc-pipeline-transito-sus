@@ -88,6 +88,33 @@ def run_frota_gold() -> None:
         logger.warning("frota_nao_gerada", motivo="csv_ausente")
 
 
+def run_senatran(
+    years: str = "2010:2024",
+    municipalities_csv: Path | None = None,
+    aliases_csv: Path | None = None,
+    reuse_local_dir: Path | None = None,
+    allow_unmatched: bool = False,
+) -> None:
+    """ETL SENATRAN auditado: Bronze -> Silver -> Gold frota municipal."""
+    from .senatran_pipeline import parse_years, run_pipeline
+
+    data_root = settings.resolve(settings.data_dir)
+    municipalities = municipalities_csv or settings.resolve("data/municipios.csv")
+    aliases = aliases_csv or settings.resolve(
+        "data-pipeline/resources/senatran_municipio_aliases.csv"
+    )
+    logger.info("modo", tipo="senatran", years=years, municipalities=str(municipalities))
+    paths = run_pipeline(
+        parse_years(years),
+        data_root,
+        municipalities,
+        aliases if aliases.exists() else None,
+        allow_unmatched=allow_unmatched,
+        reuse_local_dir=reuse_local_dir,
+    )
+    logger.info("senatran_concluido", **{key: str(path) for key, path in paths.items()})
+
+
 def run_sample() -> None:
     """Pipeline com dados amostrais (offline, rapido)."""
     from .sample_data import gerar_sia, gerar_sim
@@ -311,7 +338,17 @@ def main() -> None:
     parser.add_argument(
         "--frota",
         action="store_true",
-        help="Apenas Gold frota (data/frota/frota_normalizada_ibge.csv)",
+        help="Apenas Gold frota legado (data/frota/frota_normalizada_ibge.csv)",
+    )
+    parser.add_argument(
+        "--senatran",
+        action="store_true",
+        help="ETL SENATRAN auditado (Bronze->Silver->Gold frota municipal)",
+    )
+    parser.add_argument(
+        "--senatran-years",
+        default="2010:2024",
+        help="Anos SENATRAN (ex.: 2010:2024 ou 2023,2024)",
     )
     parser.add_argument(
         "--sim-evidence",
@@ -370,6 +407,8 @@ def main() -> None:
         load_gold_to_postgres()
     elif args.frota:
         run_frota_gold()
+    elif args.senatran:
+        run_senatran(years=args.senatran_years)
     elif args.sim_only:
         run_sim_only(ufs=args.ufs, anos=args.anos)
     elif args.ibge:

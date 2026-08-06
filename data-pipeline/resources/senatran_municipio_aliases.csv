@@ -1,0 +1,44 @@
+uf,municipio_senatran,cod_mun_ibge,justificativa,fonte,action
+BA,LAGEDO DO TABOCAL,2919058,Grafia SENATRAN divergente da denominação IBGE Lajedo do Tabocal,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+BA,SANTA TERESINHA,2928505,Grafia SENATRAN divergente da denominação IBGE Santa Terezinha,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+GO,BOM JESUS,5203500,Nome abreviado para Bom Jesus de Goiás na fonte SENATRAN,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MG,AMPARO DA SERRA,3102506,Variação de preposição para Amparo do Serra,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MG,BARAO D0 MONTE ALTO,3105509,Erro tipográfico D0 em Barão do Monte Alto,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MG,BRASOPOLIS,3108909,Variação ortográfica para Brazópolis,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MG,GOUVEA,3127602,Variação ortográfica para Gouveia,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MG,QUELUZITA,3153806,Variação histórica de Queluzito,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MT,SANTO ANTONIO DO LEVERGER,5107800,Variação de preposição para Santo Antônio de Leverger,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MT,VILA BELA DA SANTISSIMA TRINDA,5105507,Nome truncado de Vila Bela da Santíssima Trindade,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+MT,POXOREO,5107008,Variação ortográfica para Poxoréu,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PA,ELDORADO DOS CARAJAS,1502954,Variação de preposição para Eldorado do Carajás,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PA,SANTA ISABEL DO PARA,1506500,Variação ortográfica para Santa Izabel do Pará,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PB,SANTAREM,2513653,Denominação anterior de Joca Claudino,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PB,SAO DOMINGOS DE POMBAL,2513968,Denominação anterior de São Domingos,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PB,CAMPO DE SANTANA,2516409,Denominação histórica de Tacima,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PE,BELEM DE SAO FRANCISCO,2601607,Variação de preposição para Belém do São Francisco,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PE,IGUARACI,2606903,Variação ortográfica para Iguaracy,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PE,LAGOA DO ITAENGA,2608503,Variação de preposição para Lagoa de Itaenga,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PI,SAO FRANCISCO DE ASSIS DO PIAU,2209658,Nome truncado de São Francisco de Assis do Piauí,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PR,BELA VISTA DO CAROBA,4102752,Variação de preposição para Bela Vista da Caroba,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PR,MUNHOZ DE MELLO,4116307,Variação ortográfica para Munhoz de Melo,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PR,PINHAL DO SAO BENTO,4119251,Variação de preposição para Pinhal de São Bento,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+PR,SANTA CRUZ DO MONTE CASTELO,4123303,Variação de preposição para Santa Cruz de Monte Castelo,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RJ,PARATI,3303807,Variação ortográfica para Paraty,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RJ,TRAJANO DE MORAIS,3305901,Variação ortográfica para Trajano de Moraes,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RJ,ARMACAO DE BUZIOS,3300233,Variação de preposição para Armação dos Búzios,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RN,ASSU,2400208,Variação ortográfica para Açu,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RN,BOA SAUDE,2405306,Denominação atual associada ao código de Januário Cicco na dimensão do projeto,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RN,LAGOA DANTA,2406205,Variação de apóstrofo para Lagoa d'Anta,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RS,SANTANA DO LIVRAMENTO,4317103,Variação de apóstrofo para Sant'Ana do Livramento,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+RO,NOVA DO MAMORE,1100338,Variação de preposição para Nova Mamoré,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SC,BALNEARIO DE PICARRAS,4212809,Variação de preposição para Balneário Piçarras,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SC,LAGEADO GRANDE,4209458,Variação ortográfica para Lajeado Grande,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SC,PRESIDENTE CASTELO BRANCO,4213906,Variação ortográfica para Presidente Castello Branco,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SC,SAO LOURENCO D'OESTE,4216909,Variação de apóstrofo para São Lourenço do Oeste,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SC,SAO MIGUEL D'OESTE,4217204,Variação de apóstrofo para São Miguel do Oeste,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SE,AMPARO DE SAO FRANCISCO,2800100,Variação de preposição para Amparo do São Francisco,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+SP,IBITIUVA,,Distrito residual na origem sem correspondência municipal; manter em quarentena,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,quarantine
+SP,EMBU,3515004,Denominação anterior de Embu das Artes,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+TO,COUTO DE MAGALHAES,1706001,Denominação divergente de Couto Magalhães,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+TO,FORTALEZA DO TABOCAO,1708254,Denominação anterior de Tabocão,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map
+TO,SAO VALERIO DA NATIVIDADE,1720499,Denominação anterior de São Valério,https://www.ibge.gov.br/explica/codigos-dos-municipios.php,map

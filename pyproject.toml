@@ -23,6 +23,7 @@ dependencies = [
     "timesfm>=1.2",
     "huggingface-hub>=0.25",
     "torch>=2.0",
+    "python-calamine>=0.5",
 ]
 
 [dependency-groups]
