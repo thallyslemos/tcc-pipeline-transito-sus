@@ -1,7 +1,7 @@
 {
-  "catalog_version": "sim_evidence_v1",
-  "generated_at": "2026-08-01T17:20:02.585088+00:00",
-  "scope": "SIM-only; SIA fora do escopo ativo",
+  "catalog_version": "sim_senatran_evidence_v1",
+  "generated_at": "2026-08-05T12:46:50.949631+00:00",
+  "scope": "SIM com dimensoes IBGE e frota SENATRAN; SIA fora do escopo ativo",
   "datasets": [
     {
       "id": "sim_silver_nacional_v2",
@@ -85,6 +85,35 @@
       "sha256": "3bf1a71f0aa4a7c3d8d7fe25109122123c4d2d542e1bdca82b46fb7dda256bc9"
     },
     {
+      "id": "sim_gold_fluxos_residencia_ocorrencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + dimensao municipal IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "competencia, residencia, ocorrencia, categoria da vitima CID, faixa etaria e sexo",
+      "keys": [
+        "competencia",
+        "cod_mun_residencia_sim_6",
+        "cod_mun_ocorrencia_sim_6",
+        "categoria_vitima_cid",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 525184,
+        "deaths": 565383,
+        "record_ids_unique": 565383,
+        "duplicate_grain_rows": 0
+      },
+      "path": "data/gold/sim_v1_fluxos_residencia_ocorrencia.parquet",
+      "bytes": 8803885,
+      "sha256": "410fede198b138bede3249ad6e559894b5bbbb4370e377e9568b2bcf2d210c9a"
+    },
+    {
       "id": "ibge_dim_municipio",
       "layer": "dimension",
       "status": "partial",
@@ -147,21 +176,85 @@
     },
     {
       "id": "senatran_frota",
-      "layer": "dimension",
-      "status": "not_loaded",
+      "layer": "silver",
+      "status": "validated",
       "provider": "SENATRAN/RENAVAM",
-      "source_url": "https://dados.transportes.gov.br/pt_BR/dataset/registro-nacional-de-veiculos-automotores-renavam",
-      "grain": "municipio-mes-tipo de veiculo",
+      "source_url": "https://www.gov.br/transportes/pt-br/assuntos/transito/conteudo-Senatran/estatisticas-frota-de-veiculos-senatran",
+      "coverage": {
+        "start": "2010-12-01",
+        "end": "2024-12-01",
+        "ufs": 27,
+        "reference_month": 12
+      },
+      "grain": "linha municipal da origem-ano-tipo de veiculo SENATRAN",
       "keys": [
         "cod_mun_ibge",
         "competencia",
-        "tipo_veiculo"
+        "tipo_veiculo_codigo"
       ],
       "quality": {
-        "available_local_rows": 0,
-        "metric_status": "indisponivel_until_validated"
+        "rows": 1754718,
+        "years": 15,
+        "horizontal_totals_reconciled": true,
+        "unmatched_promoted": 0,
+        "note": "nao informados e quarentena preservados apenas na Silver"
       },
-      "notes": "Contrato descrito em docs/DICIONARIO_DADOS_SENATRAN.md"
+      "path": "data/silver/senatran_frota_municipio_tipo.parquet",
+      "bytes": 4037805,
+      "sha256": "d79dfa2c1bdc2cb8b22e96ab7aee88cf7d3a77206c6dc93170b1e5df6522bed5",
+      "notes": "Contrato e ressalva do rotulo interno da aba de 2015 descritos em docs/DICIONARIO_DADOS_SENATRAN.md"
+    },
+    {
+      "id": "senatran_frota_gold_municipio_ano",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "SENATRAN/RENAVAM + dimensao municipal IBGE",
+      "source_dataset": "senatran_frota",
+      "coverage": {
+        "start": "2010",
+        "end": "2024",
+        "reference_month": 12
+      },
+      "grain": "codigo IBGE de sete digitos e ano",
+      "keys": [
+        "cod_mun_ibge",
+        "ano"
+      ],
+      "quality": {
+        "rows": 83538,
+        "municipalities": 5570,
+        "duplicates": 0,
+        "metric_status": "available_when_same_municipality_year_exists"
+      },
+      "path": "data/gold/frota_municipio_ano.parquet",
+      "bytes": 3115201,
+      "sha256": "9839b0b9bb350f30a0b1f9962e9ba1b6224b011575e5f22804f5db8cf0b5fa08"
+    },
+    {
+      "id": "senatran_frota_gold_municipio_ano_tipo",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "SENATRAN/RENAVAM + dimensao municipal IBGE",
+      "source_dataset": "senatran_frota",
+      "coverage": {
+        "start": "2010",
+        "end": "2024",
+        "reference_month": 12
+      },
+      "grain": "codigo IBGE de sete digitos, ano e tipo SENATRAN",
+      "keys": [
+        "cod_mun_ibge",
+        "ano",
+        "tipo_veiculo_codigo"
+      ],
+      "quality": {
+        "rows": 1754298,
+        "vehicle_types": 21,
+        "duplicates": 0
+      },
+      "path": "data/gold/frota_municipio_ano_tipo.parquet",
+      "bytes": 4042502,
+      "sha256": "de9cb0bf5a2f7e46e95499281bb5f97a1001c5890bc5f1f83fe5c65982cb5e05"
     }
   ]
 }

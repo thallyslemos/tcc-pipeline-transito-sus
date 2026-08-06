@@ -34,3 +34,9 @@ Destinos de Silver e Gold sao versionados e nao sobrescritos. Uma nova execucao 
 ## Serving: GET /api/sim/summary
 
 Resposta inclui `total_obitos`, `obitos_por_ano`, `obitos_por_mes` (`competencia` YYYY-MM), `obitos_por_tipo_veiculo`, `obitos_por_faixa_etaria` e `obitos_por_sexo` (com categoria `Ignorado` quando aplicavel). A soma de cada breakdown deve igualar `total_obitos` no recorte filtrado.
+
+`denominadores.frota` e dinamico quando `ano` e informado: percentual de municipios com frota SENATRAN pareada no recorte (estoque de dezembro do mesmo ano). Sem `ano`, orienta informar o exercicio para pareamento.
+
+## Serving: frota SENATRAN nos endpoints municipais
+
+`GET /api/sim/municipios` e `GET /api/sim/municipio/{cod}` expõem `frota_total`, `frota_status` e `taxa_obitos_10mil_veiculos` quando o mart possui join com `frota_municipio_ano.parquet` no mesmo municipio e ano. Consultas sem filtro de ano retornam `frota_status=indisponivel` e taxa `null`.

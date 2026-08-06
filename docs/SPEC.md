@@ -25,7 +25,7 @@ Sistema de apoio à decisão que analisa o impacto econômico e as macrotendênc
 | **SIM** | Sistema de Informações sobre Mortalidade | DATASUS/SVS | ✅ Implementada | Taxa mortalidade 100k, distribuição por faixa/tipo |
 | **SIA/PA** | Sistema de Informações Ambulatoriais | DATASUS | ⚠️ Opcional | Custo per capita (temporariamente desabilitado para otimização) |
 | **IBGE** | Tabela 6579 SIDRA + API Localidades | IBGE | ⚠️ Parcial | População, coordenadas, malhas |
-| **SENATRAN** | Frota de veículos por município | SENATRAN | ⚠️ Parcial (CSV/Parquet local) | Óbitos por 10k veículos com `frota_municipio_ano.parquet` |
+| **SENATRAN** | Frota de veículos por município | SENATRAN | ✅ Validado (2010–2024) | Óbitos por 10k veículos com `frota_municipio_ano.parquet` |
 | **PRF** | Acidentes nas estradas | PRF | ⏳ Pendente | Cruzamento com SIM |
 | **RENAEST** | Rondas integradas | PRF/Estado | ⏳ Pendente | Validação de ocorrências |
 
@@ -107,8 +107,9 @@ custo_per_capita = custo_total_SUS / populacao_estimada
 taxa_veiculos = (total_obitos / frota_municipio) * 10.000
 ```
 
-- **Fonte frota**: arquivo normalizado (`data/frota/frota_normalizada_ibge.csv`) → Gold `frota_municipio_ano.parquet` (`--frota` no `run.py`).
-- **API**: campos opcionais `frota_total` e `taxa_obitos_10mil_veiculos` em `GET /api/indicadores/municipio/{cod}` quando a view DuckDB `v_frota_municipio_ano` está disponível.
+- **Fonte frota**: ETL auditado `senatran_pipeline.py` → Gold `frota_municipio_ano.parquet` (`--senatran` no `run.py`; legado `--frota` mantido).
+- **API SIM**: campos `frota_total`, `frota_status` e `taxa_obitos_10mil_veiculos` em `GET /api/sim/municipio/{cod}`, `GET /api/sim/municipios`, `GET /api/sim/geo` e `GET /api/sim/summary` (`denominadores.frota` dinâmico quando `ano` informado).
+- **API SENATRAN**: `GET /api/senatran/metadata`, `/municipios`, `/municipio/{cod}` sobre a Gold validada.
 - **Granularidade diária**: apenas dimensão **ocorrência** (`GET /api/dashboard/municipio/{cod}/serie-diaria?ano=&dimensao=ocorrencia`).
 
 ---
@@ -129,12 +130,13 @@ Cada propriedade municipal inclui `cod_mun_ibge`, `municipio`, `uf`, `valor`, `h
 
 | Script | Status | Descrição |
 |--------|--------|-----------|
-| `run.py` | ✅ Implementado | Orquestrador CLI (`--gold`, `--frota`, `--ibge-only`, etc.) |
+| `run.py` | ✅ Implementado | Orquestrador CLI (`--gold`, `--frota`, `--senatran`, `--sim-evidence`, etc.) |
 | `bronze.py` | ✅ Implementado | Ingere .dbc via PySUS -> Parquet |
 | `silver.py` | ✅ Implementado | Filtra CID V01-V89, deriva tipo_veiculo/faixa_etaria |
 | `gold.py` | ✅ Implementado | Agrega por municipio/mes (ocorrencia + residencia) |
 | `gold_timeseries.py` | ✅ Implementado | Serie diaria `eventos_diarios_municipio.parquet` |
-| `frota_gold.py` | ✅ Implementado | CSV SENATRAN normalizado → `frota_municipio_ano.parquet` |
+| `frota_gold.py` | ⚠️ Legado | CSV normalizado → `frota_municipio_ano.parquet` |
+| `senatran_pipeline.py` | ✅ Implementado | Bronze→Silver→Gold frota municipal auditada (2010–2024) |
 | `ibge_fetcher.py` | ⚠️ Parcial | Baixa coordenadas/população, mas faz muitas chamadas HTTP |
 | `ibge.py` | ✅ Implementado | Funções auxiliares (get_info, get_populacao) |
 
@@ -148,6 +150,9 @@ Cada propriedade municipal inclui `cod_mun_ibge`, `municipio`, `uf`, `valor`, `h
 | `GET /api/dashboard/municipio/{cod}/serie-diaria` | ✅ | `ano` (query), `dimensao` (só ocorrência tem série diária) |
 | `GET /api/dashboard/mapa` | ✅ | ano, uf, regiao, dimensao, metrica |
 | `GET /api/sim/geo` | SIM-only; ano, UF, regiao, dimensao e tipo_veiculo; retorna todos os poligonos IBGE do recorte e campos opcionais de frota |
+| `GET /api/sim/municipios` | SIM-only; paginacao; inclui `frota_total`, `frota_status`, `taxa_obitos_10mil_veiculos` quando `ano` informado |
+| `GET /api/sim/municipio/{cod}` | SIM-only; serie mensal + frota SENATRAN pareada por ano |
+| `GET /api/senatran/*` | Consulta publica da Gold frota validada |
 | `GET /api/geo/municipios` | Legado; nao usado pelo mapa SIM ativo |
 | `GET /api/indicadores/municipio/{cod}` | ✅ | ano, dimensao; anos com dados via `DISTINCT ano` na view SIM |
 | `GET /api/indicadores/ranking` | ✅ | ano, metrica, uf, regiao |
@@ -161,7 +166,7 @@ Resposta resumida `GET /api/dashboard/municipio/{cod}/serie-diaria`: `serie_diar
 | `/dashboard` | ✅ | dimensao, regiao, uf, ano, municipio, tipo_veiculo |
 | `/municipio` | ✅ | dimensao, regiao, uf, ano, municipio; gráficos anual/mensal/diário, export CSV anual, alerta de concentração |
 | `/mapa` | SIM-only; dimensao, regiao, UF, ano e tipo_veiculo; poligonos sem registro permanecem neutros |
-| `/ranking` | ✅ | metrica, regiao, uf, ano |
+| `/ranking` | ✅ | dimensao, uf, ano; ordenacao por taxa /100 mil, /10 mil veic. ou obitos |
 | `/previsao` | 🔄 Em desenvolvimento | — |
 | `/chat` | 🔄 Em desenvolvimento | — |
 
@@ -181,7 +186,7 @@ Resposta resumida `GET /api/dashboard/municipio/{cod}/serie-diaria`: `serie_diar
 | Filtro por Sexo | ⏳ | Existe no schema Silver, não exposto no frontend |
 | Indicador: Mortalidade/100k | ✅ | Implementado |
 | Indicador: Custo per capita | ⚠️ | SIA desabilitado temporariamente |
-| Indicador: Óbitos/10k veículos | ⚠️ | Requer Gold de frota; API/UI degradam sem Parquet |
+| Indicador: Óbitos/10k veículos | ✅ | Gold SENATRAN + join no mart SIM v2; UI degrada sem ano ou frota |
 | Série diária + alerta de pico (share no dia máximo) | ✅ | `serie-diaria` + página município |
 | Mapa com polígonos IBGE | ✅ | GeoJSON com PostGIS future |
 | Ranking de municípios | ✅ | Página `/ranking` |
