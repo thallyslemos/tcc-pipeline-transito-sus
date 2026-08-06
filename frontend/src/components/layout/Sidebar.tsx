@@ -11,6 +11,7 @@ import {
   Database,
   Sun,
   Moon,
+  GitBranch,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -19,6 +20,7 @@ const NAV = [
   { href: "/municipio", label: "Municípios", icon: Building2 },
   { href: "/ranking", label: "Ranking", icon: BarChart3 },
   { href: "/mapa", label: "Mapa", icon: Map },
+  { href: "/fluxos", label: "Fluxos", icon: GitBranch },
   { href: "/previsao", label: "Tendencias", icon: Sparkles },
   { href: "/chat", label: "Exploracao", icon: MessageCircle },
   { href: "/dados", label: "Dados e metadados", icon: Database },

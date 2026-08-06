@@ -2,6 +2,7 @@ import type {
   FilterValues,
   MapPoint,
   SimCatalog,
+  SimFluxo,
   SimMunicipio,
   SimMunicipioDetail,
   SimSummary,
@@ -98,3 +99,34 @@ export const fetchMapa = async (filters: FilterValues = {}) => {
 
 export const fetchForecast = (cod: string, ano: number, dimensao: FilterValues["dimensao"] = "ocorrencia") =>
   fetchSimMunicipio(cod, ano, dimensao);
+
+export interface FluxoGeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>[];
+}
+
+export const fetchSimFluxos = (
+  codMunicipio: string,
+  direcao: "origens" | "destinos" = "origens",
+  filters: { ano?: number; tipo_veiculo?: string; top_n?: number; min_obitos?: number } = {}
+) => {
+  const params = new URLSearchParams({ cod_municipio: codMunicipio, direcao });
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.top_n) params.set("top_n", String(filters.top_n));
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  return get<SimFluxo>(`/api/sim/fluxos?${params}`);
+};
+
+export const fetchSimFluxosGeo = (
+  codMunicipio: string,
+  direcao: "origens" | "destinos" = "origens",
+  filters: { ano?: number; tipo_veiculo?: string; top_n?: number; min_obitos?: number } = {}
+) => {
+  const params = new URLSearchParams({ cod_municipio: codMunicipio, direcao });
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.top_n) params.set("top_n", String(filters.top_n));
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  return get<FluxoGeoFeatureCollection>(`/api/sim/fluxos/geo?${params}`);
+};

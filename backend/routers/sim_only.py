@@ -20,6 +20,22 @@ _MARTS: dict[str, str] = {
     "residencia": "sim_v1_obitos_municipio_mes_residencia_v2.parquet",
 }
 
+_SILVER_CONTRACT = "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet"
+
+
+def _silver_source() -> str:
+    """Fonte da Silver contratual v2 para consultas de fluxos residencia-ocorrencia."""
+    path = settings.resolve(_SILVER_CONTRACT)
+    if not path.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Silver SIM v2 indisponivel; execute o contrato de evidencia "
+                "antes de consultar a API"
+            ),
+        )
+    return f"read_parquet('{str(path).replace(chr(39), chr(39) * 2)}')"
+
 
 def _mart_path(role: Role) -> Path:
     if role not in _MARTS:
@@ -507,3 +523,280 @@ async def geo(
     return {"type": "FeatureCollection", "features": features}
 
 
+# ---------------------------------------------------------------------------
+# Fluxos residencia-ocorrencia
+# ---------------------------------------------------------------------------
+
+def _fluxos_edges(
+    con,
+    source: str,
+    code: str,
+    direcao: str,
+    ano: int | None,
+    tipo_veiculo: str | None,
+    top_n: int,
+    min_obitos: int,
+    incluir_desconhecidos: bool,
+) -> dict | None:
+    """Consulta core de fluxos. Retorna None se o municipio nao tem dados."""
+    base_where = ["is_v01_v89 = true", "qa_status = 'ok'", "tipobito_raw = '2'"]
+    if ano is not None:
+        base_where.append(f"ano_obito = {ano}")
+    if tipo_veiculo:
+        cleaned = _text(tipo_veiculo)
+        if cleaned:
+            base_where.append(f"tipo_veiculo = '{cleaned}'")
+
+    if direcao == "origens":
+        target_col = "cod_mun_ocorrencia_6"
+        group_col = "cod_mun_residencia_6"
+        mun_col = "municipio_residencia"
+        uf_col = "uf_residencia"
+        geo_col = "geografia_status_residencia"
+        target_mun_col = "municipio_ocorrencia"
+        target_uf_col = "uf_ocorrencia"
+    else:
+        target_col = "cod_mun_residencia_6"
+        group_col = "cod_mun_ocorrencia_6"
+        mun_col = "municipio_ocorrencia"
+        uf_col = "uf_ocorrencia"
+        geo_col = "geografia_status_ocorrencia"
+        target_mun_col = "municipio_residencia"
+        target_uf_col = "uf_residencia"
+
+    base_where.append(f"{target_col} = '{code}'")
+    where = " AND ".join(base_where)
+
+    target_row = con.sql(
+        f"""
+        SELECT MAX({target_mun_col}), MAX({target_uf_col}), COUNT(*)
+        FROM {source}
+        WHERE {where}
+        """
+    ).fetchone()
+
+    if target_row is None or int(target_row[2] or 0) == 0:
+        return None
+
+    target_municipio = str(target_row[0] or "")
+    target_uf = str(target_row[1] or "")
+    total_obitos = int(target_row[2])
+
+    # Denominador auditavel: obitos com ambas as geografias encontradas
+    ambos_row = con.sql(
+        f"""
+        SELECT COUNT(*),
+               SUM(CASE WHEN {group_col} = '{code}' THEN 1 ELSE 0 END)
+        FROM {source}
+        WHERE {where}
+          AND geografia_status_residencia = 'encontrado'
+          AND geografia_status_ocorrencia = 'encontrado'
+        """
+    ).fetchone()
+    total_ambos = int(ambos_row[0] or 0)
+    obitos_proprio = int(ambos_row[1] or 0)
+    obitos_fora = total_ambos - obitos_proprio
+
+    geo_filter = "" if incluir_desconhecidos else f"AND {geo_col} = 'encontrado'"
+    edge_rows = con.sql(
+        f"""
+        SELECT {group_col},
+               MAX({mun_col}),
+               MAX({uf_col}),
+               MAX({geo_col}),
+               COUNT(*) AS obitos
+        FROM {source}
+        WHERE {where} {geo_filter}
+        GROUP BY {group_col}
+        HAVING COUNT(*) >= {min_obitos}
+        ORDER BY obitos DESC
+        LIMIT {top_n}
+        """
+    ).fetchall()
+
+    arestas = [
+        {
+            "cod_mun_ibge": str(r[0] or ""),
+            "municipio": str(r[1] or "Desconhecido"),
+            "uf": str(r[2] or ""),
+            "obitos": int(r[4]),
+            "participacao": round(int(r[4]) / total_obitos, 4) if total_obitos else 0.0,
+            "propria_municipio": str(r[0]) == code,
+            "geografia_status": str(r[3] or ""),
+        }
+        for r in edge_rows
+    ]
+
+    municipios_conectados = sum(1 for a in arestas if not a["propria_municipio"])
+    proporcao_fora = round(obitos_fora / total_ambos, 4) if total_ambos else 0.0
+
+    return {
+        "target_municipio": target_municipio,
+        "target_uf": target_uf,
+        "total_obitos": total_obitos,
+        "total_ambos_encontrados": total_ambos,
+        "obitos_proprio_municipio": obitos_proprio,
+        "obitos_fora": obitos_fora,
+        "proporcao_fora": proporcao_fora,
+        "municipios_conectados": municipios_conectados,
+        "arestas": arestas,
+    }
+
+
+@router.get("/fluxos/geo")
+async def fluxos_geo(
+    cod_municipio: str = Query(..., min_length=6, max_length=7),
+    direcao: Literal["origens", "destinos"] = Query("origens"),
+    ano: int | None = Query(None, ge=1900, le=2100),
+    tipo_veiculo: str | None = Query(None, max_length=80),
+    top_n: int = Query(20, ge=1, le=200),
+    min_obitos: int = Query(1, ge=1),
+) -> dict:
+    """GeoJSON dos municipios no fluxo (alvo + conectados) com metricas embarcadas.
+
+    Inclui todos os municipios da UF do alvo para contexto geografico, mais
+    municipios conectados de outras UFs.
+    """
+    code = "".join(c for c in cod_municipio if c.isdigit())[:6]
+    if len(code) != 6:
+        raise HTTPException(status_code=422, detail="cod_municipio deve ter 6 ou 7 digitos")
+
+    malhas = _load_geojson()
+    if malhas is None:
+        raise HTTPException(status_code=503, detail="malha municipal IBGE indisponivel")
+
+    con = get_connection()
+    source = _silver_source()
+    result = _fluxos_edges(con, source, code, direcao, ano, tipo_veiculo, top_n, min_obitos, False)
+    if result is None:
+        raise HTTPException(status_code=404, detail="municipio sem dados no periodo selecionado")
+
+    edges_by_code = {a["cod_mun_ibge"]: a for a in result["arestas"]}
+    if code not in edges_by_code:
+        edges_by_code[code] = {
+            "cod_mun_ibge": code,
+            "municipio": result["target_municipio"],
+            "uf": result["target_uf"],
+            "obitos": 0,
+            "participacao": 0.0,
+            "propria_municipio": True,
+            "geografia_status": "encontrado",
+        }
+
+    target_uf = result["target_uf"]
+    flow_codes = set(edges_by_code.keys())
+    labels = _municipio_labels(con)
+
+    features = []
+    for feature in malhas.get("features", []):
+        props = feature.get("properties") or {}
+        codarea = str(props.get("codarea", ""))
+        cod6 = codarea[:6]
+
+        edge = edges_by_code.get(cod6)
+        label = labels.get(cod6, {})
+        feature_uf = str(
+            (edge or {}).get("uf") or label.get("uf") or ""
+        )
+
+        in_flow = cod6 in flow_codes
+        in_target_uf = feature_uf == target_uf
+
+        if not in_flow and not in_target_uf:
+            continue
+
+        if edge:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": feature.get("geometry"),
+                    "properties": {
+                        "cod_mun_ibge": codarea,
+                        "municipio": edge.get("municipio") or label.get("municipio") or codarea,
+                        "uf": edge.get("uf") or feature_uf,
+                        "obitos": int(edge.get("obitos", 0)),
+                        "participacao": float(edge.get("participacao", 0.0)),
+                        "propria_municipio": bool(edge.get("propria_municipio", False)),
+                        "is_alvo": cod6 == code,
+                        "has_flow": True,
+                    },
+                }
+            )
+        else:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": feature.get("geometry"),
+                    "properties": {
+                        "cod_mun_ibge": codarea,
+                        "municipio": label.get("municipio") or codarea,
+                        "uf": feature_uf,
+                        "obitos": 0,
+                        "participacao": 0.0,
+                        "propria_municipio": False,
+                        "is_alvo": False,
+                        "has_flow": False,
+                    },
+                }
+            )
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+@router.get("/fluxos")
+async def fluxos(
+    cod_municipio: str = Query(..., min_length=6, max_length=7),
+    direcao: Literal["origens", "destinos"] = Query("origens"),
+    ano: int | None = Query(None, ge=1900, le=2100),
+    tipo_veiculo: str | None = Query(None, max_length=80),
+    top_n: int = Query(20, ge=1, le=200),
+    min_obitos: int = Query(1, ge=1),
+    incluir_desconhecidos: bool = Query(False),
+) -> dict:
+    """Fluxos residencia-ocorrencia para um municipio alvo.
+
+    direcao='origens': alvo e o municipio de ocorrencia; mostra de onde vem as vitimas.
+    direcao='destinos': alvo e o municipio de residencia; mostra para onde vao os residentes.
+    """
+    code = "".join(c for c in cod_municipio if c.isdigit())[:6]
+    if len(code) != 6:
+        raise HTTPException(status_code=422, detail="cod_municipio deve ter 6 ou 7 digitos")
+
+    con = get_connection()
+    source = _silver_source()
+    result = _fluxos_edges(
+        con, source, code, direcao, ano, tipo_veiculo, top_n, min_obitos, incluir_desconhecidos
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="municipio sem dados no periodo selecionado")
+
+    return {
+        "fonte": "SIM",
+        "direcao": direcao,
+        "municipio_alvo": {
+            "cod_mun_ibge": code,
+            "municipio": result["target_municipio"],
+            "uf": result["target_uf"],
+        },
+        "total_obitos": result["total_obitos"],
+        "total_ambos_encontrados": result["total_ambos_encontrados"],
+        "obitos_proprio_municipio": result["obitos_proprio_municipio"],
+        "obitos_fora": result["obitos_fora"],
+        "proporcao_fora": result["proporcao_fora"],
+        "municipios_conectados": result["municipios_conectados"],
+        "arestas": result["arestas"],
+        "filtros": {
+            "ano": ano,
+            "tipo_veiculo": tipo_veiculo,
+            "top_n": top_n,
+            "min_obitos": min_obitos,
+            "incluir_desconhecidos": incluir_desconhecidos,
+        },
+        "notas_metodologicas": (
+            f"Filtros cientificos: is_v01_v89=true, qa_status=ok, tipobito_raw=2. "
+            f"Direcao: {direcao}. "
+            f"Desconhecidos {'incluidos' if incluir_desconhecidos else 'excluidos (padrao)'}. "
+            f"top_n={top_n}, min_obitos={min_obitos}. "
+            "Denominador de proporcao_fora: obitos com ambas as geografias encontradas."
+        ),
+    }

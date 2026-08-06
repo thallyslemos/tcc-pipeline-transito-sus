@@ -26,6 +26,15 @@ test("exibe metricas globais no painel SIM", async ({ page }) => {
   await expect(page.getByText("Distribuicao por Sexo")).toBeVisible();
 });
 
+test("carrega mapa de fluxos residencia-ocorrencia", async ({ page }) => {
+  const geoResponse = page.waitForResponse(
+    (response) => response.url().includes("/api/sim/fluxos/geo") && response.status() === 200
+  );
+  await page.goto("/fluxos?cod_municipio=293330&ano=2024");
+  await expect(page.getByRole("heading", { name: "Fluxos Residencia-Ocorrencia" })).toBeVisible();
+  expect((await geoResponse).status()).toBe(200);
+});
+
 test('carrega a camada geográfica do mapa', async ({ page }) => {
   const apiErrors: string[] = [];
   page.on('response', (response) => {

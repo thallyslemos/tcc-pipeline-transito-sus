@@ -91,3 +91,38 @@ export interface ForecastPoint {
   competencia: string;
   valor: number;
 }
+
+export interface SimFluxoEdge {
+  cod_mun_ibge: string;
+  municipio: string;
+  uf: string;
+  obitos: number;
+  participacao: number;
+  propria_municipio: boolean;
+  geografia_status: string;
+}
+
+export interface SimFluxo {
+  fonte: "SIM";
+  direcao: "origens" | "destinos";
+  municipio_alvo: {
+    cod_mun_ibge: string;
+    municipio: string;
+    uf: string;
+  };
+  total_obitos: number;
+  total_ambos_encontrados: number;
+  obitos_proprio_municipio: number;
+  obitos_fora: number;
+  proporcao_fora: number;
+  municipios_conectados: number;
+  arestas: SimFluxoEdge[];
+  filtros: {
+    ano: number | null;
+    tipo_veiculo: string | null;
+    top_n: number;
+    min_obitos: number;
+    incluir_desconhecidos: boolean;
+  };
+  notas_metodologicas: string;
+}
