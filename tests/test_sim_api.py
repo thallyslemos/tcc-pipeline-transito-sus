@@ -1,5 +1,11 @@
 """Contratos HTTP do serving SIM-only."""
 
+import re
+
+
+def _sum_breakdown(items: list[dict], key: str) -> int:
+    return sum(int(row["total"]) for row in items)
+
 
 def test_sim_summary_is_sim_only(client):
     response = client.get("/api/sim/summary", params={"dimensao": "ocorrencia"})
@@ -9,6 +15,41 @@ def test_sim_summary_is_sim_only(client):
     assert payload["total_obitos"] == 565383
     assert "total_custos" not in payload
     assert payload["denominadores"]["frota"].startswith("indisponivel")
+
+
+def test_sim_summary_exposes_global_breakdowns(client):
+    response = client.get(
+        "/api/sim/summary",
+        params={"dimensao": "ocorrencia", "ano": 2024},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    total = int(payload["total_obitos"])
+    assert total > 0
+
+    for field in (
+        "obitos_por_mes",
+        "obitos_por_tipo_veiculo",
+        "obitos_por_faixa_etaria",
+        "obitos_por_sexo",
+    ):
+        assert field in payload
+        assert isinstance(payload[field], list)
+        assert len(payload[field]) > 0
+
+    assert _sum_breakdown(payload["obitos_por_mes"], "total") == total
+    assert _sum_breakdown(payload["obitos_por_tipo_veiculo"], "total") == total
+    assert _sum_breakdown(payload["obitos_por_faixa_etaria"], "total") == total
+    assert _sum_breakdown(payload["obitos_por_sexo"], "total") == total
+
+    competencias = [row["competencia"] for row in payload["obitos_por_mes"]]
+    assert all(re.fullmatch(r"\d{4}-\d{2}", value) for value in competencias)
+    assert competencias == sorted(competencias)
+    assert all(value.startswith("2024-") for value in competencias)
+
+    sexos = {row["sexo"] for row in payload["obitos_por_sexo"]}
+    assert sexos.issubset({"Masculino", "Feminino", "Ignorado"})
+    assert "total_custos" not in payload
 
 
 def test_sim_municipios_has_pagination_and_null_safe_rates(client):

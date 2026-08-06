@@ -12,6 +12,20 @@ test("exibe o painel SIM e consulta metadados", async ({ page }) => {
   await expect(page.getByText("sim_silver_nacional_v2")).toBeVisible();
 });
 
+test("exibe metricas globais no painel SIM", async ({ page }) => {
+  const summaryResponse = page.waitForResponse(
+    (response) => response.url().includes("/api/sim/summary") && response.status() === 200,
+  );
+  await page.goto("/dashboard");
+  expect((await summaryResponse).status()).toBe(200);
+
+  await expect(page.getByText("Evolucao mensal")).toBeVisible();
+  await expect(page.getByText("Evolucao anual")).toBeVisible();
+  await expect(page.getByText("Obitos por Tipo de Veiculo")).toBeVisible();
+  await expect(page.getByText("Obitos por Faixa Etaria")).toBeVisible();
+  await expect(page.getByText("Distribuicao por Sexo")).toBeVisible();
+});
+
 test('carrega a camada geográfica do mapa', async ({ page }) => {
   const apiErrors: string[] = [];
   page.on('response', (response) => {

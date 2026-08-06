@@ -37,3 +37,8 @@ data/ibge_malhas_municipios.geojson
 
 # Playwright artifacts
 frontend/test-results/
+frontend/.playwright-browsers/
+
+# Análises locais (fora do produto)
+data/analysis/
+data/quality/

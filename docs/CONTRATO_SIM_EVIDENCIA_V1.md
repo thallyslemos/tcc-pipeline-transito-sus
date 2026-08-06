@@ -30,3 +30,7 @@ Cada linha Gold representa `tipo_local + municipio + competencia mensal + tipo_v
 ## Reexecucao e promocao
 
 Destinos de Silver e Gold sao versionados e nao sobrescritos. Uma nova execucao deve criar outro snapshot, validar `record_id` unico, cobertura temporal, filtro, geografia e hashes, e somente entao ser promovida para o catalogo ativo.
+
+## Serving: GET /api/sim/summary
+
+Resposta inclui `total_obitos`, `obitos_por_ano`, `obitos_por_mes` (`competencia` YYYY-MM), `obitos_por_tipo_veiculo`, `obitos_por_faixa_etaria` e `obitos_por_sexo` (com categoria `Ignorado` quando aplicavel). A soma de cada breakdown deve igualar `total_obitos` no recorte filtrado.

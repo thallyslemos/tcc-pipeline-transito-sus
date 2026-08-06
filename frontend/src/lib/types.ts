@@ -14,6 +14,10 @@ export interface SimSummary {
   municipios: number;
   periodo: string;
   obitos_por_ano: { ano: number; total: number }[];
+  obitos_por_mes: { competencia: string; total: number }[];
+  obitos_por_tipo_veiculo: { tipo_veiculo: string; total: number }[];
+  obitos_por_faixa_etaria: { faixa_etaria: string; total: number }[];
+  obitos_por_sexo: { sexo: string; total: number }[];
   denominadores: { populacao: string; frota: string };
 }
 

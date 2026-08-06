@@ -8,9 +8,8 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..analytics_backend import AnalyticsBackend
 from ..config import settings
-from ..database import get_active_backend, get_connection
+from ..database import get_connection
 from .utils import REGIOES
 
 router = APIRouter(prefix="/api/sim", tags=["SIM-only"])
@@ -38,7 +37,7 @@ def _mart_path(role: Role) -> Path:
 
 
 def _source(path: Path) -> str:
-    if get_active_backend() != AnalyticsBackend.duckdb_local:
+    if settings.use_postgres and settings.database_url:
         raise HTTPException(
             status_code=503,
             detail="O contrato SIM-only local requer o backend DuckDB nesta fase",
@@ -175,6 +174,52 @@ async def summary(
         GROUP BY ano ORDER BY ano
         """
     ).fetchall()
+    by_month = con.sql(
+        f"""
+        SELECT strftime(CAST(competencia AS DATE), '%Y-%m') AS competencia,
+               SUM(total_obitos) AS total
+        FROM {source} WHERE {where}
+        GROUP BY competencia ORDER BY competencia
+        """
+    ).fetchall()
+    by_vehicle = con.sql(
+        f"""
+        SELECT COALESCE(NULLIF(TRIM(tipo_veiculo), ''), 'Ignorado') AS tipo_veiculo,
+               SUM(total_obitos) AS total
+        FROM {source} WHERE {where}
+        GROUP BY 1 ORDER BY total DESC, tipo_veiculo
+        """
+    ).fetchall()
+    by_age = con.sql(
+        f"""
+        WITH buckets AS (
+            SELECT COALESCE(NULLIF(TRIM(faixa_etaria), ''), 'Ignorada') AS faixa_etaria,
+                   total_obitos
+            FROM {source} WHERE {where}
+        )
+        SELECT faixa_etaria, SUM(total_obitos) AS total
+        FROM buckets
+        GROUP BY faixa_etaria
+        ORDER BY CASE faixa_etaria
+            WHEN '0-14' THEN 1
+            WHEN '15-24' THEN 2
+            WHEN '25-34' THEN 3
+            WHEN '35-44' THEN 4
+            WHEN '45-54' THEN 5
+            WHEN '55-64' THEN 6
+            WHEN '65+' THEN 7
+            ELSE 8
+        END
+        """
+    ).fetchall()
+    by_sex = con.sql(
+        f"""
+        SELECT COALESCE(NULLIF(TRIM(sexo_desc), ''), 'Ignorado') AS sexo,
+               SUM(total_obitos) AS total
+        FROM {source} WHERE {where}
+        GROUP BY 1 ORDER BY total DESC, sexo
+        """
+    ).fetchall()
     return {
         "fonte": "SIM",
         "dimensao": dimensao,
@@ -182,6 +227,22 @@ async def summary(
         "municipios": int(municipios or 0),
         "periodo": (f"{inicio}-{fim}" if inicio is not None else "sem dados"),
         "obitos_por_ano": [{"ano": int(y), "total": int(n)} for y, n in by_year],
+        "obitos_por_mes": [
+            {"competencia": str(competencia), "total": int(total_mes)}
+            for competencia, total_mes in by_month
+        ],
+        "obitos_por_tipo_veiculo": [
+            {"tipo_veiculo": str(tipo), "total": int(total_tipo)}
+            for tipo, total_tipo in by_vehicle
+        ],
+        "obitos_por_faixa_etaria": [
+            {"faixa_etaria": str(faixa), "total": int(total_faixa)}
+            for faixa, total_faixa in by_age
+        ],
+        "obitos_por_sexo": [
+            {"sexo": str(sexo), "total": int(total_sexo)}
+            for sexo, total_sexo in by_sex
+        ],
         "denominadores": {
             "populacao": "disponivel somente quando o municipio/ano existe no IBGE",
             "frota": "indisponivel ate validacao do SENATRAN",
@@ -444,3 +505,5 @@ async def geo(
             }
         )
     return {"type": "FeatureCollection", "features": features}
+
+
