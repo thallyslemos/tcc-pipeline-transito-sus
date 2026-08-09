@@ -29,6 +29,11 @@ htmlcov/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/.env*.local
+frontend/tsconfig.tsbuildinfo
+
+# Binários locais (CLI DuckDB etc.)
+duckdb_cli*.zip
 
 # OS
 .DS_Store
