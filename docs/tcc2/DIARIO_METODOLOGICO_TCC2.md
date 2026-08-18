@@ -19,10 +19,10 @@ O trabalho foi realizado na branch `docs/tcc2-writing`, no worktree `/home/thall
 | Sistema de execução | WSL Ubuntu |
 | Motor analítico | DuckDB 1.4.4 |
 | Linguagem do executor | Python do ambiente virtual do repositório principal |
-| Script SQL | `analysis/tcc2/eda_sim_bahia_v1.sql` |
+| Script SQL da sessão | `analysis/tcc2/eda_sim_bahia_v1.sql` (artefato histórico do commit `0c8c0c0`) |
 | Executor | `analysis/tcc2/run_eda_sim_bahia.py` |
 | Consultas nomeadas | 27 na execução ampliada |
-| Manifesto | `analysis/tcc2/results/eda_com_populacao/manifesto_execucao.json` |
+| Manifesto | `analysis/tcc2/results/eda_com_populacao/manifesto_execucao.json` (artefato histórico do commit `0c8c0c0`) |
 
 ### Artefatos de entrada
 
@@ -66,7 +66,7 @@ O staging contém 77.970 chaves município-ano, sem duplicidades e sem valores n
 
 A comparação histórica exige cautela porque as estimativas incorporam mudanças metodológicas, revisões censitárias e alterações territoriais. O ano de 2023 não será preenchido com 2022 ou interpolado sem uma análise de sensibilidade identificada. A taxa por 100 mil habitantes será principal por residência. Uma taxa por ocorrência, quando mostrada, será chamada de taxa territorial bruta por ocorrência.
 
-### SENATRAN
+### SENATRAN — estado em 5 de agosto, superado
 
 Não existe arquivo real de frota no repositório. A Gold contém `frota_status = 'indisponivel'` e nenhuma combinação com `frota_total`. Nenhuma taxa por 10 mil veículos será usada no artigo ou apresentada como disponível no produto até a conclusão de um pipeline oficial, mensal, versionado e auditado.
 
@@ -74,7 +74,7 @@ Não existe arquivo real de frota no repositório. A Gold contém `frota_status 
 
 O protocolo executou 30 consultas. Foram examinadas cobertura Bronze; universo e QA Silver; cobertura anual nacional; totais anuais baianos por ocorrência e residência; sexo; faixa etária; categoria derivada da CID; grupos CID; sazonalidade mensal; qualidade geográfica; fluxos de origem e destino; Vitória da Conquista; ranking anual das UFs; inventário municipal; cobertura populacional; reconciliação Gold; disponibilidade de denominadores; séries municipais por ocorrência e residência; tendências exploratórias; persistência no quartil superior; ranking anual municipal; linhagem da descontinuidade observada em Barreiras; taxas estaduais; posição anual da Bahia por contagem; e auditoria agregada de Gavião em 2024.
 
-Os resultados tabulares estão em `analysis/tcc2/results/eda_com_populacao`. As tabelas de tendência e persistência são exploratórias. Elas usam taxas brutas, não aplicam suavização, não possuem intervalo de confiança e ignoram 2023 por ausência de denominador. Não podem ser transportadas diretamente para a versão final do artigo. A taxa estadual por residência foi de 20,28 por 100 mil em 2024, maior valor entre os anos com denominador desta extração. Essa comparação ainda requer cautela diante das mudanças entre estimativas intercensitárias e censos.
+Os resultados tabulares históricos estão em `analysis/tcc2/results/eda_com_populacao` no commit `0c8c0c0`. As tabelas de tendência e persistência são exploratórias. Elas usam taxas brutas, não aplicam suavização, não possuem intervalo de confiança e ignoram 2023 por ausência de denominador. Não podem ser transportadas diretamente para a versão final do artigo. A taxa estadual por residência foi de 20,28 por 100 mil em 2024, maior valor entre os anos com denominador desta extração. Essa comparação ainda requer cautela diante das mudanças entre estimativas intercensitárias e censos. A rodada vigente está documentada na seção de 18 de agosto e em `RESULTADOS_EDA_BAHIA_FROTA_FLUXOS_TCC2.md`.
 
 ### Auditoria de Gavião em 2024
 
