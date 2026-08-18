@@ -18,15 +18,19 @@ O desfecho é o óbito registrado no Sistema de Informações sobre Mortalidade.
 
 ## 3. Fontes e escopo ativo
 
-O SIM é a única fonte de eventos nesta etapa. O IBGE fornece a dimensão municipal, a malha territorial e os denominadores populacionais. A SENATRAN será uma dimensão complementar somente depois que existir uma base real, versionada, documentada e auditada. Enquanto isso não ocorrer, nenhuma taxa por 10 mil veículos deve ser calculada ou inferida. SIA, SIH, custos assistenciais, TimesFM, MCP, LLM, ONSV como funcionalidade e integrações multibase ficam fora do núcleo do artigo. Eles podem ser registrados como histórico, validação interna ou trabalho futuro quando forem realmente pertinentes.
+O SIM é a fonte de eventos do estudo. O IBGE fornece a dimensão municipal, a malha territorial e os denominadores populacionais. A SENATRAN já possui uma Gold anual auditada para 2010–2024 e entra apenas como dimensão complementar de estoque municipal, composição por tipo e taxas pareadas. Ela não mede circulação, quilômetros percorridos ou exposição individual e não autoriza inferência causal. SIA, SIH, custos assistenciais, TimesFM, MCP, LLM, ONSV como funcionalidade e integrações multibase ficam fora do núcleo do artigo. Eles podem ser registrados como histórico, validação interna ou trabalho futuro quando forem realmente pertinentes.
 
 O filtro científico da versão atual é `is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'`. Ele representa registros não fetais cuja causa básica está entre V01 e V89 da CID-10 e que atendem ao contrato de qualidade vigente. Toda tabela, figura e afirmação quantitativa deve informar o período, a dimensão territorial, o filtro CID, o universo fetal ou não fetal, o snapshot e a data de extração.
+
+Os arquivos usados foram obtidos do diretório oficial `SIM/CID10/DORES`. `uf_arquivo` é uma chave de partição e de linhagem, não uma dimensão epidemiológica. Para residentes da Bahia, use `uf_residencia = 'BA'`; para óbitos ocorridos na Bahia, reúna as partições nacionais e use `uf_ocorrencia = 'BA'`. O dicionário do SIM define `CODMUNRES` como município de residência e `CODMUNOCOR` como município onde ocorreu o óbito. Não chame `CODMUNOCOR` de local do acidente sem fonte adicional.
 
 ## 4. Residência e ocorrência
 
 Trate município de residência e município de ocorrência como papéis distintos da mesma dimensão municipal. `CODMUNRES` representa a residência habitual da vítima. `CODMUNOCOR` representa o local de ocorrência do óbito. Não crie duas dimensões físicas redundantes e não misture os dois conceitos em uma mesma série.
 
 Use residência como eixo principal para interpretar risco da população municipal e calcular taxa por 100 mil habitantes. Use ocorrência como eixo complementar para estudar concentração territorial, atração viária, centralidade regional e deslocamento entre o município de residência e o local do óbito. Quando usar população como denominador de uma taxa por ocorrência, denomine o indicador como taxa territorial bruta por ocorrência e explique que ele não representa diretamente o risco dos residentes.
+
+Quando cruzar mortes e frota, pareie município e ano com a Gold `frota_municipio_ano.parquet`. Para motociclistas, o denominador exploratório é `frota_duas_rodas_motorizadas`; para o total, é `frota_total`. A categoria do numerador é derivada da CID e não equivale a todos os veículos envolvidos. Sem pareamento válido, a taxa é nula e o status deve ser `indisponivel`. Apresente correlações de níveis e primeiras diferenças separadamente, estratifique por porte municipal quando possível e não escreva que o aumento da frota causou ou preveniu mortes.
 
 A análise de fluxos deve responder a duas perguntas separadas. A primeira identifica a origem residencial das vítimas cujo óbito ocorreu em um município selecionado. A segunda identifica onde ocorreram os óbitos de residentes de um município selecionado. As ligações entre municípios não representam trajetos, rotas ou causalidade. Elas representam apenas pares de residência e ocorrência registrados na Declaração de Óbito.
 

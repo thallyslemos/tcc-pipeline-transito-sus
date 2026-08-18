@@ -89,3 +89,27 @@ O corpus definitivo ainda será validado item a item. Nenhuma referência da rev
 ### Próxima decisão metodológica
 
 A próxima etapa deve definir a análise temporal e espacial principal. A opção recomendada é usar residência como eixo de risco, agregar períodos para reduzir instabilidade, apresentar taxas brutas e suavizadas, avaliar persistência e então aplicar autocorrelação espacial com matriz de contiguidade documentada. A ocorrência e os fluxos devem formar uma análise complementar. Gavião já foi vinculado a um evento específico, mas a diferença entre as contagens do SIM e da nota oficial ainda requer reconciliação metodológica. A descontinuidade de Barreiras continua sem explicação e deve ser reproduzida em uma consulta externa antes da modelagem final.
+
+## Sessão de 18 de agosto de 2026: revisão pós-integração da SENATRAN
+
+### Errata do estado anterior
+
+As afirmações da sessão de 4 e 5 de agosto sobre a inexistência de uma base real da SENATRAN descrevem corretamente o estado daquele snapshot, mas deixaram de ser atuais depois da conclusão do pipeline independente. A dimensão foi incorporada sem alterar Bronze, Silver ou Gold do SIM. O artigo passa a tratá-la como denominador complementar, não como substituto da população nem como medida de exposição individual.
+
+### Semântica da partição do SIM
+
+Foi confrontado o dicionário oficial da tabela DO, a nota metodológica do TABNET e a Silver nacional. Os arquivos consumidos vêm do diretório `DORES`; `uf_arquivo` foi mantida somente como partição e linhagem. `CODMUNRES` e `CODMUNOCOR` permanecem como papéis distintos da mesma dimensão municipal. A consulta nacional encontrou 29.379 divergências entre a UF de arquivo e a UF de ocorrência, mas nenhuma divergência entre a UF de arquivo e a UF de residência no snapshot adotado. Para ocorrência na Bahia, a consulta obrigatoriamente reúne todas as partições e filtra `uf_ocorrencia = 'BA'`.
+
+### Execução adicional
+
+O protocolo `analysis/tcc2/eda_bahia_frota_fluxos_v2.sql` foi executado no WSL com DuckDB 1.4.4 e o filtro científico vigente. O manifesto registrou dez consultas, hashes dos arquivos e amostras. A Bahia possui 417 municípios com frota em cada ano de 2010 a 2024. Entre 2010 e 2024, a frota de duas rodas passou de 790.224 para 2.031.641, enquanto os óbitos de motociclistas residentes passaram de 517 para 953. A taxa exploratória caiu de 6,54 para 4,69 por 10 mil duas rodas. A correlação municipal-ano em nível foi 0,748 e a correlação das primeiras diferenças consecutivas foi 0,040; ambas são descritivas.
+
+O cruzamento de papéis encontrou 37.906 óbitos ocorridos na Bahia e 37.242 de residentes baianos. Os municípios com maior saldo de ocorrência sobre residência foram Salvador, Vitória da Conquista, Santo Antônio de Jesus, Feira de Santana e Barreiras. Em Vitória da Conquista, 1.054 de 2.029 ocorrências tinham residência externa. O detalhamento completo e os critérios de estabilidade estão em `docs/tcc2/RESULTADOS_EDA_BAHIA_FROTA_FLUXOS_TCC2.md`.
+
+### Validação do serving
+
+No recorte de ocorrência, Bahia, 2024 e categoria `Motociclista`, a API retornou 933 óbitos e 417 polígonos. A consulta independente na Silver retornou os mesmos 933 registros; a soma da camada geográfica também foi 933. O script de validação marcou as comparações como verdadeiras. A suíte Python da aplicação passou com 116 testes e nove testes ignorados quando `GOLD_DIR` foi apontado para a Gold auditada. Essa evidência demonstra paridade entre serving e base, não validade causal dos indicadores.
+
+### Decisão editorial
+
+O manuscrito deve preservar SIM e IBGE como núcleo, inserir SENATRAN somente na análise exploratória e atualizar o resumo, a metodologia, os resultados e a discussão. Gavião permanece como evento confirmado no SIM e contextualizado por fonte oficial externa; Barreiras permanece como quebra não explicada. A análise espacial confirmatória, a tendência formal, a sensibilidade a pequenas populações, o denominador de 2023 e a revisão bibliográfica final continuam pendentes.

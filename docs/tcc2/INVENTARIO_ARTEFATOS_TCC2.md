@@ -1,6 +1,6 @@
 # Inventário de artefatos para o TCC II
 
-Data do inventário: 4 e 5 de agosto de 2026. Este documento organiza o material disponível para a escrita do TCC II. Ele não transforma rascunhos, notas ou resultados antigos em evidência científica. A ordem de precedência definida aqui deve ser respeitada durante toda a redação.
+Data do inventário: 4 e 5 de agosto de 2026; revisão de evidências em 18 de agosto de 2026. Este documento organiza o material disponível para a escrita do TCC II. Ele não transforma rascunhos, notas ou resultados antigos em evidência científica. A ordem de precedência definida aqui deve ser respeitada durante toda a redação.
 
 ## 1. Fontes canônicas de intenção e escopo
 
@@ -11,7 +11,7 @@ Data do inventário: 4 e 5 de agosto de 2026. Este documento organiza o material
 | P0 | `/home/thallys/projetos/tcc-pipeline-transito-sus/AGENTS.md` | Escopo operacional SIM-only e regras atuais do repositório | Deve ser lido antes de qualquer alteração ou execução |
 | P0 | `/home/thallys/projetos/tcc-pipeline-transito-sus/docs/CONTRATO_SIM_EVIDENCIA_V1.md` | Filtro científico, grãos, papéis geográficos e denominadores | É o contrato analítico vigente |
 
-A pergunta de pesquisa provisória mais madura é: como a mortalidade por acidentes de transporte terrestre evoluiu e se distribuiu espacialmente entre os municípios da Bahia de 2010 a 2024, e quais padrões persistentes, concentrações territoriais e desigualdades de risco podem ser identificados após a padronização pela população? A frota da SENATRAN poderá sustentar uma análise complementar somente depois de existir uma dimensão real, versionada e auditada.
+A pergunta de pesquisa provisória mais madura é: como a mortalidade por acidentes de transporte terrestre evoluiu e se distribuiu espacialmente entre os municípios da Bahia de 2010 a 2024, e quais padrões persistentes, concentrações territoriais e desigualdades de risco podem ser identificados após a padronização pela população? A frota auditada da SENATRAN sustenta uma análise complementar de estoque e mortalidade por categoria da vítima, sem substituir o núcleo SIM–IBGE nem permitir inferência causal.
 
 ## 2. TCC I e materiais do orientador
 
@@ -37,7 +37,8 @@ As versões intermediárias organizadas estão em `C:\Users\thall\OneDrive\Docum
 | P0 | `docs/PROPOSTA_FLUXOS_RESIDENCIA_OCORRENCIA.md` | Perguntas, grão e limites da análise de fluxos | Base para estudo exploratório de origem e destino |
 | P0 | `docs/Estrutura_do_SIM_2025.md` | Leiaute oficial convertido para texto | Validação semântica de campos |
 | P0 | `docs/DICIONARIO_DADOS_IBGE.md` | Cadastro, população, malha e limitações | Contrato das dimensões IBGE |
-| P0 | `docs/DICIONARIO_DADOS_SENATRAN.md` | Auditoria e contrato esperado | Prova de que ainda não há base real de frota |
+| P0 | `docs/DICIONARIO_DADOS_SENATRAN.md` | Dicionário, proveniência, competências, tipos e gates de qualidade da frota | Contrato da dimensão SENATRAN auditada; pendências temporais devem permanecer explícitas |
+| P0 | `docs/tcc2/RESULTADOS_EDA_BAHIA_FROTA_FLUXOS_TCC2.md` | Método e resultados da associação exploratória entre mortes e estoque de veículos | Limites do denominador, correlações descritivas e proibição de causalidade |
 | P0 | `docs/metadata/sim_v2_nacional_2010_2024_contract_v2.audit.json` | Auditoria da Silver nacional | Evidência de qualidade do snapshot adotado |
 | P1 | `docs/RADAR_PYSUS_DUCKLAKE_SIM.md` | Avaliação PySUS 2.x e DuckLake | Discussão técnica e trabalho futuro |
 | P1 | `docs/REVISAO_LITERATURA.md` | Revisão construída no escopo antigo | Fonte de pistas, nunca de referências sem nova validação |
@@ -56,7 +57,10 @@ Os scripts de maior valor metodológico são `data-pipeline/silver_v2.py`, `data
 | Malha | `data/ibge_malhas_municipios.geojson` | 5.571 feições | Fonte cartográfica principal |
 | População antiga | `data/ibge_populacao.parquet` | Cobertura parcial por falhas de chamadas unitárias | Não usar em resultados científicos |
 | População de staging | `outputs/tcc2/ibge_populacao/ibge_populacao_municipal_tcc2.parquet` | Bahia completa em 2010, 2011 a 2022 e 2024 | Usar na EDA até promoção formal; 2023 permanece sem taxa exata |
-| SENATRAN | Não existe arquivo real no snapshot | Ausente | Não calcular taxa por frota |
+| SENATRAN Silver | `data/silver/senatran_frota_municipio_tipo.parquet` | 1.754.718 linhas de município, ano e tipo, com fontes e hashes | Preservar como camada detalhada; competência oficial e validações no QA |
+| SENATRAN Gold anual | `data/gold/frota_municipio_ano.parquet` | 83.538 linhas, 2010–2024, competência tipada como `DATE` | Denominador de frota para taxas pareadas; 417 municípios da Bahia por ano |
+| SENATRAN Gold por tipo | `data/gold/frota_municipio_ano_tipo.parquet` | 1.754.298 linhas | Análise de composição; não confundir estoque com exposição efetiva |
+| SENATRAN QA | `data/quality/senatran_frota_qa.json` | Manifestos, fontes, membros, hashes e gates | Bloqueia promoção quando competência/proveniência não estiverem demonstradas |
 
 O cache bruto do PySUS em `/home/thallys/pysus` ocupa aproximadamente 30 GB e contém as 405 combinações esperadas de 27 UFs por 15 anos. Ele deve permanecer imutável. O diretório `data` do repositório ocupa aproximadamente 33 GB. Os backups Gold e as versões sem o sufixo `_v2` não devem alimentar o artigo.
 
@@ -64,7 +68,7 @@ O cache bruto do PySUS em `/home/thallys/pysus` ocupa aproximadamente 30 GB e co
 
 O notebook `notebooks/01_eda_transito_sus.ipynb` é legado. Ele usa Silver e Gold anteriores, inclui SIA e contém resultados produzidos antes da auditoria. Sua estrutura pode inspirar visualizações, mas seus números estão interditados.
 
-A nova EDA está em `analysis/tcc2`. O arquivo `eda_sim_bahia_v1.sql` contém consultas nomeadas para Bronze, Silver, Gold, IBGE, perfil epidemiológico, séries, denominadores e fluxos. O arquivo `run_eda_sim_bahia.py` executa o protocolo no WSL, gera CSVs e registra hashes, versão do DuckDB, filtro e amostras em `manifesto_execucao.json`. O extrator `fetch_ibge_population_tcc2.py` obtém os denominadores oficiais em lote e não sobrescreve a dimensão canônica.
+A nova EDA está em `analysis/tcc2`. O arquivo `eda_bahia_frota_fluxos_v2.sql` contém consultas nomeadas para a semântica de `uf_arquivo`, fluxos municipais, composição da frota, taxas pareadas, correlações exploratórias e anomalias. O arquivo `run_eda_sim_bahia.py` executa o protocolo no WSL, gera CSVs e registra hashes, versão do DuckDB, filtro e amostras em `manifesto_execucao.json`. O script `validate_tool_effectiveness.py` compara respostas da API com consultas diretas na Silver. O relatório `docs/tcc2/RESULTADOS_EDA_BAHIA_FROTA_FLUXOS_TCC2.md` registra os resultados da execução de 18 de agosto de 2026. O extrator `fetch_ibge_population_tcc2.py` obtém os denominadores oficiais em lote e não sobrescreve a dimensão canônica.
 
 ## 6. Pesquisas locais e corpus bibliográfico
 

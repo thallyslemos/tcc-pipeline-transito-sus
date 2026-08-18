@@ -2,11 +2,11 @@
 
 Thallys Viana Lemos, Andrique Figueiredo Amorim
 
-Versão de trabalho de 5 de agosto de 2026. Este manuscrito organiza a primeira narrativa consistente do TCC II. Os resultados espaciais, a análise formal de tendência, o resumo e a conclusão ainda dependem das validações indicadas no diário metodológico. O texto não deve ser submetido nesta condição.
+Versão de trabalho revisada em 18 de agosto de 2026. Este manuscrito incorpora a EDA adicional de residência, ocorrência, população e frota, mas ainda não é a versão de submissão. A análise espacial confirmatória, a tendência temporal formal, a reconciliação do denominador de 2023, a revisão bibliográfica final e a composição definitiva de tabelas e figuras permanecem pendentes.
 
 ## Resumo provisório
 
-Os acidentes de transporte terrestre constituem um importante problema de saúde pública e apresentam distribuição desigual entre grupos populacionais e territórios. Este estudo tem como objetivo analisar a evolução temporal e a distribuição municipal da mortalidade por acidentes de transporte terrestre na Bahia entre 2010 e 2024. Foi realizado um estudo ecológico, descritivo e analítico, com registros do Sistema de Informações sobre Mortalidade classificados nos códigos V01 a V89 da CID-10. A análise utilizou uma camada Silver nacional auditada, com distinção entre município de residência e município de ocorrência, além de dados populacionais e malhas municipais do IBGE. O filtro científico identificou 565.383 óbitos no Brasil e 37.906 óbitos ocorridos na Bahia no período. Entre os óbitos ocorridos no estado, 84,38% eram do sexo masculino e 59,66% estavam nas faixas de 15 a 44 anos. Em 45,10% dos registros, a residência não correspondia ao município de ocorrência ou não pôde ser determinada, evidenciando que os dois papéis geográficos não são intercambiáveis. Vitória da Conquista registrou 2.029 óbitos por ocorrência, dos quais 1.054 correspondiam a residentes de outros municípios. Os resultados preliminares mostram a necessidade de combinar tendências, estabilidade de taxas em pequenas populações, qualidade da causa básica e fluxos entre residência e ocorrência. A análise espacial e a estimação formal das tendências serão concluídas antes da versão final.
+Os acidentes de transporte terrestre constituem um importante problema de saúde pública e apresentam distribuição desigual entre grupos populacionais e territórios. Este estudo tem como objetivo analisar a evolução temporal e a distribuição municipal da mortalidade por acidentes de transporte terrestre na Bahia entre 2010 e 2024. Foi realizado um estudo ecológico, descritivo e exploratório, com registros do Sistema de Informações sobre Mortalidade classificados nos códigos V01 a V89 da CID-10. A análise utilizou uma camada Silver nacional auditada, com distinção entre município de residência e município de ocorrência, dados populacionais e malhas municipais do IBGE e, como dimensão complementar, estoques municipais da SENATRAN. O filtro científico identificou 565.383 óbitos no Brasil e 37.906 óbitos ocorridos na Bahia no período. Entre os óbitos ocorridos no estado, 84,38% eram do sexo masculino e 59,66% estavam nas faixas de 15 a 44 anos. Em 45,10% dos registros, a residência não correspondia ao município de ocorrência ou não pôde ser determinada, evidenciando que os dois papéis geográficos não são intercambiáveis. Vitória da Conquista registrou 2.029 óbitos por ocorrência, dos quais 1.054 correspondiam a residentes de outros municípios. A frota de duas rodas aumentou de 790.224 para 2.031.641 entre 2010 e 2024, enquanto a taxa exploratória de óbitos de motociclistas residentes caiu de 6,54 para 4,69 por 10 mil veículos. Os resultados preliminares mostram a necessidade de combinar tendências, estabilidade de taxas em pequenas populações, qualidade da causa básica, fluxos entre residência e ocorrência e limites dos denominadores de frota. A análise espacial e a estimação formal das tendências serão concluídas antes da versão final.
 
 Palavras-chave: mortalidade; acidentes de transporte terrestre; Sistema de Informações sobre Mortalidade; análise espacial; municípios; Bahia.
 
@@ -42,7 +42,7 @@ Para pequenas áreas, taxas brutas anuais não são suficientes. Métodos bayesi
 
 ### 3.1 Desenho e unidade de análise
 
-Trata-se de um estudo ecológico, descritivo e analítico, com série temporal de 2010 a 2024. A unidade espacial é o município e a unidade temporal principal é o ano. O recorte científico inclui os 417 municípios da Bahia. Os dados nacionais e estaduais são utilizados para contextualizar a posição da Bahia, mas a investigação espacial se concentra no território baiano.
+Trata-se de um estudo ecológico, descritivo e exploratório, com série temporal de 2010 a 2024. A unidade espacial é o município e a unidade temporal principal é o ano. O recorte científico inclui os 417 municípios da Bahia. Os dados nacionais e estaduais são utilizados para contextualizar a posição da Bahia, mas a investigação espacial se concentra no território baiano.
 
 ### 3.2 Fontes de dados
 
@@ -50,7 +50,7 @@ Os registros de óbito foram obtidos do SIM, disponibilizado pelo DATASUS. A ext
 
 Os códigos, nomes e a malha municipal foram obtidos do IBGE. As populações municipais foram consultadas no SIDRA. Para 2010 foi utilizada a população residente do Censo Demográfico, Tabela 202 e variável 93. Para 2011 a 2021 e 2024 foram usadas as estimativas da população residente em 1º de julho, Tabela 6579 e variável 9324. Para 2022 foi usada a população residente do Censo Demográfico, Tabela 4709 e variável 93. Não foi atribuído denominador anual a 2023 nesta versão, pois a relação publicada naquele ano corresponde à população censitária de referência de 2022 com atualização territorial.
 
-Não foram utilizadas taxas por frota. A auditoria mostrou que o repositório ainda não contém um arquivo real da SENATRAN com competência, tipo de veículo, código municipal, origem e hash. A ausência foi preservada como valor indisponível.
+Como dimensão complementar, foi utilizada a Gold anual da SENATRAN, construída a partir de fontes oficiais e acompanhada de competência, tipo de veículo, código municipal, origem e hash. A Gold possui 417 municípios baianos por ano entre 2010 e 2024. O estoque de duas rodas foi calculado pela soma de motocicletas, motonetas, ciclomotores, triciclos, quadriciclos e side-cars, conforme o dicionário do pipeline. As taxas por 10 mil veículos são apresentadas somente quando município e ano possuem frota válida; elas descrevem uma razão entre óbitos e estoque registrado e não representam risco individual nem exposição efetiva ao trânsito.
 
 ### 3.3 Definição do desfecho
 
@@ -60,11 +60,13 @@ O campo apresentado no sistema como `tipo_veiculo` foi derivado do grupo CID. El
 
 ### 3.4 Papéis geográficos
 
-O município de residência foi definido pelo campo `CODMUNRES`. O município de ocorrência foi definido por `CODMUNOCOR`. Ambos foram normalizados para o código IBGE de sete dígitos, com preservação do valor bruto e do código de seis dígitos usado pelo SIM. Registros sem correspondência não foram descartados silenciosamente.
+O município de residência foi definido pelo campo `CODMUNRES`. O município de ocorrência foi definido por `CODMUNOCOR`, entendido como o local do óbito e não necessariamente o ponto do acidente. Ambos foram normalizados pela ponte versionada com a dimensão IBGE, preservando o valor bruto, a chave de seis dígitos observada no SIM e o código municipal de sete dígitos usado na dimensão. Registros sem correspondência não foram descartados silenciosamente. A UF do arquivo foi mantida como linhagem; a UF analítica foi derivada do município de residência ou ocorrência conforme o papel escolhido.
 
 A taxa principal por 100 mil habitantes será calculada pelo número de óbitos de residentes do município dividido pela população do mesmo município e ano. A ocorrência será analisada em contagens e em taxa territorial bruta, quando necessário, com indicação de que o denominador populacional não representa a população efetivamente exposta ao trânsito no local.
 
 Os fluxos foram definidos no nível do registro, mantendo o par residência e ocorrência. Para um município de ocorrência, foram calculados o total de vítimas residentes no próprio município, em outro município baiano, em outra UF ou com geografia não encontrada. A análise inversa foi feita para residentes de um município que morreram dentro ou fora dele.
+
+Para a análise complementar de frota, o numerador de motociclistas foi a categoria derivada da CID `Motociclista` e o denominador foi `frota_duas_rodas_motorizadas`. O numerador total foi dividido pela `frota_total` apenas como indicador exploratório. Foram calculadas associações em níveis municipais e em primeiras diferenças consecutivas, sem interpretar correlação como causalidade.
 
 ### 3.5 Análise temporal e espacial
 
@@ -74,7 +76,7 @@ No nível municipal, serão produzidas taxas anuais e taxas agrupadas em períod
 
 ### 3.6 Reprodutibilidade e qualidade
 
-As consultas foram executadas com DuckDB 1.4.4 no WSL. Cada entrada foi registrada por caminho, tamanho e SHA-256. O protocolo SQL e o executor estão versionados em `analysis/tcc2`. Os resultados possuem manifesto com data, versão do motor, filtro, hashes, número de linhas e amostra. As Gold foram reconciliadas com a Silver por ano, UF e papel geográfico.
+As consultas foram executadas com DuckDB 1.4.4 no WSL. Cada entrada foi registrada por caminho, tamanho e SHA-256. O protocolo SQL e o executor estão versionados em `analysis/tcc2`. Os resultados possuem manifesto com data, versão do motor, filtro, hashes, número de linhas e amostra. As Gold do SIM foram reconciliadas com a Silver por ano, UF e papel geográfico, e a Gold anual da SENATRAN foi verificada por competência, cobertura municipal, composição e integridade dos hashes.
 
 A camada Bronze continha cópias redundantes de arquivos produzidas por reexecuções antigas. Por isso, ela não foi concatenada diretamente para formar o numerador. A Silver canônica foi construída a partir de 405 fontes distintas identificadas por conteúdo. O identificador de registro combina a fonte e a posição da linha, permitindo verificar unicidade sem eliminar declarações apenas porque compartilham atributos.
 
@@ -90,7 +92,7 @@ A Silver nacional contém 20.410.620 registros e o mesmo número de identificado
 
 A auditoria física identificou 557 arquivos e 29.789.768 linhas no diretório Bronze, embora existam 405 combinações de UF e ano. A diferença decorre de cópias redundantes geradas por reexecuções antigas. A materialização Silver removeu a redundância no nível do arquivo de origem e manteve 20.410.620 registros únicos. As duas Gold reconciliaram integralmente com a Silver filtrada.
 
-A dimensão populacional anteriormente consumida pelo produto era incompleta. Na Bahia, continha entre 325 e 373 municípios conforme o ano. A nova extração em lote do SIDRA alcançou os 417 municípios em 2010, de 2011 a 2022 e em 2024. O ano de 2023 foi mantido sem taxa. Essa correção altera a confiabilidade de rankings e mapas e precisa ser promovida ao pipeline antes da versão final da ferramenta.
+A dimensão populacional anteriormente consumida pelo produto era incompleta. Na Bahia, continha entre 325 e 373 municípios conforme o ano. A nova extração em lote do SIDRA alcançou os 417 municípios em 2010, de 2011 a 2022 e em 2024. O ano de 2023 foi mantido sem taxa. A Gold da SENATRAN também possui 417 municípios por ano entre 2010 e 2024, com frota total e duas rodas disponíveis no recorte baiano. Essas correções alteram a confiabilidade de rankings, mapas e taxas e devem permanecer vinculadas aos respectivos manifestos antes da versão final da ferramenta.
 
 ### 4.2 Brasil e Bahia
 
@@ -120,6 +122,12 @@ A primeira classificação por taxa territorial bruta de ocorrência apontou per
 
 Duas situações ilustram a necessidade de aprofundamento. Barreiras apresentou de zero a dez óbitos anuais por ocorrência entre 2010 e 2015 e 92 em 2016. A série por residência também passou de três em 2015 para 30 em 2016. Os valores posteriores permaneceram elevados. A linhagem confirmou arquivos, códigos municipais e registros distintos, mas ainda não explica a ruptura. Gavião registrou 20 óbitos por ocorrência em 2024, o que produziu taxa bruta de 445,14 por 100 mil habitantes em uma população estimada de 4.493 pessoas. Todos os registros possuíam data de 7 de janeiro. Dezesseis vítimas residiam em Jacobina, três em Juazeiro e uma em Jaguarari. Os códigos da causa básica incluíam ocupantes de ônibus e de veículo pesado. Uma nota do Departamento de Polícia Técnica da Bahia sobre a mesma data e região registrou a colisão entre um caminhão e um micro-ônibus e informou 23 mortes. A convergência identifica um evento catastrófico específico como origem do extremo, embora a diferença entre os universos de contagem ainda precise ser reconciliada. Barreiras permanecerá como pista até reprodução externa, enquanto Gavião passa a exemplificar como um único evento pode dominar a taxa anual de uma pequena área.
 
+### 4.6 Frota e mortalidade de motociclistas
+
+Entre 2010 e 2024, a frota baiana de duas rodas passou de 790.224 para 2.031.641 veículos. No mesmo intervalo, os óbitos de residentes classificados como motociclistas passaram de 517 para 953. A razão exploratória entre esses valores caiu de 6,54 para 4,69 óbitos por 10 mil veículos de duas rodas. A queda da razão não deve ser lida como redução de risco individual, pois o estoque registrado não mede circulação, quilometragem, uso efetivo, idade dos veículos ou composição dos usuários.
+
+No painel municipal-ano, a correlação de níveis entre óbitos de motociclistas residentes e frota de duas rodas foi 0,748 em 6.255 observações. Quando foram comparadas apenas primeiras diferenças de anos consecutivos, a correlação foi 0,040 em 5.838 observações. A diferença entre as duas medidas indica que uma tendência comum entre municípios não equivale a uma associação de curto prazo. O resultado é útil para demonstrar a capacidade da ferramenta de cruzar numerador, denominador e dimensão municipal, mas não sustenta hipótese causal.
+
 ## 5. Discussão preliminar
 
 Os resultados mostram que a escala municipal acrescenta informação relevante à análise estadual, mas também expõe problemas que não aparecem nos totais. A diferença entre residência e ocorrência não é residual. Quase metade dos óbitos ocorridos na Bahia envolve outro município de residência ou geografia não encontrada. Em Vitória da Conquista, a entrada de vítimas de outros municípios supera a saída de residentes que morreram fora. Esse padrão confirma a necessidade de manter os dois papéis no sistema e impede o uso de uma única Gold municipal para todas as perguntas.
@@ -132,13 +140,15 @@ Os resultados municipais reforçam a fragilidade dos rankings anuais. A taxa de 
 
 A ruptura em Barreiras pode se tornar uma descoberta metodológica relevante. Se for confirmada como mudança de cobertura ou classificação, demonstrará como a qualidade local do registro altera mapas e tendências. Se for confirmada como mudança real, exigirá contextualização territorial e temporal. Em nenhuma das hipóteses a explicação deve ser escolhida a partir do formato da série.
 
+O cruzamento com a SENATRAN acrescenta um denominador complementar, mas não modifica a pergunta principal. O crescimento do estoque de duas rodas ocorreu ao mesmo tempo que o aumento absoluto de mortes de motociclistas e a redução da razão por 10 mil veículos. A correlação municipal de níveis e a ausência de associação relevante nas primeiras diferenças mostram por que a relação deve ser apresentada como exploração descritiva, estratificada e sensível ao porte municipal. Sem medida de circulação ou exposição individual, não é possível atribuir à frota o comportamento observado.
+
 ## 6. O produto como infraestrutura de evidência
 
-O software desenvolvido no projeto não constitui a pergunta científica. Sua função é garantir que as evidências possam ser reproduzidas, consultadas e exportadas. O pipeline preserva os arquivos recebidos, mantém uma Silver com linhagem e qualidade, materializa Gold separadas por residência e ocorrência e expõe agregações para tabelas, gráficos e mapas.
+O software desenvolvido no projeto não constitui a pergunta científica. Sua função é garantir que as evidências possam ser reproduzidas, consultadas e exportadas. O pipeline preserva os arquivos recebidos, mantém uma Silver com linhagem e qualidade, materializa Gold separadas por residência e ocorrência, integra a dimensão municipal e a frota SENATRAN por município e ano e expõe agregações para tabelas, gráficos e mapas. A interface mantém metadados de fonte, atualização, competência e disponibilidade do denominador.
 
 A interface deve permitir filtros por período, localidade, papel geográfico, sexo, faixa etária e categoria da vítima. Cada visualização precisa apresentar fonte, data de atualização, filtros e disponibilidade de denominadores. Municípios sem óbitos devem permanecer no mapa com preenchimento neutro. Taxas devem ficar indisponíveis quando o denominador não existir. Relatórios e exportações devem conservar os metadados necessários para uso como evidência no artigo.
 
-A avaliação do produto será baseada na reconciliação dos totais, na consistência entre API e consulta SQL, na exibição correta de todos os polígonos, na resposta dos filtros e na reprodução de tabelas do artigo. Funcionalidades fora do escopo, como custos do SIA e previsão TimesFM, não serão usadas para justificar a contribuição desta versão.
+A avaliação do produto será baseada na reconciliação dos totais, na consistência entre API e consulta SQL, na exibição correta de todos os polígonos, na resposta dos filtros, na paridade dos fluxos e na reprodução de tabelas do artigo. A validação adicional mostrou que o recorte de ocorrência, Bahia, 2024 e motociclistas retorna 933 óbitos tanto na API quanto na Silver. Funcionalidades fora do escopo, como custos do SIA e previsão TimesFM, não serão usadas para justificar a contribuição desta versão.
 
 ## 7. Limitações
 
@@ -146,17 +156,25 @@ O SIM depende do preenchimento da Declaração de Óbito e da classificação da
 
 As taxas populacionais utilizam censos e estimativas produzidos por métodos diferentes ao longo do período. A comparação histórica deve reconhecer revisões e alterações territoriais. O ano de 2023 permanece sem denominador anual exato nesta versão. A população residente não mede circulação, volume de tráfego, quilômetros percorridos ou população flutuante.
 
-As análises apresentadas são preliminares e utilizam taxas brutas. Ainda não foram aplicadas padronização por idade, suavização, regressão temporal definitiva ou testes de autocorrelação espacial. Os achados municipais não devem orientar decisão pública antes dessas etapas e da avaliação de estabilidade.
+A frota da SENATRAN representa estoque registrado no município e na competência da fonte. Ela não informa quilometragem, intensidade de uso, circulação de veículos de fora, exposição dos ocupantes ou qualidade da infraestrutura. A categoria de motociclista é inferida da causa básica da morte e não identifica todos os veículos envolvidos. As taxas veiculares, portanto, são razões exploratórias e não medidas individuais de risco.
+
+As análises apresentadas são preliminares e utilizam taxas brutas. Ainda não foram aplicadas padronização por idade, suavização, regressão temporal definitiva ou testes de autocorrelação espacial. O campo de ocorrência indica o município do óbito, não necessariamente o ponto do acidente. Os achados municipais não devem orientar decisão pública antes dessas etapas e da avaliação de estabilidade.
 
 ## 8. Conclusão provisória
 
 A reconstrução auditável do SIM mostrou que a mortalidade por acidentes de transporte terrestre na Bahia não pode ser descrita de forma adequada por um único total municipal. Residência e ocorrência produzem leituras complementares, e os fluxos revelam relações territoriais relevantes, como a concentração de vítimas não residentes em Vitória da Conquista. O perfil observado é predominantemente masculino e concentrado em adultos jovens, ao mesmo tempo em que uma parcela expressiva dos códigos CID permanece inespecífica.
 
-A primeira EDA também identificou limites concretos para a interpretação de taxas municipais, incluindo denominadores incompletos no pipeline anterior, valores extremos em pequenas populações e rupturas temporais que exigem auditoria. A próxima etapa deverá estabilizar as taxas, estimar tendências e testar padrões espaciais. A contribuição esperada não é apenas apresentar um mapa, mas construir uma análise municipal cuja evidência possa ser reproduzida e cuja incerteza permaneça visível.
+A primeira EDA também identificou limites concretos para a interpretação de taxas municipais, incluindo denominadores incompletos no pipeline anterior, valores extremos em pequenas populações, rupturas temporais que exigem auditoria e a distância entre estoque de frota e exposição real. A próxima etapa deverá estabilizar as taxas, estimar tendências e testar padrões espaciais. A contribuição esperada não é apenas apresentar um mapa ou uma correlação, mas construir uma análise municipal cuja evidência possa ser reproduzida e cuja incerteza permaneça visível.
 
 ## Referências provisórias verificadas
 
 BAHIA. Departamento de Polícia Técnica. Nota: Polícia Técnica, acidente entre caminhão e micro-ônibus em Gavião. Salvador, 9 jan. 2024. Disponível em: https://www.ba.gov.br/policiatecnica/noticia/2024-04/940/nota-policia-tecnica-acidente-entre-caminhao-e-micro-onibus-em-gaviao. Acesso em: 4 ago. 2026.
+
+BRASIL. Ministério da Saúde. Coordenação-Geral de Informações e Análises Epidemiológicas. Dicionário de dados do Sistema de Informações sobre Mortalidade: tabela DO. Brasília, 2025. Disponível em: https://svs.aids.gov.br/daent/cgiae/coesv/sistemas-informacao/sim/documentacao/dicionario-de-dados-SIM-tabela-DO.pdf. Acesso em: 18 ago. 2026.
+
+BRASIL. Ministério da Saúde. Nota metodológica do TABNET: contagens de óbitos por local de residência e por local de ocorrência. Brasília, 2025. Disponível em: https://tabnet.datasus.gov.br/cgi/sim/Obitos_Evitaveis_0_a_4_anos.pdf. Acesso em: 18 ago. 2026.
+
+BRASIL. Secretaria Nacional de Trânsito. Estatísticas de frota de veículos. Brasília, 2026. Disponível em: https://www.gov.br/transportes/pt-br/assuntos/transito/conteudo-Senatran/estatisticas-frota-de-veiculos-senatran. Acesso em: 18 ago. 2026.
 
 MALTA, Deborah Carvalho et al. Mortality by road transport injury in Brazilian municipalities between 2000 and 2018. Public Health, v. 220, p. 120-126, 2023. DOI: 10.1016/j.puhe.2023.04.013.
 
