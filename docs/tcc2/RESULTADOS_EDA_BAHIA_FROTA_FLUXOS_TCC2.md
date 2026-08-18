@@ -52,7 +52,7 @@ Barreiras permanece como quebra de cobertura ou de fenômeno a investigar. A oco
 
 O script de validação chamou `GET /api/sim/summary` e `GET /api/sim/geo` no recorte de ocorrência, Bahia, 2024 e categoria `Motociclista`. A API retornou 933 óbitos e 417 polígonos; a consulta independente na Silver retornou os mesmos 933 registros. As duas comparações foram verdadeiras: `summary_vs_silver = true` e `geo_vs_silver = true`. Essa verificação demonstra paridade de serving, não validade epidemiológica.
 
-Na branch de implementação, a suíte Python foi executada com a Gold auditada apontada explicitamente pelo ambiente e retornou 116 testes aprovados e 9 ignorados. Os testes de análise do TCC retornaram 4 aprovados. A validação de interface deve permanecer como evidência complementar de uso, enquanto a reconciliação Silver–Gold e API–DuckDB são as provas centrais de correção numérica.
+Na branch de implementação, a suíte Python foi executada com a Gold auditada apontada explicitamente pelo ambiente e retornou 116 testes aprovados e 9 ignorados. No checkout desta revisão, os contratos `test_sim_api.py` e `test_senatran_api.py` retornaram 14 testes aprovados. Os testes de análise do TCC retornaram 4 aprovados. A validação de interface deve permanecer como evidência complementar de uso, enquanto a reconciliação Silver–Gold e API–DuckDB são as provas centrais de correção numérica.
 
 ## Decisão para o artigo
 
