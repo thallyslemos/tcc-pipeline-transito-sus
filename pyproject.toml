@@ -53,6 +53,17 @@ ignore = ["S608", "S101", "S104"]
 # sys.path antes de imports do monorepo.
 "mcp-server/server.py" = ["E402"]
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+# torch e usado apenas para inferencia do TimesFM (CPU); a build padrao do
+# PyPI arrasta ~3-4GB de pacotes CUDA (nvidia-cublas, nvidia-cudnn, etc.)
+# mesmo sem GPU disponivel neste projeto/deploy.
+torch = { index = "pytorch-cpu" }
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
