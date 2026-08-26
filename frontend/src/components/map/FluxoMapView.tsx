@@ -3,11 +3,35 @@
 import { useCallback, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { ArcLayer } from "@deck.gl/layers";
 import { useTheme } from "@/components/ThemeProvider";
-import { buildArcPoints, buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
+import { buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
 import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import type { SimFluxoEdge } from "@/lib/types";
+
+type LngLat = [number, number];
+
+interface ArcDatum {
+  source: LngLat;
+  target: LngLat;
+  obitos: number;
+  municipio: string;
+  uf: string;
+  participacao: number;
+}
+
+type RgbColor = [number, number, number];
+
+const ARC_COLOR_LIGHT: { source: RgbColor; target: RgbColor } = {
+  source: [251, 191, 36], // amber-400: ponto de partida do fluxo
+  target: [194, 65, 12], // orange-800: ponto de chegada do fluxo
+};
+const ARC_COLOR_DARK: { source: RgbColor; target: RgbColor } = {
+  source: [253, 224, 71], // amber-300
+  target: [251, 113, 36], // orange-500
+};
 
 interface Props {
   geoData: FluxoGeoFeatureCollection;
@@ -33,12 +57,21 @@ function mapStyle(isDark: boolean): maplibregl.StyleSpecification {
   };
 }
 
-function buildArcsGeoJson(
+/**
+ * Monta os dados de arco (3D, via deck.gl ArcLayer) e os pontos de extremidade.
+ *
+ * A direcao do arco (source -> target) segue o sentido real do fluxo: em
+ * "origens" o alvo e o municipio de ocorrencia, entao o arco vai da residencia
+ * (source) ate o alvo (target); em "destinos" o alvo e a residencia, entao o
+ * arco vai do alvo (source) ate o municipio de ocorrencia (target).
+ */
+function buildFlowData(
   geoData: FluxoGeoFeatureCollection,
   arestas: SimFluxoEdge[],
-  codigoAlvo: string
-): { arcs: GeoJSON.FeatureCollection; endpoints: GeoJSON.FeatureCollection } {
-  const centroidByCode: Record<string, [number, number]> = {};
+  codigoAlvo: string,
+  direcao: "origens" | "destinos"
+): { arcs: ArcDatum[]; endpoints: GeoJSON.FeatureCollection } {
+  const centroidByCode: Record<string, LngLat> = {};
   for (const feature of geoData.features) {
     const cod6 = String(feature.properties?.cod_mun_ibge ?? "").slice(0, 6);
     const c = polygonCentroid(feature.geometry);
@@ -47,49 +80,38 @@ function buildArcsGeoJson(
 
   const alvoCentroid = centroidByCode[codigoAlvo];
   if (!alvoCentroid) {
-    return {
-      arcs: { type: "FeatureCollection", features: [] },
-      endpoints: { type: "FeatureCollection", features: [] },
-    };
+    return { arcs: [], endpoints: { type: "FeatureCollection", features: [] } };
   }
 
-  const maxObitos = Math.max(...arestas.filter((a) => !a.propria_municipio).map((a) => a.obitos), 1);
-  const features: GeoJSON.Feature[] = [];
-  const destinations: [number, number][] = [];
-  let arcIndex = 0;
+  const arcs: ArcDatum[] = [];
+  const destinations: LngLat[] = [];
 
   for (const edge of arestas) {
     if (edge.propria_municipio) continue;
     const cod6 = edge.cod_mun_ibge.slice(0, 6);
-    const destino = centroidByCode[cod6];
-    if (!destino) continue;
+    const outro = centroidByCode[cod6];
+    if (!outro) continue;
 
-    destinations.push(destino);
-    const coords = buildArcPoints(alvoCentroid, destino, 32, arcIndex);
-    arcIndex += 1;
-    features.push({
-      type: "Feature",
-      geometry: { type: "LineString", coordinates: coords },
-      properties: {
-        obitos: edge.obitos,
-        municipio: edge.municipio,
-        uf: edge.uf,
-        participacao: edge.participacao,
-        ratioWidth: edge.obitos / maxObitos,
-      },
+    destinations.push(outro);
+    const [source, target] = direcao === "origens" ? [outro, alvoCentroid] : [alvoCentroid, outro];
+    arcs.push({
+      source,
+      target,
+      obitos: edge.obitos,
+      municipio: edge.municipio,
+      uf: edge.uf,
+      participacao: edge.participacao,
     });
   }
 
-  return {
-    arcs: { type: "FeatureCollection", features },
-    endpoints: buildEndpointFeatures(alvoCentroid, destinations),
-  };
+  return { arcs, endpoints: buildEndpointFeatures(alvoCentroid, destinations) };
 }
 
-export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _direcao }: Props) {
+export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const popup = useRef<maplibregl.Popup | null>(null);
+  const deckOverlay = useRef<MapboxOverlay | null>(null);
   const { theme } = useTheme();
   const dark = theme === "dark";
 
@@ -97,14 +119,17 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
     const instance = map.current;
     if (!instance || !instance.isStyleLoaded()) return;
 
-    ["fluxo-endpoints", "fluxo-arcs", "poly-outline", "poly-fill"].forEach((id) => {
+    ["fluxo-endpoints", "poly-outline", "poly-fill"].forEach((id) => {
       if (instance.getLayer(id)) instance.removeLayer(id);
     });
-    ["endpoints", "polygons", "arcs"].forEach((id) => {
+    ["endpoints", "polygons"].forEach((id) => {
       if (instance.getSource(id)) instance.removeSource(id);
     });
 
-    if (!geoData?.features?.length) return;
+    if (!geoData?.features?.length) {
+      deckOverlay.current?.setProps({ layers: [] });
+      return;
+    }
 
     const flowFeatures = geoData.features.filter((f) => f.properties?.has_flow);
     const maxObitos = Math.max(...flowFeatures.map((f) => Number(f.properties?.obitos ?? 0)), 1);
@@ -177,37 +202,47 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
     });
     instance.on("mouseleave", "poly-fill", () => popup.current?.remove());
 
-    const { arcs, endpoints } = buildArcsGeoJson(geoData, arestas, codigoAlvo);
-    if (arcs.features.length) {
-      const maxArcObitos = Math.max(...arcs.features.map((f) => Number(f.properties?.obitos ?? 0)), 1);
-      instance.addSource("arcs", { type: "geojson", data: arcs });
-      instance.addLayer({
-        id: "fluxo-arcs",
-        type: "line",
-        source: "arcs",
-        paint: {
-          "line-color": dark ? "#fb923c" : "#ea580c",
-          "line-width": ["interpolate", ["linear"], ["get", "obitos"], 1, 1.5, maxArcObitos, 8],
-          "line-opacity": 0.85,
-          "line-cap": "round",
-        },
-      });
-      instance.on("mousemove", "fluxo-arcs", (e) => {
-        const feature = e.features?.[0];
-        if (!feature) return;
-        const p = feature.properties as Record<string, unknown>;
-        popup.current
-          ?.setLngLat(e.lngLat)
-          .setHTML(
+    const { arcs, endpoints } = buildFlowData(geoData, arestas, codigoAlvo, direcao);
+    const arcPalette = dark ? ARC_COLOR_DARK : ARC_COLOR_LIGHT;
+    const maxArcObitos = Math.max(...arcs.map((a) => a.obitos), 1);
+
+    deckOverlay.current?.setProps({
+      layers: [
+        new ArcLayer<ArcDatum>({
+          id: "fluxo-arcs-3d",
+          data: arcs,
+          pickable: true,
+          greatCircle: true,
+          numSegments: 48,
+          getSourcePosition: (d) => d.source,
+          getTargetPosition: (d) => d.target,
+          getSourceColor: [...arcPalette.source, 210],
+          getTargetColor: [...arcPalette.target, 230],
+          getWidth: (d) => 1.5 + 7.5 * (d.obitos / maxArcObitos),
+          getHeight: (d) => 0.5 + 0.7 * (d.obitos / maxArcObitos),
+          widthMinPixels: 1.5,
+          widthMaxPixels: 9,
+        }),
+      ],
+      getTooltip: ({ object }: { object?: ArcDatum }) => {
+        if (!object) return null;
+        return {
+          html:
             `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6">` +
-              `<b>${p.municipio ?? ""}</b> <span style="opacity:.6">${p.uf ?? ""}</span>` +
-              `<br/><b>${Number(p.obitos).toLocaleString("pt-BR")}</b> obitos` +
-              ` (${(Number(p.participacao) * 100).toFixed(1)}%)</div>`
-          )
-          .addTo(instance);
-      });
-      instance.on("mouseleave", "fluxo-arcs", () => popup.current?.remove());
-    }
+            `<b>${object.municipio}</b> <span style="opacity:.6">${object.uf}</span>` +
+            `<br/><b>${object.obitos.toLocaleString("pt-BR")}</b> obitos` +
+            ` (${(object.participacao * 100).toFixed(1)}%)</div>`,
+          style: {
+            backgroundColor: dark ? "#1f2937" : "#ffffff",
+            color: dark ? "#f3f4f6" : "#111827",
+            border: `1px solid ${dark ? "#374151" : "#e5e7eb"}`,
+            borderRadius: "8px",
+            padding: "6px 10px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+          },
+        };
+      },
+    });
 
     if (endpoints.features.length) {
       instance.addSource("endpoints", { type: "geojson", data: endpoints });
@@ -244,7 +279,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
         { padding: 60, animate: true, maxZoom: 10 }
       );
     }
-  }, [geoData, arestas, codigoAlvo, dark]);
+  }, [geoData, arestas, codigoAlvo, direcao, dark]);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -253,7 +288,12 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
       style: mapStyle(dark),
       center: [-49.5, -14.5],
       zoom: 3.8,
+      pitch: 45,
+      bearing: -10,
     });
+    const overlay = new MapboxOverlay({ interleaved: false, layers: [] });
+    instance.addControl(overlay);
+    deckOverlay.current = overlay;
     instance.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     popup.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "260px" });
     instance.on("load", addLayers);
@@ -262,6 +302,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
       popup.current?.remove();
       instance.remove();
       map.current = null;
+      deckOverlay.current = null;
     };
   }, [addLayers, dark]);
 
@@ -284,8 +325,11 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao: _d
           Escala de obitos
         </div>
         <div className="mt-1 flex items-center gap-2">
-          <span className="inline-block h-1.5 w-6 rounded-full" style={{ backgroundColor: "#ea580c" }} />
-          Arco origem-destino
+          <span
+            className="inline-block h-1.5 w-6 rounded-full"
+            style={{ background: "linear-gradient(90deg, #fbbf24 0%, #c2410c 100%)" }}
+          />
+          Arco 3D origem &rarr; destino (arraste com botao direito para inclinar)
         </div>
       </div>
     </div>
