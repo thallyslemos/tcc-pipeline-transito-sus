@@ -1,0 +1,54 @@
+# Configuracao do git-cliff — gera CHANGELOG.md a partir de Conventional Commits.
+# Uso local: git-cliff -o CHANGELOG.md          (reescreve o arquivo inteiro)
+#            git-cliff --latest --strip header  (so a secao da tag mais recente, usado no CI)
+
+[changelog]
+header = """
+# Changelog
+
+Todas as mudancas notaveis deste projeto sao documentadas aqui.
+Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
+[Conventional Commits](https://www.conventionalcommits.org/pt-br/); versionamento
+segue [SemVer](https://semver.org/lang/pt-BR/).
+"""
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Nao lancado]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits -%}
+        - {{ commit.message | upper_first }}{% if commit.remote.pr_number %} (#{{ commit.remote.pr_number }}){% endif %}
+    {% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+topo_order = false
+sort_commits = "oldest"
+
+commit_parsers = [
+    { message = "^feat", group = "Adicionado" },
+    { message = "^fix", group = "Corrigido" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Modificado" },
+    { message = "^docs", group = "Documentacao" },
+    { message = "^test", group = "Testes" },
+    { message = "^chore\\(deps\\)", group = "Dependencias" },
+    { message = "^chore\\(release\\):", skip = true },
+    { message = "^chore", group = "Manutencao" },
+    { message = "^style", group = "Estilo" },
+    { message = "^ci", group = "CI/CD" },
+    { message = "^build", group = "Build" },
+    { message = "^revert", group = "Revertido" },
+    { message = ".*", group = "Outros" },
+]
