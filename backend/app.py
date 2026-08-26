@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import close_connection, get_connection
-from .routers import dashboard, geo, indicadores, mcp_bridge, predict, senatran, sim_only
+from .routers import dashboard, geo, indicadores, mcp_bridge, predict, senatran, sim_only, sim_temporal
 
 
 def _setup_logging() -> None:
@@ -92,6 +92,7 @@ app.include_router(indicadores.router)
 app.include_router(mcp_bridge.router)
 app.include_router(predict.router)
 app.include_router(sim_only.router)
+app.include_router(sim_temporal.router)
 app.include_router(senatran.router)
 
 

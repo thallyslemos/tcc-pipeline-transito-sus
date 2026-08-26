@@ -107,6 +107,91 @@ export interface SimFluxoEdge {
   geografia_status: string;
 }
 
+export interface SerieMensalPonto {
+  competencia: string;
+  obitos: number;
+}
+
+export interface SerieMensalResumo {
+  total_obitos: number;
+  media_mensal: number | null;
+  desvio_mensal: number | null;
+  mes_pico: string | null;
+  share_mes_pico: number | null;
+  meses_com_obito: number;
+  hhi_mensal: number | null;
+  classe_concentracao: "concentrado" | "difuso" | null;
+  alerta: boolean;
+}
+
+export interface SimSerieMensal {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
+  pontos: SerieMensalPonto[];
+  resumo: SerieMensalResumo;
+  filtros: Record<string, unknown>;
+  notas_metodologicas: string;
+}
+
+export interface DiaSemanaDistribuicao {
+  dia_semana: number;
+  dia_semana_nome: string;
+  obitos: number;
+  dias_no_calendario: number;
+  media_por_dia: number;
+  proporcao_observada: number;
+  indice: number;
+}
+
+export interface DiaSemanaGrupo {
+  obitos: number;
+  dias_calendario: number;
+  media_por_dia: number;
+  proporcao_observada: number;
+  proporcao_esperada_calendario: number;
+}
+
+export interface SimDiaSemana {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
+  periodo: { inicio: string; fim: string };
+  total_obitos: number;
+  distribuicao: DiaSemanaDistribuicao[];
+  fim_de_semana: DiaSemanaGrupo;
+  dia_util: DiaSemanaGrupo;
+  razao_fim_semana: number | null;
+  qui_quadrado: {
+    estatistica: number | null;
+    gl: number;
+    p_valor: number | null;
+    significativo_005: boolean | null;
+  };
+  filtros: Record<string, unknown>;
+  notas_metodologicas: string;
+}
+
+export interface SimOutlierMunicipio {
+  cod_mun_ibge: string;
+  municipio: string;
+  uf: string;
+  ano: number;
+  obitos_ano: number;
+  populacao: number | null;
+  taxa_100mil: number | null;
+  meses_com_obito: number;
+  share_mes_pico: number;
+  share_dia_pico: number;
+  classe_concentracao: "evento_unico" | "concentrado" | "difuso";
+}
+
+export interface SimOutliers {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
+  municipios: SimOutlierMunicipio[];
+  filtros: Record<string, unknown>;
+  notas_metodologicas: string;
+}
+
 export interface SimFluxo {
   fonte: "SIM";
   direcao: "origens" | "destinos";

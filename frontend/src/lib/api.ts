@@ -2,9 +2,12 @@ import type {
   FilterValues,
   MapPoint,
   SimCatalog,
+  SimDiaSemana,
   SimFluxo,
   SimMunicipio,
   SimMunicipioDetail,
+  SimOutliers,
+  SimSerieMensal,
   SimSummary,
 } from "./types";
 
@@ -116,6 +119,54 @@ export const fetchSimFluxos = (
   if (filters.top_n) params.set("top_n", String(filters.top_n));
   if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
   return get<SimFluxo>(`/api/sim/fluxos?${params}`);
+};
+
+export interface TemporalFilters {
+  dimensao?: "ocorrencia" | "residencia";
+  ano?: number;
+  ano_inicio?: number;
+  ano_fim?: number;
+  uf?: string;
+  regiao?: string;
+  cod_mun_ibge?: string;
+  tipo_veiculo?: string;
+}
+
+function temporalQuery(filters: TemporalFilters = {}): string {
+  const params = new URLSearchParams();
+  params.set("dimensao", filters.dimensao ?? "ocorrencia");
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.ano_inicio) params.set("ano_inicio", String(filters.ano_inicio));
+  if (filters.ano_fim) params.set("ano_fim", String(filters.ano_fim));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.cod_mun_ibge) params.set("cod_mun_ibge", filters.cod_mun_ibge);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  return `?${params.toString()}`;
+}
+
+export const fetchSimTemporalSerieMensal = (filters: TemporalFilters = {}) =>
+  get<SimSerieMensal>(`/api/sim/temporal/serie-mensal${temporalQuery(filters)}`);
+
+export const fetchSimTemporalDiaSemana = (filters: TemporalFilters = {}) =>
+  get<SimDiaSemana>(`/api/sim/temporal/dia-semana${temporalQuery(filters)}`);
+
+export const fetchSimTemporalOutliers = (
+  filters: TemporalFilters & { min_obitos?: number; somente_concentrados?: boolean } = {}
+) => {
+  const params = new URLSearchParams();
+  params.set("dimensao", filters.dimensao ?? "ocorrencia");
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.ano_inicio) params.set("ano_inicio", String(filters.ano_inicio));
+  if (filters.ano_fim) params.set("ano_fim", String(filters.ano_fim));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  if (filters.somente_concentrados !== undefined) {
+    params.set("somente_concentrados", String(filters.somente_concentrados));
+  }
+  return get<SimOutliers>(`/api/sim/temporal/outliers?${params}`);
 };
 
 export const fetchSimFluxosGeo = (

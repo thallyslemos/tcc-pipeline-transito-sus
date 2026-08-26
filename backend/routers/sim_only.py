@@ -106,6 +106,8 @@ def _role(dimensao: Role) -> Role:
 def _where_clauses(
     *,
     ano: int | None = None,
+    ano_inicio: int | None = None,
+    ano_fim: int | None = None,
     uf: str | None = None,
     regiao: str | None = None,
     tipo_veiculo: str | None = None,
@@ -117,6 +119,11 @@ def _where_clauses(
         clauses.append("geografia_status = 'encontrado'")
     if ano is not None:
         clauses.append(f"ano = {ano}")
+    elif ano_inicio is not None or ano_fim is not None:
+        if ano_inicio is not None:
+            clauses.append(f"ano >= {ano_inicio}")
+        if ano_fim is not None:
+            clauses.append(f"ano <= {ano_fim}")
     if uf:
         clauses.append(f"uf = '{_text(uf.upper())}'")
     if regiao:

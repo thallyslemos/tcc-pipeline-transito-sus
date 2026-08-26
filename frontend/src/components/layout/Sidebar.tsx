@@ -12,6 +12,7 @@ import {
   Sun,
   Moon,
   GitBranch,
+  CalendarClock,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/ranking", label: "Ranking", icon: BarChart3 },
   { href: "/mapa", label: "Mapa", icon: Map },
   { href: "/fluxos", label: "Fluxos", icon: GitBranch },
+  { href: "/temporal", label: "Temporal", icon: CalendarClock },
   { href: "/previsao", label: "Tendencias", icon: Sparkles },
   { href: "/chat", label: "Exploracao", icon: MessageCircle },
   { href: "/dados", label: "Dados e metadados", icon: Database },
