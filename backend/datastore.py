@@ -41,6 +41,11 @@ class _PgSqlResult:
             cur.execute(self._query)
             return cur.fetchone()
 
+    def fetchall(self) -> list[Any]:
+        with self._conn.cursor() as cur:
+            cur.execute(self._query)
+            return cur.fetchall()
+
     def fetchdf(self) -> pd.DataFrame:
         """Lê resultado via cursor psycopg (sem pandas.read_sql para evitar warnings)."""
         with self._conn.cursor() as cur:
@@ -65,6 +70,11 @@ class _PgExecResult:
         with self._conn.cursor() as cur:
             cur.execute(self._query, self._params)
             return cur.fetchone()
+
+    def fetchall(self) -> list[Any]:
+        with self._conn.cursor() as cur:
+            cur.execute(self._query, self._params)
+            return cur.fetchall()
 
     def fetchdf(self) -> pd.DataFrame:
         with self._conn.cursor() as cur:

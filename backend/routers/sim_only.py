@@ -25,6 +25,11 @@ _SILVER_CONTRACT = "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet"
 
 def _silver_source() -> str:
     """Fonte da Silver contratual v2 para consultas de fluxos residencia-ocorrencia."""
+    if settings.use_postgres and settings.database_url:
+        raise HTTPException(
+            status_code=503,
+            detail="A Silver SIM v2 (fluxos/temporal por dia) requer o backend DuckDB nesta fase",
+        )
     path = settings.resolve(_SILVER_CONTRACT)
     if not path.exists():
         raise HTTPException(
