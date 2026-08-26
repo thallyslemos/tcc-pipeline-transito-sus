@@ -25,6 +25,11 @@ class Regiao(StrEnum):
     centro_oeste = "Centro-Oeste"
 
 
+def _escape_sql_literal(value: str) -> str:
+    """Escapa aspas simples para uso seguro dentro de literais SQL interpolados."""
+    return value.replace("'", "''")
+
+
 def _sanitize_floats(rows: list[dict]) -> list[dict]:
     """Substitui float nan por None para serializacao JSON."""
     for r in rows:
@@ -77,11 +82,11 @@ def _where(
     if ano is not None:
         clauses.append(f"ano = {ano}")
     if mun:
-        clauses.append(f"cod_mun_ibge = '{mun}'")
+        clauses.append(f"cod_mun_ibge = '{_escape_sql_literal(mun)}'")
     if veiculo:
-        clauses.append(f"tipo_veiculo = '{veiculo}'")
+        clauses.append(f"tipo_veiculo = '{_escape_sql_literal(veiculo)}'")
     if uf:
-        clauses.append(f"uf = '{uf}'")
+        clauses.append(f"uf = '{_escape_sql_literal(uf)}'")
     if regiao:
         ufs_in_region = REGIOES[regiao.value]
         clauses.append(f"uf IN {tuple(ufs_in_region)}")

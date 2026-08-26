@@ -21,7 +21,7 @@ from ..ibge import (
     get_populacao,
     taxa_por_100mil,
 )
-from .utils import Dimensao, Regiao, _has_view
+from .utils import Dimensao, Regiao, _escape_sql_literal, _has_view
 
 router = APIRouter(prefix="/api/indicadores", tags=["Indicadores"])
 
@@ -152,7 +152,7 @@ async def indicadores_municipio(
 async def ranking_indicadores(
     ano: int = 2023,
     metrica: str = "taxa_obitos_100mil",
-    uf: str | None = Query(None, alias="uf"),
+    uf: str | None = Query(None, alias="uf", min_length=2, max_length=2),
     regiao: Regiao | None = Query(None, alias="regiao"),
 ):
     """Ranking comparativo de municipios por indicador relativo."""
@@ -165,7 +165,7 @@ async def ranking_indicadores(
         ufs_in_region = REGIOES[regiao.value]
         uf_filter = f" AND uf IN {tuple(ufs_in_region)}"
     elif uf:
-        uf_filter = f" AND uf = '{uf}'"
+        uf_filter = f" AND uf = '{_escape_sql_literal(uf.upper())}'"
     else:
         uf_filter = ""
 
