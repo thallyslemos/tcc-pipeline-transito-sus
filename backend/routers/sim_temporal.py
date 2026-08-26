@@ -57,8 +57,11 @@ def _periodo(
     if ano is not None:
         return f"{ano}-01-01", f"{ano}-12-31", ano, ano
     if ano_inicio is not None or ano_fim is not None:
-        lo = ano_inicio if ano_inicio is not None else 2010
-        hi = ano_fim if ano_fim is not None else lo
+        # Range aberto: informar so um dos limites usa o extremo do contrato
+        # como default, consistente com o range aberto de _where_clauses
+        # (usado por /serie-mensal) para os mesmos parametros.
+        lo = ano_inicio if ano_inicio is not None else int(_DATA_RANGE_MIN[:4])
+        hi = ano_fim if ano_fim is not None else int(_DATA_RANGE_MAX[:4])
         if lo > hi:
             raise HTTPException(status_code=422, detail="ano_inicio deve ser <= ano_fim")
         return f"{lo}-01-01", f"{hi}-12-31", lo, hi
