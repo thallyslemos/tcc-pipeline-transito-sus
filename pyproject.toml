@@ -69,4 +69,5 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: testes que exigem serviços externos (ex.: PostgreSQL)",
+    "requires_data: testes que exigem data/gold e/ou data/silver reais (não versionados no git; não rodam em CI)",
 ]

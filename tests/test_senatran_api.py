@@ -1,5 +1,9 @@
 """Contratos HTTP da dimensão de frota SENATRAN validada."""
 
+import pytest
+
+pytestmark = pytest.mark.requires_data
+
 
 def test_senatran_metadata_has_validated_annual_grain(client):
     response = client.get("/api/senatran/metadata")

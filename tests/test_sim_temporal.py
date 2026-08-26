@@ -1,5 +1,9 @@
 """Contratos HTTP dos endpoints de dimensao temporal SIM (/api/sim/temporal)."""
 
+import pytest
+
+pytestmark = pytest.mark.requires_data
+
 # Bahia/2024: valor fixado e validado contra o mart Gold mensal (mesmo total do
 # /api/sim/summary). Salvador/2024 e Gaviao/2024 sao os casos-teste fixos descritos
 # em ESPEC_DIMENSAO_TEMPORAL.md, secao 2.3.

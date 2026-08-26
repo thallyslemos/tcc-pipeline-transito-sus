@@ -1,5 +1,9 @@
 """Contratos HTTP dos endpoints de fluxos residencia-ocorrencia SIM."""
 
+import pytest
+
+pytestmark = pytest.mark.requires_data
+
 # Municipio de teste: Vitoria da Conquista (BA), cod 293330.
 # Valores fixados nos dados silver 2024 e validados manualmente.
 _COD = "293330"

@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 
 from .conftest import normalize_str
 
+pytestmark = pytest.mark.requires_data
+
 _UFS_BR = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
     "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",

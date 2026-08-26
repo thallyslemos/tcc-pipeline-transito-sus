@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import duckdb
+import pytest
 from backend.services.onsv_audit import build_onsv_audit_report
 
 
@@ -50,6 +51,18 @@ def test_audit_deduplicates_identical_sim_files(tmp_path: Path):
     assert annual["residencia_ba_deduplicada"] == 2
 
 
+@pytest.mark.requires_data
+@pytest.mark.xfail(
+    reason=(
+        "auditoria.router nunca foi registrado em backend/app.py desde "
+        "7246b22 (feat(api): expose SIM-only evidence contract), que "
+        "deliberadamente tornou a comparacao ONSV nao-publica — ver "
+        "test_sim_api.py::test_onsv_comparison_is_not_a_public_feature. "
+        "Este teste ficou orfao da decisao de produto; manter como xfail "
+        "ate decidir se o router/teste devem ser removidos."
+    ),
+    strict=True,
+)
 def test_audit_endpoint_reproduces_onsv_anchors(client):
     response = client.get("/api/dashboard/auditoria/onsv-2024")
 

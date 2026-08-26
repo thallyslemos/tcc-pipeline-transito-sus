@@ -2,6 +2,10 @@
 
 import re
 
+import pytest
+
+pytestmark = pytest.mark.requires_data
+
 
 def _sum_breakdown(items: list[dict], key: str) -> int:
     return sum(int(row["total"]) for row in items)
