@@ -87,9 +87,11 @@ export default function TemporalPage() {
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((r) => setAnos(r.anos));
     fetchSimTipos(filters.dimensao).then((r) => setTipos(r.tipos));
-    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 500).then((r) =>
-      setUfs([...new Set(r.municipios.map((m) => m.uf))].sort())
-    );
+    // page_size maximo aceito pela API e 200 (acima disso o backend retorna
+    // 422 e, sem .catch, o dropdown de UF ficava vazio silenciosamente).
+    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200)
+      .then((r) => setUfs([...new Set(r.municipios.map((m) => m.uf))].sort()))
+      .catch(() => setUfs([]));
   }, [filters.dimensao]);
 
   useEffect(() => {
