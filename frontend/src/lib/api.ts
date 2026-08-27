@@ -8,6 +8,10 @@ import type {
   SimMunicipioDetail,
   SimOutliers,
   SimPopulacaoCobertura,
+  SimPrelimCompletude,
+  SimPrelimMetadata,
+  SimPrelimMunicipios,
+  SimPrelimSummary,
   SimSerieMensal,
   SimSummary,
 } from "./types";
@@ -199,3 +203,41 @@ export const fetchSimFluxosGeo = (
   if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
   return get<FluxoGeoFeatureCollection>(`/api/sim/fluxos/geo?${params}`);
 };
+
+// --- SIM preliminar (endpoints proprios /api/sim/prelim/*; nunca /api/sim/*) ---
+
+interface PrelimFilters {
+  dimensao?: "ocorrencia" | "residencia";
+  uf?: string;
+  ano?: number;
+}
+
+function prelimQuery(filters: PrelimFilters = {}): string {
+  const params = new URLSearchParams({ dimensao: filters.dimensao ?? "ocorrencia" });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.ano) params.set("ano", String(filters.ano));
+  return `?${params.toString()}`;
+}
+
+export const fetchSimPrelimSummary = (filters: PrelimFilters = {}) =>
+  get<SimPrelimSummary>(`/api/sim/prelim/summary${prelimQuery(filters)}`);
+
+export const fetchSimPrelimMunicipios = (
+  filters: PrelimFilters = {},
+  page = 1,
+  pageSize = 50
+) => {
+  const params = new URLSearchParams({
+    dimensao: filters.dimensao ?? "ocorrencia",
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.ano) params.set("ano", String(filters.ano));
+  return get<SimPrelimMunicipios>(`/api/sim/prelim/municipios?${params}`);
+};
+
+export const fetchSimPrelimCompletude = (filters: PrelimFilters & { ano: number }) =>
+  get<SimPrelimCompletude>(`/api/sim/prelim/completude${prelimQuery(filters)}`);
+
+export const fetchSimPrelimMetadata = () => get<SimPrelimMetadata>("/api/sim/prelim/metadata");

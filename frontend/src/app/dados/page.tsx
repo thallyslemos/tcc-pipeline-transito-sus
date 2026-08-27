@@ -1,12 +1,25 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchSimMetadata, fetchSimMunicipios, fetchSimPopulacaoCobertura } from "@/lib/api";
+import {
+  fetchSimMetadata,
+  fetchSimMunicipios,
+  fetchSimPopulacaoCobertura,
+  fetchSimPrelimMetadata,
+} from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import type { SimCatalog, SimMunicipio, SimPopulacaoCobertura } from "@/lib/types";
+import type { SimCatalog, SimMunicipio, SimPopulacaoCobertura, SimPrelimMetadata } from "@/lib/types";
+
+const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
+  validated: { bg: "var(--success-soft)", fg: "var(--success)" },
+  partial: { bg: "var(--warning-soft)", fg: "var(--warning)" },
+  preliminary: { bg: "var(--warning-soft)", fg: "var(--warning)" },
+};
 
 export default function DadosPage() {
   const [catalog, setCatalog] = useState<SimCatalog | null>(null);
+  const [prelimCatalog, setPrelimCatalog] = useState<SimPrelimMetadata | null>(null);
   const [rows, setRows] = useState<SimMunicipio[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -16,6 +29,7 @@ export default function DadosPage() {
 
   useEffect(() => {
     fetchSimMetadata().then(setCatalog);
+    fetchSimPrelimMetadata().then(setPrelimCatalog).catch(() => setPrelimCatalog(null));
   }, []);
 
   useEffect(() => {
@@ -56,7 +70,7 @@ export default function DadosPage() {
               <span
                 className="rounded-full px-2 py-0.5 text-[10px]"
                 style={{
-                  backgroundColor: dataset.status === "validated" ? "var(--success-soft)" : "var(--warning-soft)",
+                  backgroundColor: (STATUS_STYLE[dataset.status] ?? STATUS_STYLE.partial).bg,
                   color: "var(--fg-secondary)",
                 }}
               >
@@ -69,6 +83,35 @@ export default function DadosPage() {
             <p className="mt-1 text-[11px]" style={{ color: "var(--fg-muted)" }}>
               Linhas: {dataset.quality?.rows == null ? "N/D" : formatNumber(Number(dataset.quality.rows))} -{" "}
               {dataset.sha256 ? `SHA-256 ${dataset.sha256.slice(0, 12)}...` : "hash nao informado"}
+            </p>
+          </article>
+        ))}
+        {prelimCatalog?.datasets.map((dataset) => (
+          <article
+            key={dataset.id}
+            className="rounded-xl p-4"
+            style={{ backgroundColor: "var(--bg-card)", border: `1px solid var(--warning)` }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                {dataset.id}
+                <AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--warning)" }} />
+              </h2>
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px]"
+                style={{ backgroundColor: "var(--warning-soft)", color: "var(--warning)" }}
+              >
+                preliminary
+              </span>
+            </div>
+            <p className="mt-2 text-xs" style={{ color: "var(--fg-secondary)" }}>
+              {dataset.available ? (dataset.provider ?? "DATASUS/SIM (PRELIM/DORES)") : "Ainda nao ingerido"} -{" "}
+              {dataset.grain ?? "sem grao informado"}
+            </p>
+            <p className="mt-1 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+              {dataset.available
+                ? `Obitos: ${formatNumber(dataset.quality?.total_obitos ?? 0)} - extraido ate ${dataset.data_extracao_max ?? "N/D"}`
+                : "Rode data-pipeline/run.py --prelim para popular"}
             </p>
           </article>
         ))}

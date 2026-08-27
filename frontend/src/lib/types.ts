@@ -237,3 +237,79 @@ export interface SimFluxo {
   };
   notas_metodologicas: string;
 }
+
+// --- SIM preliminar (camada complementar, isolada da consolidada) ---
+
+export interface AvisoPreliminar {
+  preliminar: true;
+  data_extracao: string | null;
+  completude_estimada: number | null;
+  texto: string;
+}
+
+export interface SimPrelimSummary {
+  fonte: "SIM-PRELIMINAR";
+  dimensao: "ocorrencia" | "residencia";
+  total_obitos: number;
+  municipios: number;
+  obitos_por_mes: { competencia: string; total: number }[];
+  aviso_preliminar: AvisoPreliminar;
+}
+
+export interface SimPrelimMunicipio {
+  cod_mun_ibge: string;
+  cod_mun_ibge_6: string;
+  municipio: string;
+  uf: string;
+  obitos: number;
+  data_extracao: string | null;
+}
+
+export interface SimPrelimMunicipios {
+  fonte: "SIM-PRELIMINAR";
+  dimensao: "ocorrencia" | "residencia";
+  page: number;
+  page_size: number;
+  total: number;
+  municipios: SimPrelimMunicipio[];
+  aviso_preliminar: AvisoPreliminar;
+}
+
+export interface SimPrelimCompletudeMes {
+  uf: string | null;
+  mes: number;
+  obitos_prelim: number | null;
+  media_consolidado: number | null;
+  completude_estimada: number | null;
+}
+
+export interface SimPrelimCompletude {
+  fonte: "SIM-PRELIMINAR";
+  dimensao: "ocorrencia" | "residencia";
+  ano: number;
+  uf: string | null;
+  por_mes: SimPrelimCompletudeMes[];
+  notas_metodologicas: string;
+  aviso_preliminar: AvisoPreliminar;
+}
+
+export interface SimPrelimDataset {
+  id: string;
+  layer: string;
+  status: "preliminary";
+  available: boolean;
+  provider?: string;
+  grain?: string;
+  anos?: number[];
+  quality?: { total_obitos: number; linhas: number };
+  data_extracao_min?: string | null;
+  data_extracao_max?: string | null;
+  path?: string;
+}
+
+export interface SimPrelimMetadata {
+  catalog_version: string;
+  scope: string;
+  datasets: SimPrelimDataset[];
+  aviso_preliminar: AvisoPreliminar;
+}

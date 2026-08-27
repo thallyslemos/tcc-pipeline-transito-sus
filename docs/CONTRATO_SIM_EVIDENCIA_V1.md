@@ -40,3 +40,7 @@ Resposta inclui `total_obitos`, `obitos_por_ano`, `obitos_por_mes` (`competencia
 ## Serving: frota SENATRAN nos endpoints municipais
 
 `GET /api/sim/municipios` e `GET /api/sim/municipio/{cod}` expõem `frota_total`, `frota_status` e `taxa_obitos_10mil_veiculos` quando o mart possui join com `frota_municipio_ano.parquet` no mesmo municipio e ano. Consultas sem filtro de ano retornam `frota_status=indisponivel` e taxa `null`.
+
+## Camada complementar: dados preliminares
+
+Este contrato descreve apenas a camada **consolidada** (arvore FTP `SIM/CID10/DORES`, fechada ate 2024). Existe uma camada **paralela e isolada** para os dados **preliminares** do ano corrente (arvore `SIM/PRELIM/DORES`), com artefatos, endpoints (`/api/sim/prelim/*`) e interface proprios — nunca unida a esta camada. Ver [`DADOS_PRELIMINARES.md`](DADOS_PRELIMINARES.md) para o contrato completo dessa camada.

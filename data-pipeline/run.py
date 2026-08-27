@@ -223,6 +223,43 @@ def run_sim_only(ufs: list[str], anos: list[int]) -> None:
     )
 
 
+def run_prelim(ufs: list[str], anos: list[int]) -> None:
+    """Pipeline PRELIMINAR (Bronze->Silver->Gold), camada complementar e
+    isolada da consolidada (nunca escreve em data/*/sim_v1_*, sim_v2*).
+
+    Uso:
+        uv run python -m data-pipeline.run --prelim --ufs BA --prelim-anos 2025 2026
+    """
+    from .datasus import UFS_BRASIL
+    from .sim_prelim_gold import materializar_marts_prelim
+    from .sim_prelim_ingest import baixar_sim_prelim_streaming
+    from .silver_prelim import processar_silver_sim_prelim
+
+    if ufs == ["ALL"]:
+        ufs = UFS_BRASIL
+        logger.info("modo", tipo="prelim", escopo="brasil_completo", anos=anos)
+    else:
+        logger.info("modo", tipo="prelim", ufs=ufs, anos=anos)
+
+    logger.info("etapa", sistema="sim_prelim", status="download_streaming")
+    prelim_bronze_dir = baixar_sim_prelim_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_prelim", status="iniciando")
+    silver_prelim = processar_silver_sim_prelim(prelim_bronze_dir)
+    logger.info("etapa", camada="silver_prelim", status="concluido")
+    gc.collect()
+
+    logger.info("etapa", camada="gold_prelim", status="iniciando")
+    marts = materializar_marts_prelim(silver_prelim)
+    logger.info("etapa", camada="gold_prelim", status="concluido")
+
+    logger.info(
+        "pipeline_prelim_concluido",
+        silver=str(silver_prelim),
+        marts={role: str(path) for role, path in marts.items()},
+    )
+
+
 def run_malhas() -> None:
     """Baixa apenas malhas GeoJSON do IBGE (~3.6MB, ~3s).
 
@@ -391,6 +428,21 @@ def main() -> None:
         default=list(range(2019, 2024)),
         help="Anos para download (ex: 2022 2023)",
     )
+    parser.add_argument(
+        "--prelim",
+        action="store_true",
+        help=(
+            "Camada complementar PRELIMINAR (PRELIM/DORES), isolada da "
+            "consolidada — Bronze->Silver->Gold em artefatos sim_prelim_*"
+        ),
+    )
+    parser.add_argument(
+        "--prelim-anos",
+        nargs="+",
+        type=int,
+        default=[2025, 2026],
+        help="Anos preliminares para download (ex: 2025 2026); usa --ufs para o escopo de UF",
+    )
 
     args = parser.parse_args()
 
@@ -411,6 +463,8 @@ def main() -> None:
         run_senatran(years=args.senatran_years)
     elif args.sim_only:
         run_sim_only(ufs=args.ufs, anos=args.anos)
+    elif args.prelim:
+        run_prelim(ufs=args.ufs, anos=args.prelim_anos)
     elif args.ibge:
         run_ibge()
     elif args.malhas:
