@@ -21,6 +21,92 @@ def test_sim_summary_is_sim_only(client):
     assert payload["denominadores"]["frota"].startswith("informe ano")
 
 
+def test_sim_summary_sem_filtro_de_ano_soma_todos_os_anos(client):
+    """Regressao: 'Todos' no filtro Ano nao pode se comportar como um ano fixo.
+
+    O bug historico era no frontend (useEffect reescrevia o ano automaticamente
+    ao selecionar 'Todos'), mas o contrato do backend e o que garante a
+    correcao: ausencia do parametro `ano` na query string deve somar o
+    periodo inteiro, nunca um unico ano.
+    """
+    ba_sem_ano = client.get("/api/sim/summary", params={"dimensao": "ocorrencia", "uf": "BA"})
+    assert ba_sem_ano.status_code == 200
+    payload_sem_ano = ba_sem_ano.json()
+    assert payload_sem_ano["total_obitos"] == 37906
+    assert payload_sem_ano["periodo"] == "2010-2024"
+
+    ba_2024 = client.get(
+        "/api/sim/summary", params={"dimensao": "ocorrencia", "uf": "BA", "ano": 2024}
+    )
+    assert ba_2024.status_code == 200
+    payload_2024 = ba_2024.json()
+    assert payload_2024["total_obitos"] == 3105
+    assert payload_2024["periodo"] == "2024-2024"
+
+    brasil_sem_ano = client.get("/api/sim/summary", params={"dimensao": "ocorrencia"})
+    assert brasil_sem_ano.status_code == 200
+    payload_brasil = brasil_sem_ano.json()
+    assert payload_brasil["total_obitos"] == 565383
+    # Nao pode ser igual ao total de nenhum ano isolado da serie.
+    valores_por_ano = {row["total"] for row in payload_brasil["obitos_por_ano"]}
+    assert payload_brasil["total_obitos"] not in valores_por_ano
+
+
+def test_populacao_fallback_taxas_2024_nao_regridem(client):
+    """As taxas de 2024 tem populacao exata e nao podem mudar com o fallback."""
+    esperado = {
+        "Gavião": 445.1,
+        "Vitória da Conquista": 39.6,
+        "Salvador": 8.2,
+        "Feira de Santana": 34.5,
+    }
+    response = client.get(
+        "/api/sim/municipios",
+        params={"dimensao": "ocorrencia", "ano": 2024, "uf": "BA", "page_size": 200},
+    )
+    assert response.status_code == 200
+    rows = {row["municipio"]: row for row in response.json()["municipios"]}
+    for nome, taxa in esperado.items():
+        assert round(rows[nome]["taxa_obitos_100mil"], 1) == taxa
+        assert rows[nome]["populacao_origem"] == "exata"
+        assert rows[nome]["populacao_defasagem_anos"] == 0
+        assert rows[nome]["populacao_ano_referencia"] == 2024
+
+
+def test_populacao_fallback_municipio_detalhe_usa_ano_mais_proximo(client):
+    """Vitoria da Conquista (293330) nao tem populacao exata em 2022 nem 2023."""
+    r_2022 = client.get(
+        "/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2022}
+    )
+    assert r_2022.status_code == 200
+    d_2022 = r_2022.json()
+    assert d_2022["populacao_origem"] == "estimada"
+    assert d_2022["populacao_ano_referencia"] == 2021
+    assert d_2022["populacao_defasagem_anos"] == 1
+    assert d_2022["populacao"] == 343643
+    assert d_2022["taxa_obitos_100mil"] is not None
+
+    r_2024 = client.get(
+        "/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2024}
+    )
+    d_2024 = r_2024.json()
+    assert d_2024["populacao_origem"] == "exata"
+    assert d_2024["populacao_defasagem_anos"] == 0
+
+
+def test_populacao_fallback_geo_expoe_origem_no_tooltip(client):
+    """O GeoJSON do mapa expoe populacao_origem para o tooltip do frontend."""
+    response = client.get(
+        "/api/sim/geo", params={"dimensao": "ocorrencia", "ano": 2022, "uf": "BA"}
+    )
+    assert response.status_code == 200
+    features = response.json()["features"]
+    vc = next(f for f in features if f["properties"]["cod_mun_ibge"].startswith("293330"))
+    assert vc["properties"]["populacao_origem"] == "estimada"
+    assert vc["properties"]["populacao_ano_referencia"] == 2021
+    assert vc["properties"]["populacao_defasagem_anos"] == 1
+
+
 def test_sim_summary_exposes_global_breakdowns(client):
     response = client.get(
         "/api/sim/summary",
@@ -94,6 +180,30 @@ def test_sim_metadata_catalog(client):
     ids = {item["id"] for item in payload["datasets"]}
     assert "sim_silver_nacional_v2" in ids
     assert "senatran_frota" in ids
+
+
+def test_populacao_cobertura_ba(client):
+    response = client.get(
+        "/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia", "uf": "BA"}
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_municipio_ano"] > 0
+    assert payload["exata"] + payload["estimada"] + payload["indisponivel"] == (
+        payload["total_municipio_ano"]
+    )
+    assert payload["exata"] > 0
+    assert payload["estimada"] > 0
+
+
+def test_populacao_cobertura_brasil_maior_que_ba(client):
+    ba = client.get(
+        "/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia", "uf": "BA"}
+    ).json()
+    brasil = client.get(
+        "/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia"}
+    ).json()
+    assert brasil["total_municipio_ano"] > ba["total_municipio_ano"]
 
 
 def test_sim_municipio_residence_has_role_and_series(client):

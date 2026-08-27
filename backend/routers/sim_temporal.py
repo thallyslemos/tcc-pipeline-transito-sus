@@ -435,7 +435,7 @@ async def outliers(
     except Exception:
         pop_path = None
 
-    populacao_por_mun_ano: dict[tuple[str, int], int] = {}
+    populacao_por_mun: dict[str, list[tuple[int, int]]] = {}
     if pop_path and rows:
         pop_rows = con.sql(
             f"""
@@ -444,7 +444,24 @@ async def outliers(
             GROUP BY 1, 2
             """
         ).fetchall()
-        populacao_por_mun_ano = {(str(c), int(a)): int(p) for c, a, p in pop_rows if p is not None}
+        for c, a, p in pop_rows:
+            if p is None:
+                continue
+            populacao_por_mun.setdefault(str(c), []).append((int(a), int(p)))
+
+    def _populacao_com_fallback(cod_mun: str, ano_alvo: int) -> tuple[int | None, str | None, int | None, int | None]:
+        candidatos = populacao_por_mun.get(cod_mun)
+        if not candidatos:
+            return None, None, None, None
+        exato = next((p for a, p in candidatos if a == ano_alvo), None)
+        if exato is not None:
+            return exato, "exata", ano_alvo, 0
+        # Mais proximo; em empate de distancia, prefere o ano anterior.
+        ano_ref, pop_ref = min(
+            candidatos,
+            key=lambda item: (abs(item[0] - ano_alvo), item[0] > ano_alvo),
+        )
+        return pop_ref, "estimada", ano_ref, abs(ano_ref - ano_alvo)
 
     municipios = []
     for cod_mun, municipio, uf_val, ano_val, obitos_ano, obitos_mes_pico, meses_com_obito, obitos_dia_pico in rows:
@@ -459,7 +476,9 @@ async def outliers(
             classe = "difuso"
 
         label = labels.get(str(cod_mun), {})
-        populacao = populacao_por_mun_ano.get((str(cod_mun), int(ano_val)))
+        populacao, pop_origem, pop_ano_ref, pop_defasagem = _populacao_com_fallback(
+            str(cod_mun), int(ano_val)
+        )
         taxa_100mil = (obitos_ano * 100000.0 / populacao) if populacao else None
 
         municipios.append(
@@ -470,6 +489,9 @@ async def outliers(
                 "ano": int(ano_val),
                 "obitos_ano": obitos_ano,
                 "populacao": populacao,
+                "populacao_origem": pop_origem,
+                "populacao_ano_referencia": pop_ano_ref,
+                "populacao_defasagem_anos": pop_defasagem,
                 "taxa_100mil": round(taxa_100mil, 2) if taxa_100mil is not None else None,
                 "meses_com_obito": int(meses_com_obito),
                 "share_mes_pico": round(share_mes_pico, 4),

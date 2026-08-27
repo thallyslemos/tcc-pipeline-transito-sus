@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..config import settings
 from ..database import get_connection
-from .utils import REGIOES
+from .utils import REGIOES, _has_view
 
 router = APIRouter(prefix="/api/sim", tags=["SIM-only"])
 Role = Literal["ocorrencia", "residencia"]
@@ -108,6 +108,56 @@ def _role(dimensao: Role) -> Role:
     return dimensao
 
 
+def _populacao_fallback_exprs(cod_col: str, ano: int, con) -> dict[str, str]:
+    """Expressoes SQL de populacao com fallback para o ano IBGE mais proximo
+    disponivel no MESMO municipio, quando a populacao exata do ano filtrado
+    nao existe (ibge_populacao cobre so alguns anos no artefato local).
+
+    Nunca interpola nem projeta: usa o valor observado de outro ano. Em
+    empate de distancia, prefere o ano anterior. `cod_col` deve ser uma
+    coluna de codigo IBGE de 6 digitos presente no GROUP BY da query externa.
+
+    Retorna None nas 4 chaves quando v_ibge_populacao nao existe (artefato
+    IBGE indisponivel neste ambiente).
+    """
+    if not _has_view(con, "v_ibge_populacao"):
+        null = "CAST(NULL AS BIGINT)"
+        return {
+            "populacao": null,
+            "populacao_origem": "CAST(NULL AS VARCHAR)",
+            "populacao_ano_referencia": "CAST(NULL AS INTEGER)",
+            "populacao_defasagem_anos": "CAST(NULL AS INTEGER)",
+        }
+    order_by = (
+        f"ORDER BY ABS(CAST(p.ano AS INTEGER) - {ano}) ASC, "
+        f"(CAST(p.ano AS INTEGER) > {ano}) ASC LIMIT 1"
+    )
+    fallback_pop = (
+        f"(SELECT p.populacao FROM v_ibge_populacao p "
+        f"WHERE LEFT(CAST(p.cod_mun_ibge AS VARCHAR), 6) = {cod_col} {order_by})"
+    )
+    fallback_ano = (
+        f"(SELECT CAST(p.ano AS INTEGER) FROM v_ibge_populacao p "
+        f"WHERE LEFT(CAST(p.cod_mun_ibge AS VARCHAR), 6) = {cod_col} {order_by})"
+    )
+    exata = "MAX(populacao_estimada)"
+    return {
+        "populacao": f"COALESCE({exata}, {fallback_pop})",
+        "populacao_origem": (
+            f"CASE WHEN {exata} > 0 THEN 'exata' "
+            f"WHEN {fallback_pop} > 0 THEN 'estimada' ELSE NULL END"
+        ),
+        "populacao_ano_referencia": (
+            f"CASE WHEN {exata} > 0 THEN {ano} "
+            f"WHEN {fallback_pop} > 0 THEN {fallback_ano} ELSE NULL END"
+        ),
+        "populacao_defasagem_anos": (
+            f"CASE WHEN {exata} > 0 THEN 0 "
+            f"WHEN {fallback_pop} > 0 THEN ABS({fallback_ano} - {ano}) ELSE NULL END"
+        ),
+    }
+
+
 def _where_clauses(
     *,
     ano: int | None = None,
@@ -150,6 +200,82 @@ async def metadata() -> dict:
     if not path.exists():
         raise HTTPException(status_code=503, detail="Catalogo de dados indisponivel")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+@router.get("/populacao/cobertura")
+async def populacao_cobertura(
+    dimensao: Role = Query("ocorrencia"),
+    uf: str | None = Query(None, min_length=2, max_length=2),
+    regiao: str | None = Query(None),
+) -> dict:
+    """Auditoria da limitacao do denominador populacional: quantos pares
+    municipio-ano do recorte usam populacao exata (mesmo municipio+ano no
+    IBGE) versus estimada (fallback para o ano IBGE mais proximo) versus
+    indisponivel (municipio sem nenhuma populacao no artefato local).
+    """
+    path = _mart_path(_role(dimensao))
+    con = get_connection()
+    source = _source(path)
+    clauses = _where_clauses(uf=uf, regiao=regiao, require_geografia=True)
+    where = " AND ".join(clauses)
+
+    if not _has_view(con, "v_ibge_populacao"):
+        return {
+            "fonte": "SIM",
+            "dimensao": dimensao,
+            "total_municipio_ano": 0,
+            "exata": 0,
+            "estimada": 0,
+            "indisponivel": 0,
+            "notas_metodologicas": "Artefato ibge_populacao indisponivel neste ambiente.",
+        }
+
+    row = con.sql(
+        f"""
+        WITH combos AS (
+            SELECT DISTINCT cod_mun_ibge_6, ano
+            FROM {source}
+            WHERE {where}
+        ),
+        avaliado AS (
+            SELECT
+                c.cod_mun_ibge_6, c.ano,
+                (SELECT p.populacao FROM v_ibge_populacao p
+                 WHERE LEFT(CAST(p.cod_mun_ibge AS VARCHAR), 6) = c.cod_mun_ibge_6
+                   AND CAST(p.ano AS INTEGER) = c.ano) AS pop_exata,
+                (SELECT p.populacao FROM v_ibge_populacao p
+                 WHERE LEFT(CAST(p.cod_mun_ibge AS VARCHAR), 6) = c.cod_mun_ibge_6
+                 ORDER BY ABS(CAST(p.ano AS INTEGER) - c.ano) ASC,
+                          (CAST(p.ano AS INTEGER) > c.ano) ASC
+                 LIMIT 1) AS pop_fallback
+            FROM combos c
+        )
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN pop_exata > 0 THEN 1 ELSE 0 END) AS exata,
+            SUM(CASE WHEN (pop_exata IS NULL OR pop_exata <= 0) AND pop_fallback > 0 THEN 1 ELSE 0 END) AS estimada,
+            SUM(CASE WHEN (pop_exata IS NULL OR pop_exata <= 0)
+                      AND (pop_fallback IS NULL OR pop_fallback <= 0) THEN 1 ELSE 0 END) AS indisponivel
+        FROM avaliado
+        """
+    ).fetchone()
+
+    total, exata, estimada, indisponivel = (int(v or 0) for v in row)
+    return {
+        "fonte": "SIM",
+        "dimensao": dimensao,
+        "total_municipio_ano": total,
+        "exata": exata,
+        "estimada": estimada,
+        "indisponivel": indisponivel,
+        "notas_metodologicas": (
+            "Contagem de pares municipio-ano distintos no recorte (uf/regiao "
+            "informados, todos os anos). 'exata': populacao do mesmo "
+            "municipio e ano no IBGE. 'estimada': fallback para o ano IBGE "
+            "mais proximo do mesmo municipio (nunca interpolado/projetado). "
+            "'indisponivel': municipio sem nenhuma populacao no artefato local."
+        ),
+    }
 
 
 @router.get("/anos")
@@ -324,14 +450,24 @@ async def municipios(
         )
     where = " AND ".join(clauses)
     offset = (page - 1) * page_size
-    population_expr = "MAX(populacao_estimada)" if ano is not None else "CAST(NULL AS BIGINT)"
-    rate_expr = (
-        "CASE WHEN MAX(populacao_estimada) > 0 THEN "
-        "SUM(total_obitos) * 100000.0 / MAX(populacao_estimada) ELSE NULL END"
-        if ano is not None
-        else "CAST(NULL AS DOUBLE)"
-    )
-    status_expr = "MAX(populacao_status)" if ano is not None else "'indisponivel'"
+    if ano is not None:
+        pop = _populacao_fallback_exprs("cod_mun_ibge_6", ano, con)
+        population_expr = pop["populacao"]
+        pop_origem_expr = pop["populacao_origem"]
+        pop_ano_ref_expr = pop["populacao_ano_referencia"]
+        pop_defasagem_expr = pop["populacao_defasagem_anos"]
+        rate_expr = (
+            f"CASE WHEN {population_expr} > 0 THEN "
+            f"SUM(total_obitos) * 100000.0 / {population_expr} ELSE NULL END"
+        )
+        status_expr = f"CASE WHEN {population_expr} > 0 THEN 'disponivel' ELSE 'indisponivel' END"
+    else:
+        population_expr = "CAST(NULL AS BIGINT)"
+        pop_origem_expr = "CAST(NULL AS VARCHAR)"
+        pop_ano_ref_expr = "CAST(NULL AS INTEGER)"
+        pop_defasagem_expr = "CAST(NULL AS INTEGER)"
+        rate_expr = "CAST(NULL AS DOUBLE)"
+        status_expr = "'indisponivel'"
     fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
     fleet_rate_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN "
@@ -363,6 +499,9 @@ async def municipios(
                {population_expr} AS populacao,
                {rate_expr} AS taxa_obitos_100mil,
                {status_expr} AS populacao_status,
+               {pop_origem_expr} AS populacao_origem,
+               {pop_ano_ref_expr} AS populacao_ano_referencia,
+               {pop_defasagem_expr} AS populacao_defasagem_anos,
                {fleet_expr} AS frota_total,
                {fleet_rate_expr} AS taxa_obitos_10mil_veiculos,
                {fleet_status_expr} AS frota_status
@@ -380,6 +519,10 @@ async def municipios(
         row["obitos"] = int(row["obitos"] or 0)
         if row.get("populacao") is not None:
             row["populacao"] = int(row["populacao"])
+        if row.get("populacao_ano_referencia") is not None:
+            row["populacao_ano_referencia"] = int(row["populacao_ano_referencia"])
+        if row.get("populacao_defasagem_anos") is not None:
+            row["populacao_defasagem_anos"] = int(row["populacao_defasagem_anos"])
         if row.get("frota_total") is not None:
             row["frota_total"] = int(row["frota_total"])
     return {
@@ -412,14 +555,24 @@ async def municipio(
         cleaned = _text(tipo_veiculo)
         if cleaned:
             where += f" AND tipo_veiculo = '{cleaned}'"
-    population_expr = "MAX(populacao_estimada)" if ano is not None else "CAST(NULL AS BIGINT)"
-    rate_expr = (
-        "CASE WHEN MAX(populacao_estimada) > 0 THEN "
-        "SUM(total_obitos) * 100000.0 / MAX(populacao_estimada) ELSE NULL END"
-        if ano is not None
-        else "CAST(NULL AS DOUBLE)"
-    )
-    status_expr = "MAX(populacao_status)" if ano is not None else "'indisponivel'"
+    if ano is not None:
+        pop = _populacao_fallback_exprs(f"'{code}'", ano, con)
+        population_expr = pop["populacao"]
+        pop_origem_expr = pop["populacao_origem"]
+        pop_ano_ref_expr = pop["populacao_ano_referencia"]
+        pop_defasagem_expr = pop["populacao_defasagem_anos"]
+        rate_expr = (
+            f"CASE WHEN {population_expr} > 0 THEN "
+            f"SUM(total_obitos) * 100000.0 / {population_expr} ELSE NULL END"
+        )
+        status_expr = f"CASE WHEN {population_expr} > 0 THEN 'disponivel' ELSE 'indisponivel' END"
+    else:
+        population_expr = "CAST(NULL AS BIGINT)"
+        pop_origem_expr = "CAST(NULL AS VARCHAR)"
+        pop_ano_ref_expr = "CAST(NULL AS INTEGER)"
+        pop_defasagem_expr = "CAST(NULL AS INTEGER)"
+        rate_expr = "CAST(NULL AS DOUBLE)"
+        status_expr = "'indisponivel'"
     fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
     fleet_rate_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN "
@@ -439,6 +592,9 @@ async def municipio(
                {population_expr} AS populacao,
                {rate_expr} AS taxa_obitos_100mil,
                {status_expr} AS populacao_status,
+               {pop_origem_expr} AS populacao_origem,
+               {pop_ano_ref_expr} AS populacao_ano_referencia,
+               {pop_defasagem_expr} AS populacao_defasagem_anos,
                {fleet_expr} AS frota_total,
                {fleet_rate_expr} AS taxa_obitos_10mil_veiculos,
                {fleet_status_expr} AS frota_status
@@ -461,9 +617,12 @@ async def municipio(
         "populacao": int(base[4]) if base[4] is not None else None,
         "taxa_obitos_100mil": float(base[5]) if base[5] is not None else None,
         "populacao_status": base[6],
-        "frota_total": int(base[7]) if base[7] is not None else None,
-        "taxa_obitos_10mil_veiculos": float(base[8]) if base[8] is not None else None,
-        "frota_status": base[9],
+        "populacao_origem": base[7],
+        "populacao_ano_referencia": int(base[8]) if base[8] is not None else None,
+        "populacao_defasagem_anos": int(base[9]) if base[9] is not None else None,
+        "frota_total": int(base[10]) if base[10] is not None else None,
+        "taxa_obitos_10mil_veiculos": float(base[11]) if base[11] is not None else None,
+        "frota_status": base[12],
         "serie_mensal": [
             {"competencia": str(comp), "obitos": int(obitos)} for comp, obitos in series
         ],
@@ -510,14 +669,21 @@ async def geo(
     source = _source(path)
     if ano is None:
         population = "CAST(NULL AS BIGINT)"
+        pop_origem = "CAST(NULL AS VARCHAR)"
+        pop_ano_ref = "CAST(NULL AS INTEGER)"
+        pop_defasagem = "CAST(NULL AS INTEGER)"
         rate = "CAST(NULL AS DOUBLE)"
         vehicle_rate = "CAST(NULL AS DOUBLE)"
         fleet_status = "'indisponivel'"
     else:
-        population = "MAX(populacao_estimada)"
+        pop = _populacao_fallback_exprs("cod_mun_ibge_6", ano, con)
+        population = pop["populacao"]
+        pop_origem = pop["populacao_origem"]
+        pop_ano_ref = pop["populacao_ano_referencia"]
+        pop_defasagem = pop["populacao_defasagem_anos"]
         rate = (
-            "CASE WHEN MAX(populacao_estimada) > 0 THEN "
-            "SUM(total_obitos) * 100000.0 / MAX(populacao_estimada) ELSE NULL END"
+            f"CASE WHEN {population} > 0 THEN "
+            f"SUM(total_obitos) * 100000.0 / {population} ELSE NULL END"
         )
         vehicle_rate = (
             "CASE WHEN MAX(frota_total) > 0 THEN "
@@ -531,6 +697,9 @@ async def geo(
                MAX(municipio) AS municipio, MAX(uf) AS uf,
                SUM(total_obitos) AS valor,
                {population} AS populacao, {rate} AS taxa_obitos_100mil,
+               {pop_origem} AS populacao_origem,
+               {pop_ano_ref} AS populacao_ano_referencia,
+               {pop_defasagem} AS populacao_defasagem_anos,
                MAX(frota_total) AS frota_total,
                {fleet_status} AS frota_status,
                {vehicle_rate} AS taxa_obitos_10mil_veiculos
@@ -573,6 +742,13 @@ async def geo(
                     else None,
                     "taxa_obitos_100mil": float(metric["taxa_obitos_100mil"])
                     if metric.get("taxa_obitos_100mil") is not None
+                    else None,
+                    "populacao_origem": metric.get("populacao_origem"),
+                    "populacao_ano_referencia": int(metric["populacao_ano_referencia"])
+                    if metric.get("populacao_ano_referencia") is not None
+                    else None,
+                    "populacao_defasagem_anos": int(metric["populacao_defasagem_anos"])
+                    if metric.get("populacao_defasagem_anos") is not None
                     else None,
                     "frota_total": int(metric["frota_total"])
                     if metric.get("frota_total") is not None
