@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 import FilterBar from "@/components/filters/FilterBar";
 import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa10k } from "@/lib/format";
+import PopulacaoBadge from "@/components/PopulacaoBadge";
 import type { FilterValues, SimMunicipio } from "@/lib/types";
 
 const PAGE_SIZE = 50;
@@ -24,14 +25,17 @@ export default function RankingPage() {
 
   const vehicleRateAvailable = rows.some((row) => row.taxa_obitos_10mil_veiculos != null);
 
+  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  const anoInicializado = useRef(false);
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
-      if (!filters.ano && result.anos.length) {
+      if (!anoInicializado.current && result.anos.length) {
+        anoInicializado.current = true;
         setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
       }
     });
-  }, [filters.dimensao, filters.ano]);
+  }, [filters.dimensao]);
 
   useEffect(() => {
     setLoading(true);
@@ -125,7 +129,16 @@ export default function RankingPage() {
                   <td className="px-4 py-2 text-right">{row.populacao == null ? "N/D" : formatNumber(row.populacao)}</td>
                   <td className="px-4 py-2 text-right">{row.frota_total == null ? "N/D" : formatNumber(row.frota_total)}</td>
                   <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--deaths)" }}>{formatNumber(row.obitos)}</td>
-                  <td className="px-4 py-2 text-right font-mono">{row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}</td>
+                  <td className="px-4 py-2 text-right font-mono">
+                    <span className="inline-flex items-center gap-1">
+                      {row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}
+                      <PopulacaoBadge
+                        origem={row.populacao_origem}
+                        anoReferencia={row.populacao_ano_referencia}
+                        defasagemAnos={row.populacao_defasagem_anos}
+                      />
+                    </span>
+                  </td>
                   <td className="px-4 py-2 text-right font-mono">
                     {row.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(row.taxa_obitos_10mil_veiculos)}
                   </td>

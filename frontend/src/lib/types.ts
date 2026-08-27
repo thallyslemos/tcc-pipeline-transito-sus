@@ -21,6 +21,8 @@ export interface SimSummary {
   denominadores: { populacao: string; frota: string };
 }
 
+export type PopulacaoOrigem = "exata" | "estimada" | null;
+
 export interface SimMunicipio {
   cod_mun_ibge: string;
   cod_mun_ibge_6?: string;
@@ -30,6 +32,9 @@ export interface SimMunicipio {
   populacao: number | null;
   taxa_obitos_100mil: number | null;
   populacao_status: "disponivel" | "indisponivel";
+  populacao_origem?: PopulacaoOrigem;
+  populacao_ano_referencia?: number | null;
+  populacao_defasagem_anos?: number | null;
   frota_total?: number | null;
   frota_status?: "disponivel" | "indisponivel";
   taxa_obitos_10mil_veiculos?: number | null;
@@ -45,10 +50,23 @@ export interface SimMunicipioDetail {
   populacao: number | null;
   taxa_obitos_100mil: number | null;
   populacao_status: "disponivel" | "indisponivel";
+  populacao_origem?: PopulacaoOrigem;
+  populacao_ano_referencia?: number | null;
+  populacao_defasagem_anos?: number | null;
   frota_total: number | null;
   taxa_obitos_10mil_veiculos: number | null;
   frota_status: "disponivel" | "indisponivel";
   serie_mensal: { competencia: string; obitos: number }[];
+}
+
+export interface SimPopulacaoCobertura {
+  fonte: "SIM";
+  dimensao: "ocorrencia" | "residencia";
+  total_municipio_ano: number;
+  exata: number;
+  estimada: number;
+  indisponivel: number;
+  notas_metodologicas: string;
 }
 
 export interface SimCatalogDataset {
@@ -84,6 +102,9 @@ export interface MapPoint {
   lon: number | null;
   populacao?: number | null;
   taxa_obitos_100mil?: number | null;
+  populacao_origem?: PopulacaoOrigem;
+  populacao_ano_referencia?: number | null;
+  populacao_defasagem_anos?: number | null;
   frota_total?: number | null;
   frota_status?: "disponivel" | "indisponivel";
   taxa_obitos_10mil_veiculos?: number | null;

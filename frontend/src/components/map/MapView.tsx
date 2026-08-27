@@ -82,7 +82,11 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
   const popupHtml = useCallback((properties: Record<string, unknown>) => {
     const hasData = properties.has_data !== false;
     const population = properties.populacao != null ? `<br/><span style="opacity:.7">Populacao:</span> <b>${formatNumber(Number(properties.populacao))}</b>` : "";
-    const rate = properties.taxa_obitos_100mil != null ? `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(properties.taxa_obitos_100mil))}</b> / 100 mil hab.` : "";
+    const popEstimada = properties.populacao_origem === "estimada";
+    const popBadge = popEstimada
+      ? ` <span title="Populacao estimada: ano ${properties.populacao_ano_referencia ?? "?"} (defasagem de ${properties.populacao_defasagem_anos ?? "?"} ${properties.populacao_defasagem_anos === 1 ? "ano" : "anos"})" style="color:var(--warning);cursor:help">&#9888;</span>`
+      : "";
+    const rate = properties.taxa_obitos_100mil != null ? `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(properties.taxa_obitos_100mil))}</b> / 100 mil hab.${popBadge}` : "";
     const vehicleRate = properties.taxa_obitos_10mil_veiculos != null
       ? `<br/><span style="opacity:.7">Taxa veicular:</span> <b>${formatTaxa10k(Number(properties.taxa_obitos_10mil_veiculos))}</b> / 10 mil veiculos`
       : properties.frota_status === "indisponivel"

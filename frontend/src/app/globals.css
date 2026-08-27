@@ -43,6 +43,11 @@
   --success-soft: #ecfdf5;
   --success-muted: #6ee7b7;
 
+  /* Semantic: Warning (Amber) — usado para denominadores estimados/aproximados */
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --warning-muted: #fcd34d;
+
   /* Chart grid */
   --chart-grid: #f1f5f9;
   --chart-text: #94a3b8;
@@ -92,6 +97,10 @@
   --success: #10b981;
   --success-soft: rgba(16, 185, 129, 0.1);
   --success-muted: #34d399;
+
+  --warning: #f59e0b;
+  --warning-soft: rgba(245, 158, 11, 0.12);
+  --warning-muted: #fbbf24;
 
   --chart-grid: #1e293b;
   --chart-text: #64748b;

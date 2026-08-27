@@ -7,6 +7,7 @@ import type {
   SimMunicipio,
   SimMunicipioDetail,
   SimOutliers,
+  SimPopulacaoCobertura,
   SimSerieMensal,
   SimSummary,
 } from "./types";
@@ -67,6 +68,15 @@ export const fetchSimMunicipio = (
 
 export const fetchSimMetadata = () => get<SimCatalog>("/api/sim/metadata");
 
+export const fetchSimPopulacaoCobertura = (
+  filters: { dimensao?: FilterValues["dimensao"]; uf?: string; regiao?: string } = {}
+) => {
+  const params = new URLSearchParams({ dimensao: filters.dimensao ?? "ocorrencia" });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  return get<SimPopulacaoCobertura>(`/api/sim/populacao/cobertura?${params}`);
+};
+
 export interface SimGeoFeatureCollection {
   type: "FeatureCollection";
   features: GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>[];
@@ -88,6 +98,14 @@ export const fetchMapa = async (filters: FilterValues = {}) => {
       lon: null,
       populacao: properties.populacao == null ? null : Number(properties.populacao),
       taxa_obitos_100mil: properties.taxa_obitos_100mil == null ? null : Number(properties.taxa_obitos_100mil),
+      populacao_origem:
+        properties.populacao_origem === "exata" || properties.populacao_origem === "estimada"
+          ? properties.populacao_origem
+          : null,
+      populacao_ano_referencia:
+        properties.populacao_ano_referencia == null ? null : Number(properties.populacao_ano_referencia),
+      populacao_defasagem_anos:
+        properties.populacao_defasagem_anos == null ? null : Number(properties.populacao_defasagem_anos),
       frota_total: properties.frota_total == null ? null : Number(properties.frota_total),
       frota_status: properties.frota_status === "disponivel" ? "disponivel" : "indisponivel",
       taxa_obitos_10mil_veiculos:
