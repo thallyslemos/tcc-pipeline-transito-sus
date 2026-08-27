@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DashboardPage from "./page";
 import {
   fetchSimAnos,
   fetchSimMunicipios,
+  fetchSimPopulacaoCobertura,
   fetchSimSummary,
   fetchSimTipos,
 } from "@/lib/api";
@@ -15,6 +16,7 @@ vi.mock("@/lib/api", () => ({
   fetchSimAnos: vi.fn(),
   fetchSimTipos: vi.fn(),
   fetchSimMunicipios: vi.fn(),
+  fetchSimPopulacaoCobertura: vi.fn(),
 }));
 
 const mockSummary: SimSummary = {
@@ -51,6 +53,15 @@ beforeEach(() => {
   vi.mocked(fetchSimAnos).mockResolvedValue({ dimensao: "ocorrencia", anos: [2024] });
   vi.mocked(fetchSimTipos).mockResolvedValue({ dimensao: "ocorrencia", tipos: ["Automovel"] });
   vi.mocked(fetchSimSummary).mockResolvedValue(mockSummary);
+  vi.mocked(fetchSimPopulacaoCobertura).mockResolvedValue({
+    fonte: "SIM",
+    dimensao: "ocorrencia",
+    total_municipio_ano: 100,
+    exata: 80,
+    estimada: 18,
+    indisponivel: 2,
+    notas_metodologicas: "teste",
+  });
   vi.mocked(fetchSimMunicipios).mockResolvedValue({
     dimensao: "ocorrencia",
     page: 1,
@@ -84,5 +95,30 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Distribuicao por Sexo")).toBeInTheDocument();
     expect(screen.getByText("Ignorado")).toBeInTheDocument();
     expect(screen.getByText("Top 10 Municipios - Obitos")).toBeInTheDocument();
+  });
+
+  it("selecionar 'Todos' no filtro Ano nao e reescrito de volta para o ultimo ano", async () => {
+    vi.mocked(fetchSimAnos).mockResolvedValue({ dimensao: "ocorrencia", anos: [2023, 2024] });
+    render(<DashboardPage />);
+
+    // Carga inicial: auto-seleciona o ultimo ano (2024).
+    await waitFor(() => {
+      const ultima = vi.mocked(fetchSimSummary).mock.calls.at(-1)?.[0];
+      expect(ultima?.ano).toBe(2024);
+    });
+
+    fireEvent.change(screen.getByLabelText("Ano"), { target: { value: "" } });
+
+    // A chamada mais recente deve refletir "Todos" (sem ano).
+    await waitFor(() => {
+      const ultima = vi.mocked(fetchSimSummary).mock.calls.at(-1)?.[0];
+      expect(ultima?.ano).toBeUndefined();
+    });
+
+    // Regressao: o useEffect de auto-selecao do ultimo ano nao pode disparar
+    // de novo e reescrever ano=2024 depois que o usuario escolheu "Todos".
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const ultimaChamada = vi.mocked(fetchSimSummary).mock.calls.at(-1)?.[0];
+    expect(ultimaChamada?.ano).toBeUndefined();
   });
 });

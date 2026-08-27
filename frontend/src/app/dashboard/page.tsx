@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -22,9 +22,15 @@ import { AlertTriangle, Building2, Database, MapPinned } from "lucide-react";
 import ChartCard from "@/components/charts/ChartCard";
 import KpiCard from "@/components/charts/KpiCard";
 import FilterBar from "@/components/filters/FilterBar";
-import { fetchSimAnos, fetchSimMunicipios, fetchSimSummary, fetchSimTipos } from "@/lib/api";
+import {
+  fetchSimAnos,
+  fetchSimMunicipios,
+  fetchSimPopulacaoCobertura,
+  fetchSimSummary,
+  fetchSimTipos,
+} from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import type { FilterValues, SimMunicipio, SimSummary } from "@/lib/types";
+import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 const PIE_COLORS = ["#ef4444", "#f97316", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#6366f1"];
@@ -75,6 +81,12 @@ export default function DashboardPage() {
   const [ufs, setUfs] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [popCobertura, setPopCobertura] = useState<SimPopulacaoCobertura | null>(null);
+
+  // So auto-seleciona o ultimo ano na carga inicial. Sem isto, escolher
+  // "Todos" (filters.ano vira undefined) disparava este efeito de novo e
+  // reescrevia o ano automaticamente, impedindo o filtro "Todos" de colar.
+  const anoInicializado = useRef(false);
 
   useEffect(() => {
     const dimensao = filters.dimensao ?? "ocorrencia";
@@ -82,12 +94,13 @@ export default function DashboardPage() {
       .then(([years, vehicleTypes]) => {
         setAnos(years.anos);
         setTipos(vehicleTypes.tipos);
-        if (!filters.ano && years.anos.length) {
+        if (!anoInicializado.current && years.anos.length) {
+          anoInicializado.current = true;
           setFilters((current) => ({ ...current, ano: years.anos.at(-1) }));
         }
       })
       .catch(() => setError("Nao foi possivel carregar os filtros do SIM."));
-  }, [filters.dimensao, filters.ano]);
+  }, [filters.dimensao]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +123,16 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [filters]);
+
+  useEffect(() => {
+    fetchSimPopulacaoCobertura({
+      dimensao: filters.dimensao,
+      uf: filters.uf,
+      regiao: filters.regiao,
+    })
+      .then(setPopCobertura)
+      .catch(() => setPopCobertura(null));
+  }, [filters.dimensao, filters.uf, filters.regiao]);
 
   const handleChange = (key: string, value: string) => {
     setFilters((current) => {
@@ -375,8 +398,23 @@ export default function DashboardPage() {
           color: "var(--fg-secondary)",
         }}
       >
-        Populacao e frota so geram taxas quando o denominador do mesmo municipio e ano esta disponivel. Nesta versao, a
-        frota SENATRAN permanece {data.denominadores.frota}.
+        {popCobertura && popCobertura.total_municipio_ano > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            Cobertura populacional do recorte: {formatNumber(popCobertura.exata)} de{" "}
+            {formatNumber(popCobertura.total_municipio_ano)} municipio-ano ({((popCobertura.exata / popCobertura.total_municipio_ano) * 100).toFixed(0)}%) com populacao exata
+            (mesmo municipio e ano no IBGE); {formatNumber(popCobertura.estimada)}
+            {" "}({((popCobertura.estimada / popCobertura.total_municipio_ano) * 100).toFixed(0)}%) usam a
+            populacao do ano IBGE mais proximo
+            <AlertTriangle className="mx-0.5 inline h-3 w-3" style={{ color: "var(--warning)" }} />
+            e {formatNumber(popCobertura.indisponivel)} nao tem denominador disponivel (N/D). Frota SENATRAN
+            permanece {data.denominadores.frota}.
+          </span>
+        ) : (
+          <>
+            Populacao usa o ano exato quando disponivel ou o ano IBGE mais proximo do mesmo municipio, com
+            marcacao visual nas taxas estimadas. Frota SENATRAN permanece {data.denominadores.frota}.
+          </>
+        )}
       </div>
     </div>
   );

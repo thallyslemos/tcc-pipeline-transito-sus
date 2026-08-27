@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
 import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
@@ -21,9 +21,17 @@ export default function MapaPage() {
   const [escala, setEscala] = useState<MapScaleMode>("total");
   const [loading, setLoading] = useState(true);
 
+  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  const anoInicializado = useRef(false);
   useEffect(() => {
-    fetchSimAnos(filters.dimensao).then((result) => { setAnos(result.anos); if (!filters.ano && result.anos.length) setFilters((current) => ({ ...current, ano: result.anos.at(-1) })); });
-  }, [filters.dimensao, filters.ano]);
+    fetchSimAnos(filters.dimensao).then((result) => {
+      setAnos(result.anos);
+      if (!anoInicializado.current && result.anos.length) {
+        anoInicializado.current = true;
+        setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
+      }
+    });
+  }, [filters.dimensao]);
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
