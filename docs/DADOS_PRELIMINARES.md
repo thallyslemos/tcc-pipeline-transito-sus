@@ -83,12 +83,20 @@ com o manifesto consolidado) com proveniencia do `.dbc` bruto: nome do arquivo
 de origem, data/hora de extracao e SHA-256 do `.dbc` — nao apenas do parquet
 decodificado.
 
-> Limitacao conhecida do ambiente onde esta camada foi construida: a rede
-> sandboxed conseguiu listar o diretorio PRELIM mas conexoes de controle FTP
-> subsequentes (incluindo tentativas de download/RETR) davam timeout de forma
-> consistente. A logica de download reaproveita os mesmos primitivos ja em
-> producao na ingestao consolidada, mas o download real precisa ser validado
-> rodando `--prelim` num ambiente com conectividade estavel ao FTP do DATASUS.
+O download em si **nao** usa `pysus.ftp.File.download()`. Validado ao vivo
+(rodando `--prelim` fora do sandbox de desenvolvimento): esse metodo nao
+preserva o `.dbc` bruto — `Data(str(filepath))`, chamado dentro do proprio
+`download()`, converte `.dbc -> .dbf -> parquet` de forma sincrona, e cada
+etapa (`dbc_to_dbf`/`dbf_to_parquet` em `pysus/data/__init__.py`) apaga o
+arquivo de entrada assim que gera a proxima etapa. Ou seja, quando
+`File.download()` retorna, o `.dbc` original ja nao existe mais — so resta o
+`.parquet` final, tarde demais para hashear a proveniencia.
+
+Por isso o coletor faz o RETR do `.dbc` manualmente com
+`pysus.ftp.FTPSingleton` (a mesma conexao que `File.download()` usaria
+internamente), hasheia o arquivo em disco, e so entao entrega esse `.dbc` para
+`pysus.data.local.Data` decodificar — reaproveitando a decodificacao real do
+pysus (que depende da extensao C `pyreaddbc`) sem reimplementa-la.
 
 ### Silver: `data-pipeline/silver_prelim.py`
 

@@ -23,17 +23,27 @@ UF BA, ano 2025), porque o formatter da classe `SIM` fatia o nome posicionalment
 e nao depende da arvore de origem. Nao foi necessario usar `ftplib` manual nem
 atualizar o pysus.
 
-Limitacao conhecida deste ambiente de desenvolvimento: a rede sandboxed conseguiu
-LISTAR o diretorio PRELIM (comando FTP LIST, via conexao de controle) mas novas
-conexoes de controle FTP (incluindo tentativas de RETR) deram timeout de forma
-consistente nos testes manuais. O fluxo de download abaixo reaproveita os mesmos
-primitivos ja usados em producao pela ingestao consolidada (`_pysus_to_bronze_duckdb`,
-`_resolve_pysus_parquet`), mas o download real (RETR) precisa ser validado num
-ambiente com conectividade estavel ao FTP do DATASUS.
+## RETR manual do .dbc bruto (nao usar File.download() diretamente)
+
+Validado ao vivo (ambiente com FTP estavel, fora do sandbox de desenvolvimento):
+`pysus.ftp.File.download()` NAO preserva o `.dbc` bruto. `Data(str(filepath))`
+(chamado dentro do proprio `download()`) instancia `ParquetSet`, que converte
+`.dbc -> .dbf -> parquet` SINCRONAMENTE e cada etapa apaga o arquivo de entrada
+(`pysus/data/__init__.py`: `dbc_to_dbf()` e `dbf_to_parquet()` chamam
+`path.unlink()` apos gerar a proxima etapa). Ou seja, ao `File.download()`
+retornar, o `.dbc` ja nao existe mais em disco — so resta o `.parquet` final.
+
+Por isso este modulo NAO chama `source.download()`. Em vez disso, faz o RETR do
+`.dbc` manualmente com `pysus.ftp.FTPSingleton` (a mesma conexao que
+`File.download()` usaria internamente) para poder hashear o `.dbc` ANTES de
+entrega-lo ao conversor do pysus (`pysus.data.local.Data`, reaproveitado sem
+modificacao para a decodificacao .dbc->.dbf->parquet em si — nunca
+reimplementada aqui, pois depende da extensao C `pyreaddbc`).
 """
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -72,21 +82,48 @@ def _prelim_sim_database() -> Any:
 
 
 def _download_prelim_source(source: Any, dbc_dir: Path) -> tuple[str, dict]:
-    """Baixa o .dbc bruto (proveniencia) e retorna (caminho_parquet, fingerprint_dbc).
+    """Baixa o .dbc bruto via RETR manual, hasheia, so entao converte.
 
-    Usa `File.download()` diretamente (nao `Database.download()`) para controlar
-    o diretorio de destino e poder hashear o .dbc bruto — o pysus converte
-    .dbc -> .dbf -> parquet in-place sem apagar o .dbc original.
+    Nao usa `source.download()` (ver docstring do modulo): esse metodo apaga o
+    .dbc bruto antes de devolver o controle, entao a proveniencia precisa ser
+    capturada ANTES da conversao, nao depois.
+
+    Qualquer `.parquet`/`.dbf` remanescente de uma tentativa anterior (com o
+    bug antigo, quando o .dbc ja tinha sido apagado sem hash registrado) e
+    descartado antes do RETR: sem o hash do .dbc original, esse artefato nao
+    tem proveniencia auditavel e nao pode ser reaproveitado nesta camada.
     """
+    from pysus.data.local import Data
+    from pysus.ftp import FTPSingleton
+
     dbc_dir.mkdir(parents=True, exist_ok=True)
-    parquet_set = source.download(local_dir=str(dbc_dir))
-    dbc_path = dbc_dir / getattr(source, "basename", f"{getattr(source, 'name', 'source')}.dbc")
+    basename = getattr(source, "basename", f"{getattr(source, 'name', 'source')}.dbc")
+    dbc_path = dbc_dir / basename
+
+    for stale in (dbc_path.with_suffix(".parquet"), dbc_path.with_suffix(".dbf")):
+        if stale.is_dir():
+            shutil.rmtree(stale)
+        elif stale.exists():
+            stale.unlink()
+
+    ftp = FTPSingleton.get_instance()
+    try:
+        with open(dbc_path, "wb") as output:
+            ftp.retrbinary(f"RETR {source.path}", output.write)
+    except Exception:
+        if dbc_path.exists():
+            dbc_path.unlink()
+        raise
+    finally:
+        FTPSingleton.close()
+
     if not dbc_path.exists():
         raise FileNotFoundError(
-            f"Arquivo .dbc bruto nao encontrado apos download (esperado em {dbc_path}); "
+            f"Arquivo .dbc bruto nao encontrado apos RETR (esperado em {dbc_path}); "
             "a proveniencia do arquivo original nao pode ser confirmada."
         )
     dbc_fingerprint = file_fingerprint(dbc_path)
+    parquet_set = Data(str(dbc_path))
     return _resolve_pysus_parquet(parquet_set), dbc_fingerprint
 
 
