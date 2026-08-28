@@ -75,6 +75,7 @@ export default function MunicipioPage() {
               }
               icon={<Gauge className="h-4 w-4" />}
               semantic="health"
+              infoTermo="taxa_100mil"
             />
             <KpiCard title="Frota SENATRAN" value={detail.frota_total == null ? "N/D" : formatNumber(detail.frota_total)} subtitle={detail.frota_status === "disponivel" ? "Estoque dez./mesmo ano" : "Denominador indisponivel"} icon={<Users className="h-4 w-4" />} semantic="success" />
             <KpiCard title="Taxa / 10 mil veic." value={detail.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(detail.taxa_obitos_10mil_veiculos)} subtitle={detail.frota_status === "disponivel" ? "Obitos ATT / frota" : "Sem frota pareada"} icon={<Gauge className="h-4 w-4" />} semantic="health" />

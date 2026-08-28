@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import InfoTip from "@/components/InfoTip";
 import { cn } from "@/lib/utils";
+import type { TermoGlossario } from "@/content/glossario";
 
 type Semantic = "deaths" | "health" | "success";
 
@@ -14,6 +16,8 @@ interface Props {
   semantic: Semantic;
   trend?: { value: number; label?: string };
   sparkData?: number[];
+  /** Termo do glossario para o icone de ajuda (ⓘ) no canto superior direito. */
+  infoTermo?: TermoGlossario;
 }
 
 const tokens: Record<Semantic, { color: string; softVar: string; glowVar: string; sparkColor: string }> = {
@@ -71,7 +75,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
-export default function KpiCard({ title, value, subtitle, icon, semantic, trend, sparkData }: Props) {
+export default function KpiCard({ title, value, subtitle, icon, semantic, trend, sparkData, infoTermo }: Props) {
   const t = tokens[semantic];
 
   return (
@@ -98,11 +102,14 @@ export default function KpiCard({ title, value, subtitle, icon, semantic, trend,
             {trend && <TrendBadge value={trend.value} label={trend.label} />}
           </div>
         </div>
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-          style={{ backgroundColor: t.softVar, color: t.color }}
-        >
-          {icon}
+        <div className="flex shrink-0 items-start gap-1.5">
+          {infoTermo && <InfoTip termo={infoTermo} />}
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: t.softVar, color: t.color }}
+          >
+            {icon}
+          </div>
         </div>
       </div>
 
