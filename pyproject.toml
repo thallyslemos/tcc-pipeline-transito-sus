@@ -19,9 +19,12 @@ dependencies = [
     "pydantic-settings>=2.7",
     "structlog>=25.1",
     "python-dotenv>=1.0",
+    "psycopg[binary]>=3.2",
+    "scipy>=1.11",
     "timesfm>=1.2",
     "huggingface-hub>=0.25",
     "torch>=2.0",
+    "python-calamine>=0.5",
 ]
 
 [dependency-groups]
@@ -35,7 +38,7 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["data-pipeline", "backend", "mcp-server", "tests"]
+src = ["data-pipeline", "backend", "mcp-server", "tests", "db"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "S", "B", "SIM", "RUF"]
@@ -45,7 +48,26 @@ ignore = ["S608", "S101", "S104"]
 "tests/**" = ["S101", "S106"]
 "data-pipeline/sample_data.py" = ["S311"]
 "notebooks/**" = ["E501", "F541", "I001"]
+# FastAPI usa Query(...) nos defaults por desenho da framework (falso positivo B008).
+"backend/routers/*.py" = ["B008"]
+# sys.path antes de imports do monorepo.
+"mcp-server/server.py" = ["E402"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+# torch e usado apenas para inferencia do TimesFM (CPU); a build padrao do
+# PyPI arrasta ~3-4GB de pacotes CUDA (nvidia-cublas, nvidia-cudnn, etc.)
+# mesmo sem GPU disponivel neste projeto/deploy.
+torch = { index = "pytorch-cpu" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: testes que exigem serviços externos (ex.: PostgreSQL)",
+    "requires_data: testes que exigem data/gold e/ou data/silver reais (não versionados no git; não rodam em CI)",
+]

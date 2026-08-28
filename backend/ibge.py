@@ -6,14 +6,11 @@ dados embutidos do data-pipeline.ibge (offline-first).
 
 from __future__ import annotations
 
-
 from importlib import import_module
 
 import structlog
 
 from .database import get_connection
-
-
 
 logger = structlog.get_logger(__name__)
 

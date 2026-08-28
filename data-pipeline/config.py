@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
 
+    # PostgreSQL (carga opcional Parquet → serviço)
+    database_url: str | None = None
+    postgres_schema: str = "public"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",")]

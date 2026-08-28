@@ -16,3 +16,19 @@ export function formatCompact(value: number): string {
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
   return String(value);
 }
+
+/** Taxa por 100 mil habitantes (SIM / Ficha C.12) */
+export function formatTaxa100k(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+/** Taxa de obitos por 10 mil veiculos, quando a frota SENATRAN esta disponivel. */
+export function formatTaxa10k(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}

@@ -1,0 +1,18 @@
+# PostgreSQL para desenvolvimento local ou staging (camada de serviço).
+# Uso: docker compose -f docker-compose.postgres.yml up -d
+# DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: transito
+      POSTGRES_PASSWORD: transito
+      POSTGRES_DB: transito_sus
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transito -d transito_sus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

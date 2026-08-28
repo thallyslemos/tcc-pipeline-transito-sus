@@ -5,11 +5,10 @@ via linguagem natural usando o Model Context Protocol (MCP).
 """
 
 import sys
+from importlib import import_module
 from pathlib import Path
 
 from fastmcp import FastMCP
-
-from importlib import import_module
 
 # Garante que a raiz do projeto esta no path para imports relativos
 project_root = Path(__file__).resolve().parent.parent
@@ -18,6 +17,7 @@ if str(project_root) not in sys.path:
 
 from backend.database import get_connection
 from backend.routers.utils import REGIOES
+from backend.sql_dialect import expr_competencia_yyyy_mm
 
 ibge_mod = import_module("data-pipeline.ibge")
 get_populacao = ibge_mod.get_populacao
@@ -152,7 +152,10 @@ def query_custos(
 
 @mcp.tool()
 def query_taxa_mortalidade(
-    municipio: str | None = None, uf: str | None = None, ano: int = 2022, dimensao: str = "ocorrencia"
+    municipio: str | None = None,
+    uf: str | None = None,
+    ano: int = 2022,
+    dimensao: str = "ocorrencia",
 ) -> str:
     """Calcula taxa de mortalidade por 100 mil habitantes."""
     con = get_connection()
@@ -161,7 +164,7 @@ def query_taxa_mortalidade(
         clauses.append(f"municipio ILIKE '%{municipio}%'")
     if uf:
         clauses.append(f"uf = '{uf.upper()}'")
-    
+
     where_clause = " AND ".join(clauses)
     view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
 
@@ -194,27 +197,28 @@ def query_serie_temporal(
 ) -> str:
     """Retorna serie temporal mensal de um municipio."""
     con = get_connection()
+    comp = expr_competencia_yyyy_mm("competencia")
     if metrica == "custos":
         result = con.sql(
             f"""
-            SELECT STRFTIME(competencia, '%Y-%m') AS mes,
+            SELECT {comp} AS mes,
                    ROUND(SUM(custo_total), 2) AS valor
             FROM v_custos
             WHERE municipio ILIKE '%{municipio}%'
-            GROUP BY STRFTIME(competencia, '%Y-%m')
-            ORDER BY mes
+            GROUP BY competencia
+            ORDER BY competencia
         """
         ).fetchdf()
     else:
         view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
         result = con.sql(
             f"""
-            SELECT STRFTIME(competencia, '%Y-%m') AS mes,
+            SELECT {comp} AS mes,
                    SUM(total_obitos) AS valor
             FROM {view}
             WHERE municipio ILIKE '%{municipio}%'
-            GROUP BY STRFTIME(competencia, '%Y-%m')
-            ORDER BY mes
+            GROUP BY competencia
+            ORDER BY competencia
         """
         ).fetchdf()
 
@@ -237,11 +241,6 @@ def listar_municipios(uf: str | None = None) -> str:
     """
     ).fetchdf()
     return result.to_string(index=False)
-
-
-if __name__ == "__main__":
-    mcp.run()
-
 
 
 if __name__ == "__main__":

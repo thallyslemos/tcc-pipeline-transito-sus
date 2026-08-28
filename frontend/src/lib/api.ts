@@ -1,18 +1,22 @@
-import type { FilterValues, MapPoint, Municipio, MunicipioDetail, DashboardData } from "./types";
+import type {
+  FilterValues,
+  MapPoint,
+  SimCatalog,
+  SimDiaSemana,
+  SimFluxo,
+  SimMunicipio,
+  SimMunicipioDetail,
+  SimOutliers,
+  SimPopulacaoCobertura,
+  SimPrelimCompletude,
+  SimPrelimMetadata,
+  SimPrelimMunicipios,
+  SimPrelimSummary,
+  SimSerieMensal,
+  SimSummary,
+} from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-function qs(filters: FilterValues): string {
-  const p = new URLSearchParams();
-  if (filters.ano) p.set("ano", String(filters.ano));
-  if (filters.municipio) p.set("municipio", filters.municipio);
-  if (filters.tipo_veiculo) p.set("tipo_veiculo", filters.tipo_veiculo);
-  if (filters.uf) p.set("uf", filters.uf);
-  if (filters.regiao) p.set("regiao", filters.regiao);
-  if (filters.dimensao) p.set("dimensao", filters.dimensao);
-  const s = p.toString();
-  return s ? `?${s}` : "";
-}
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
@@ -20,69 +24,220 @@ async function get<T>(path: string): Promise<T> {
   return res.json();
 }
 
-export const fetchSummary = (f: FilterValues = {}) =>
-  get<DashboardData>(`/api/dashboard/summary${qs(f)}`);
+function simQuery(filters: FilterValues = {}): string {
+  const params = new URLSearchParams();
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.dimensao) params.set("dimensao", filters.dimensao);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
 
-export const fetchAnos = () =>
-  get<{ anos: number[] }>("/api/dashboard/anos");
+export const fetchSimSummary = (filters: FilterValues = {}) =>
+  get<SimSummary>(`/api/sim/summary${simQuery(filters)}`);
 
-export const fetchTiposVeiculo = () =>
-  get<{ tipos: string[] }>("/api/dashboard/tipos-veiculo");
+export const fetchSimAnos = (dimensao: FilterValues["dimensao"] = "ocorrencia") =>
+  get<{ dimensao: string; anos: number[] }>(`/api/sim/anos?dimensao=${dimensao}`);
 
-export const fetchMunicipios = (f: FilterValues = {}) =>
-  get<{ municipios: Municipio[] }>(`/api/dashboard/municipios${qs(f)}`);
+export const fetchSimTipos = (dimensao: FilterValues["dimensao"] = "ocorrencia") =>
+  get<{ dimensao: string; tipos: string[] }>(`/api/sim/tipos-veiculo?dimensao=${dimensao}`);
 
-export const fetchMunicipio = (cod: string, ano?: number) =>
-  get<MunicipioDetail>(`/api/dashboard/municipio/${cod}${ano ? `?ano=${ano}` : ""}`);
-
-export const fetchMapa = (metrica: string = "obitos", ano?: number) => {
-  const p = new URLSearchParams({ metrica });
-  if (ano) p.set("ano", String(ano));
-  return get<{ metrica: string; ano: number | null; dados: MapPoint[] }>(
-    `/api/dashboard/mapa?${p}`
+export const fetchSimMunicipios = (filters: FilterValues = {}, page = 1, pageSize = 200) => {
+  const params = new URLSearchParams({
+    dimensao: filters.dimensao ?? "ocorrencia",
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.municipio) params.set("search", filters.municipio);
+  return get<{ dimensao: string; page: number; page_size: number; total: number; municipios: SimMunicipio[] }>(
+    `/api/sim/municipios?${params}`
   );
 };
 
-export interface IndicadorAnual {
-  ano: number;
-  populacao: number;
-  obitos: number;
-  taxa_obitos_100mil: number;
-  custo_total: number;
-  custo_per_capita: number;
-  atendimentos: number;
-  taxa_atend_100mil: number;
+export const fetchSimMunicipio = (
+  cod: string,
+  ano?: number,
+  dimensao: FilterValues["dimensao"] = "ocorrencia"
+) => {
+  const params = new URLSearchParams({ dimensao });
+  if (ano) params.set("ano", String(ano));
+  return get<SimMunicipioDetail>(`/api/sim/municipio/${cod}?${params}`);
+};
+
+export const fetchSimMetadata = () => get<SimCatalog>("/api/sim/metadata");
+
+export const fetchSimPopulacaoCobertura = (
+  filters: { dimensao?: FilterValues["dimensao"]; uf?: string; regiao?: string } = {}
+) => {
+  const params = new URLSearchParams({ dimensao: filters.dimensao ?? "ocorrencia" });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  return get<SimPopulacaoCobertura>(`/api/sim/populacao/cobertura?${params}`);
+};
+
+export interface SimGeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>[];
 }
 
-export interface IndicadoresMunicipio {
-  cod_mun_ibge: string;
-  municipio: string;
-  uf: string;
-  regiao: string;
-  area_km2: number;
-  idh: number;
-  pib_per_capita: number;
-  indicadores: IndicadorAnual[];
-  fontes: Record<string, string>;
+export const fetchSimGeo = (filters: FilterValues = {}) =>
+  get<SimGeoFeatureCollection>(`/api/sim/geo${simQuery(filters)}`);
+
+export const fetchMapa = async (filters: FilterValues = {}) => {
+  const collection = await fetchSimGeo(filters);
+  const dados: MapPoint[] = collection.features.map((feature) => {
+    const properties = feature.properties ?? {};
+    return {
+      cod_mun_ibge: String(properties.cod_mun_ibge ?? ""),
+      municipio: String(properties.municipio ?? ""),
+      uf: String(properties.uf ?? ""),
+      valor: Number(properties.valor ?? 0),
+      lat: null,
+      lon: null,
+      populacao: properties.populacao == null ? null : Number(properties.populacao),
+      taxa_obitos_100mil: properties.taxa_obitos_100mil == null ? null : Number(properties.taxa_obitos_100mil),
+      populacao_origem:
+        properties.populacao_origem === "exata" || properties.populacao_origem === "estimada"
+          ? properties.populacao_origem
+          : null,
+      populacao_ano_referencia:
+        properties.populacao_ano_referencia == null ? null : Number(properties.populacao_ano_referencia),
+      populacao_defasagem_anos:
+        properties.populacao_defasagem_anos == null ? null : Number(properties.populacao_defasagem_anos),
+      frota_total: properties.frota_total == null ? null : Number(properties.frota_total),
+      frota_status: properties.frota_status === "disponivel" ? "disponivel" : "indisponivel",
+      taxa_obitos_10mil_veiculos:
+        properties.taxa_obitos_10mil_veiculos == null
+          ? null
+          : Number(properties.taxa_obitos_10mil_veiculos),
+      has_data: properties.has_data !== false,
+    };
+  });
+  return { metrica: "obitos", ano: filters.ano ?? null, dados, geojson: collection };
+};
+
+export const fetchForecast = (cod: string, ano: number, dimensao: FilterValues["dimensao"] = "ocorrencia") =>
+  fetchSimMunicipio(cod, ano, dimensao);
+
+export interface FluxoGeoFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>[];
 }
 
-export const fetchIndicadores = (cod: string, ano?: number) =>
-  get<IndicadoresMunicipio>(
-    `/api/indicadores/municipio/${cod}${ano ? `?ano=${ano}` : ""}`
-  );
+export const fetchSimFluxos = (
+  codMunicipio: string,
+  direcao: "origens" | "destinos" = "origens",
+  filters: { ano?: number; tipo_veiculo?: string; top_n?: number; min_obitos?: number } = {}
+) => {
+  const params = new URLSearchParams({ cod_municipio: codMunicipio, direcao });
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.top_n) params.set("top_n", String(filters.top_n));
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  return get<SimFluxo>(`/api/sim/fluxos?${params}`);
+};
 
-export interface RankingItem {
-  cod_mun_ibge: string;
-  municipio: string;
-  uf: string;
-  populacao: number;
-  obitos: number;
-  taxa_obitos_100mil: number;
-  custo_total: number;
-  custo_per_capita: number;
+export interface TemporalFilters {
+  dimensao?: "ocorrencia" | "residencia";
+  ano?: number;
+  ano_inicio?: number;
+  ano_fim?: number;
+  uf?: string;
+  regiao?: string;
+  cod_mun_ibge?: string;
+  tipo_veiculo?: string;
 }
 
-export const fetchRanking = (ano: number = 2023, metrica: string = "taxa_obitos_100mil") =>
-  get<{ ano: number; metrica: string; ranking: RankingItem[] }>(
-    `/api/indicadores/ranking?ano=${ano}&metrica=${metrica}`
-  );
+function temporalQuery(filters: TemporalFilters = {}): string {
+  const params = new URLSearchParams();
+  params.set("dimensao", filters.dimensao ?? "ocorrencia");
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.ano_inicio) params.set("ano_inicio", String(filters.ano_inicio));
+  if (filters.ano_fim) params.set("ano_fim", String(filters.ano_fim));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.cod_mun_ibge) params.set("cod_mun_ibge", filters.cod_mun_ibge);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  return `?${params.toString()}`;
+}
+
+export const fetchSimTemporalSerieMensal = (filters: TemporalFilters = {}) =>
+  get<SimSerieMensal>(`/api/sim/temporal/serie-mensal${temporalQuery(filters)}`);
+
+export const fetchSimTemporalDiaSemana = (filters: TemporalFilters = {}) =>
+  get<SimDiaSemana>(`/api/sim/temporal/dia-semana${temporalQuery(filters)}`);
+
+export const fetchSimTemporalOutliers = (
+  filters: TemporalFilters & { min_obitos?: number; somente_concentrados?: boolean } = {}
+) => {
+  const params = new URLSearchParams();
+  params.set("dimensao", filters.dimensao ?? "ocorrencia");
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.ano_inicio) params.set("ano_inicio", String(filters.ano_inicio));
+  if (filters.ano_fim) params.set("ano_fim", String(filters.ano_fim));
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  if (filters.somente_concentrados !== undefined) {
+    params.set("somente_concentrados", String(filters.somente_concentrados));
+  }
+  return get<SimOutliers>(`/api/sim/temporal/outliers?${params}`);
+};
+
+export const fetchSimFluxosGeo = (
+  codMunicipio: string,
+  direcao: "origens" | "destinos" = "origens",
+  filters: { ano?: number; tipo_veiculo?: string; top_n?: number; min_obitos?: number } = {}
+) => {
+  const params = new URLSearchParams({ cod_municipio: codMunicipio, direcao });
+  if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
+  if (filters.top_n) params.set("top_n", String(filters.top_n));
+  if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
+  return get<FluxoGeoFeatureCollection>(`/api/sim/fluxos/geo?${params}`);
+};
+
+// --- SIM preliminar (endpoints proprios /api/sim/prelim/*; nunca /api/sim/*) ---
+
+interface PrelimFilters {
+  dimensao?: "ocorrencia" | "residencia";
+  uf?: string;
+  ano?: number;
+}
+
+function prelimQuery(filters: PrelimFilters = {}): string {
+  const params = new URLSearchParams({ dimensao: filters.dimensao ?? "ocorrencia" });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.ano) params.set("ano", String(filters.ano));
+  return `?${params.toString()}`;
+}
+
+export const fetchSimPrelimSummary = (filters: PrelimFilters = {}) =>
+  get<SimPrelimSummary>(`/api/sim/prelim/summary${prelimQuery(filters)}`);
+
+export const fetchSimPrelimMunicipios = (
+  filters: PrelimFilters = {},
+  page = 1,
+  pageSize = 50
+) => {
+  const params = new URLSearchParams({
+    dimensao: filters.dimensao ?? "ocorrencia",
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  if (filters.uf) params.set("uf", filters.uf);
+  if (filters.ano) params.set("ano", String(filters.ano));
+  return get<SimPrelimMunicipios>(`/api/sim/prelim/municipios?${params}`);
+};
+
+export const fetchSimPrelimCompletude = (filters: PrelimFilters & { ano: number }) =>
+  get<SimPrelimCompletude>(`/api/sim/prelim/completude${prelimQuery(filters)}`);
+
+export const fetchSimPrelimMetadata = () => get<SimPrelimMetadata>("/api/sim/prelim/metadata");

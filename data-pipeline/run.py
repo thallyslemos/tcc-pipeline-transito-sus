@@ -7,14 +7,20 @@ Modos de operacao:
     2. Real (PySUS): Baixa dados reais do DATASUS via FTP.
        uv run python -m data-pipeline.run --real --ufs BA SP --anos 2022 2023
 
-    3. Apenas IBGE (localidades, populacao, malhas GeoJSON):
+    3. Apenas enriquecimento externo (IBGE: localidades, populacao, malhas):
        uv run python -m data-pipeline.run --ibge
 
-    4. Apenas malhas GeoJSON:
+    4. Apenas SIM (sem SIA):
+       uv run python -m data-pipeline.run --sim-only --ufs ALL --anos 2010 2011 2023
+
+    5. Apenas malhas GeoJSON:
        uv run python -m data-pipeline.run --malhas
 
-    5. Apenas Gold (requer Silver existente):
+    6. Apenas Gold (requer Silver existente):
        uv run python -m data-pipeline.run --gold
+
+    7. Carga PostgreSQL (requer DATABASE_URL e migrações aplicadas):
+       uv run python -m data-pipeline.run --load-postgres
 
 Exemplos:
     # Dados amostrais (rapido, sem internet)
@@ -35,9 +41,11 @@ Exemplos:
 
 import argparse
 import gc
+from pathlib import Path
 
 from .bronze import salvar_bronze
 from .config import settings
+from .frota_gold import build_frota_municipio_ano
 from .gold import (
     gerar_gold_custos,
     gerar_gold_obitos_ocorrencia,
@@ -48,6 +56,63 @@ from .logging import get_logger, setup_logging
 from .silver import processar_silver_sia, processar_silver_sim
 
 logger = get_logger(__name__)
+
+
+def run_sim_evidence(
+    silver_path: Path,
+    manifest_path: Path | None,
+    gold_dir: Path,
+    qa_output: Path,
+) -> None:
+    """Audita e materializa o contrato SIM-only sem baixar nem sobrescrever."""
+    from .sim_evidence import auditar_snapshot_sim, materializar_marts_sim
+
+    report = auditar_snapshot_sim(
+        silver_path, manifest_path=manifest_path, output_path=qa_output
+    )
+    marts = materializar_marts_sim(silver_path, destino_dir=gold_dir)
+    logger.info(
+        "sim_evidence_concluido",
+        resumo=report["summary"],
+        marts={role: str(path) for role, path in marts.items()},
+    )
+
+
+def run_frota_gold() -> None:
+    """Apenas Gold frota (CSV SENATRAN normalizado em data/frota/)."""
+    logger.info("modo", tipo="frota_gold")
+    out = build_frota_municipio_ano()
+    if out:
+        logger.info("frota_concluida", dest=str(out))
+    else:
+        logger.warning("frota_nao_gerada", motivo="csv_ausente")
+
+
+def run_senatran(
+    years: str = "2010:2024",
+    municipalities_csv: Path | None = None,
+    aliases_csv: Path | None = None,
+    reuse_local_dir: Path | None = None,
+    allow_unmatched: bool = False,
+) -> None:
+    """ETL SENATRAN auditado: Bronze -> Silver -> Gold frota municipal."""
+    from .senatran_pipeline import parse_years, run_pipeline
+
+    data_root = settings.resolve(settings.data_dir)
+    municipalities = municipalities_csv or settings.resolve("data/municipios.csv")
+    aliases = aliases_csv or settings.resolve(
+        "data-pipeline/resources/senatran_municipio_aliases.csv"
+    )
+    logger.info("modo", tipo="senatran", years=years, municipalities=str(municipalities))
+    paths = run_pipeline(
+        parse_years(years),
+        data_root,
+        municipalities,
+        aliases if aliases.exists() else None,
+        allow_unmatched=allow_unmatched,
+        reuse_local_dir=reuse_local_dir,
+    )
+    logger.info("senatran_concluido", **{key: str(path) for key, path in paths.items()})
 
 
 def run_sample() -> None:
@@ -116,6 +181,83 @@ def run_ibge() -> None:
     ibge_dir = settings.resolve(settings.data_dir)
     salvar_ibge_parquet(ibge_dir)
     logger.info("etapa", camada="ibge", status="concluido")
+
+
+def run_sim_only(ufs: list[str], anos: list[int]) -> None:
+    """Pipeline completo para SIM apenas (Bronze -> Silver -> Gold), sem SIA.
+
+    Uso:
+        uv run python -m data-pipeline.run --sim-only --ufs ALL --anos 2010 2024
+
+    Importante:
+        Nao executa fetchers externos (IBGE/SIDRA). O enriquecimento deve ser
+        rodado separadamente via `--ibge`, mantendo os pipelines desacoplados.
+    """
+    from .datasus import UFS_BRASIL, baixar_sim_streaming
+
+    if ufs == ["ALL"]:
+        ufs = UFS_BRASIL
+        logger.info("modo", tipo="sim_only", escopo="brasil_completo", anos=anos)
+    else:
+        logger.info("modo", tipo="sim_only", ufs=ufs, anos=anos)
+
+    logger.info("etapa", sistema="sim", status="download_streaming")
+    sim_bronze_dir = baixar_sim_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_sim", status="iniciando")
+    silver_sim = processar_silver_sim(sim_bronze_dir)
+    logger.info("etapa", camada="silver_sim", status="concluido")
+    gc.collect()
+
+    logger.info("etapa", camada="gold", status="iniciando")
+    gold_obitos_ocorrencia = gerar_gold_obitos_ocorrencia(silver_sim)
+    gold_obitos_residencia = gerar_gold_obitos_residencia(silver_sim)
+    gold_diario = gerar_gold_diario(silver_sim, silver_sia=None)
+    logger.info("etapa", camada="gold", status="concluido")
+
+    logger.info(
+        "pipeline_sim_only_concluido",
+        gold_obitos_ocorrencia=str(gold_obitos_ocorrencia),
+        gold_obitos_residencia=str(gold_obitos_residencia),
+        gold_diario=str(gold_diario),
+    )
+
+
+def run_prelim(ufs: list[str], anos: list[int]) -> None:
+    """Pipeline PRELIMINAR (Bronze->Silver->Gold), camada complementar e
+    isolada da consolidada (nunca escreve em data/*/sim_v1_*, sim_v2*).
+
+    Uso:
+        uv run python -m data-pipeline.run --prelim --ufs BA --prelim-anos 2025 2026
+    """
+    from .datasus import UFS_BRASIL
+    from .sim_prelim_gold import materializar_marts_prelim
+    from .sim_prelim_ingest import baixar_sim_prelim_streaming
+    from .silver_prelim import processar_silver_sim_prelim
+
+    if ufs == ["ALL"]:
+        ufs = UFS_BRASIL
+        logger.info("modo", tipo="prelim", escopo="brasil_completo", anos=anos)
+    else:
+        logger.info("modo", tipo="prelim", ufs=ufs, anos=anos)
+
+    logger.info("etapa", sistema="sim_prelim", status="download_streaming")
+    prelim_bronze_dir = baixar_sim_prelim_streaming(ufs=ufs, anos=anos)
+
+    logger.info("etapa", camada="silver_prelim", status="iniciando")
+    silver_prelim = processar_silver_sim_prelim(prelim_bronze_dir)
+    logger.info("etapa", camada="silver_prelim", status="concluido")
+    gc.collect()
+
+    logger.info("etapa", camada="gold_prelim", status="iniciando")
+    marts = materializar_marts_prelim(silver_prelim)
+    logger.info("etapa", camada="gold_prelim", status="concluido")
+
+    logger.info(
+        "pipeline_prelim_concluido",
+        silver=str(silver_prelim),
+        marts={role: str(path) for role, path in marts.items()},
+    )
 
 
 def run_malhas() -> None:
@@ -213,7 +355,7 @@ def main() -> None:
     parser.add_argument(
         "--ibge",
         action="store_true",
-        help="Apenas IBGE: localidades + populacao + malhas GeoJSON",
+        help="Job de enriquecimento externo (IBGE): localidades + populacao + malhas",
     )
     parser.add_argument(
         "--malhas",
@@ -224,6 +366,54 @@ def main() -> None:
         "--gold",
         action="store_true",
         help="Apenas Gold (requer Silver existente)",
+    )
+    parser.add_argument(
+        "--load-postgres",
+        action="store_true",
+        help="Carrega Parquet Gold/IBGE para PostgreSQL (requer DATABASE_URL)",
+    )
+    parser.add_argument(
+        "--frota",
+        action="store_true",
+        help="Apenas Gold frota legado (data/frota/frota_normalizada_ibge.csv)",
+    )
+    parser.add_argument(
+        "--senatran",
+        action="store_true",
+        help="ETL SENATRAN auditado (Bronze->Silver->Gold frota municipal)",
+    )
+    parser.add_argument(
+        "--senatran-years",
+        default="2010:2024",
+        help="Anos SENATRAN (ex.: 2010:2024 ou 2023,2024)",
+    )
+    parser.add_argument(
+        "--sim-evidence",
+        action="store_true",
+        help="Audita/materializa Silver v2 SIM-only existente (sem download)",
+    )
+    parser.add_argument(
+        "--silver-v2",
+        type=Path,
+        default=Path("data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet"),
+        help="Silver v2 para --sim-evidence",
+    )
+    parser.add_argument(
+        "--manifest-sim",
+        type=Path,
+        default=Path("data/silver/sim_v2_nacional_2010_2024.manifest.json"),
+        help="Manifesto SIM para --sim-evidence",
+    )
+    parser.add_argument(
+        "--qa-output",
+        type=Path,
+        default=Path("docs/metadata/sim_v2_nacional_2010_2024_contract_v2.audit.json"),
+        help="Relat?rio QA para --sim-evidence",
+    )
+    parser.add_argument(
+        "--sim-only",
+        action="store_true",
+        help="Apenas SIM (sem SIA) - pipeline completo Bronze->Silver->Gold",
     )
     parser.add_argument(
         "--ufs",
@@ -238,10 +428,44 @@ def main() -> None:
         default=list(range(2019, 2024)),
         help="Anos para download (ex: 2022 2023)",
     )
+    parser.add_argument(
+        "--prelim",
+        action="store_true",
+        help=(
+            "Camada complementar PRELIMINAR (PRELIM/DORES), isolada da "
+            "consolidada — Bronze->Silver->Gold em artefatos sim_prelim_*"
+        ),
+    )
+    parser.add_argument(
+        "--prelim-anos",
+        nargs="+",
+        type=int,
+        default=[2025, 2026],
+        help="Anos preliminares para download (ex: 2025 2026); usa --ufs para o escopo de UF",
+    )
 
     args = parser.parse_args()
 
-    if args.ibge:
+    if args.sim_evidence:
+        run_sim_evidence(
+            silver_path=args.silver_v2,
+            manifest_path=args.manifest_sim,
+            gold_dir=settings.resolve(settings.gold_dir),
+            qa_output=args.qa_output,
+        )
+    elif args.load_postgres:
+        from .postgres_load import load_gold_to_postgres
+
+        load_gold_to_postgres()
+    elif args.frota:
+        run_frota_gold()
+    elif args.senatran:
+        run_senatran(years=args.senatran_years)
+    elif args.sim_only:
+        run_sim_only(ufs=args.ufs, anos=args.anos)
+    elif args.prelim:
+        run_prelim(ufs=args.ufs, anos=args.prelim_anos)
+    elif args.ibge:
         run_ibge()
     elif args.malhas:
         run_malhas()

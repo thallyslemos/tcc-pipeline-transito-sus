@@ -13,6 +13,7 @@ import numpy as np
 import structlog
 
 from ..database import get_connection
+from ..sql_dialect import expr_round_numeric
 
 logger = structlog.get_logger(__name__)
 
@@ -68,21 +69,35 @@ def _query_series(
 
     cod6 = cod_mun_ibge[:6]
     if metrica == "obitos":
-        rows = con.execute("""
-            SELECT competencia, SUM(total_obitos) AS valor
-            FROM v_obitos
-            WHERE LEFT(cod_mun_ibge, 6) = ?
-            GROUP BY competencia ORDER BY competencia
-        """, [cod6]).fetchall()
+        rows = (
+            con.execute(
+                """
+                SELECT competencia, SUM(total_obitos) AS valor
+                FROM v_obitos
+                WHERE LEFT(cod_mun_ibge, 6) = ?
+                GROUP BY competencia ORDER BY competencia
+            """,
+                [cod6],
+            )
+            .fetchdf()
+            .to_dict(orient="records")
+        )
     else:
-        rows = con.execute("""
-            SELECT competencia, ROUND(SUM(custo_total), 2) AS valor
-            FROM v_custos
-            WHERE LEFT(cod_mun_ibge, 6) = ?
-            GROUP BY competencia ORDER BY competencia
-        """, [cod6]).fetchall()
+        rows = (
+            con.execute(
+                f"""
+                SELECT competencia, {expr_round_numeric("SUM(custo_total)")} AS valor
+                FROM v_custos
+                WHERE LEFT(cod_mun_ibge, 6) = ?
+                GROUP BY competencia ORDER BY competencia
+            """,
+                [cod6],
+            )
+            .fetchdf()
+            .to_dict(orient="records")
+        )
 
-    return [{"competencia": row[0], "valor": float(row[1])} for row in rows]
+    return [{"competencia": row["competencia"], "valor": float(row["valor"])} for row in rows]
 
 
 def _municipio_nome(cod_mun_ibge: str) -> str | None:
@@ -141,7 +156,8 @@ def forecast(
 
     if ano_inicio or ano_fim:
         series = [
-            s for s in series
+            s
+            for s in series
             if (ano_inicio is None or _extract_year(s["competencia"]) >= ano_inicio)
             and (ano_fim is None or _extract_year(s["competencia"]) <= ano_fim)
         ]
@@ -185,8 +201,7 @@ def forecast(
         upper = [max(0, round(v, 2)) for v in upper]
 
     historico = [
-        {"competencia": str(d)[:7], "valor": float(v)}
-        for d, v in zip(dates, values, strict=True)
+        {"competencia": str(d)[:7], "valor": float(v)} for d, v in zip(dates, values, strict=True)
     ]
 
     previsao = [

@@ -1,0 +1,22 @@
+# Contexto de build do Dockerfile.backend (raiz do repo).
+.git
+.github
+.claude
+frontend
+data
+outputs
+notebooks
+assets
+docs
+analysis
+scripts
+tests
+__pycache__
+.venv
+*.pyc
+.pytest_cache
+.ruff_cache
+*.md
+!README.md
+.env
+.env.*

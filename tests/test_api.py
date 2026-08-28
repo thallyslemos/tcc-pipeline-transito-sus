@@ -4,9 +4,44 @@ Estes testes são projetados para serem robustos contra mudanças nos dados,
 buscando dinamicamente anos e municípios disponíveis para testar.
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
 from .conftest import normalize_str
+
+pytestmark = pytest.mark.requires_data
+
+_UFS_BR = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+]
+
+
+def _ufs_com_obitos(client: TestClient) -> set[str]:
+    r = client.get("/api/dashboard/municipios")
+    r.raise_for_status()
+    return {m["uf"] for m in r.json()["municipios"]}
+
+
+def _uf_sem_obitos(client: TestClient) -> str:
+    """UF da federação sem nenhum município na base (para testar filtro vazio)."""
+    presentes = _ufs_com_obitos(client)
+    for uf in _UFS_BR:
+        if uf not in presentes:
+            return uf
+    pytest.skip("Dataset cobre todas as UFs; não há UF vazia para asserção")
+
+
+def _regiao_sem_obitos(client: TestClient) -> str:
+    """Nome de região (REGIOES) cuja união de UFs não intersecta os dados."""
+    from backend.routers.utils import REGIOES
+
+    presentes = _ufs_com_obitos(client)
+    for nome, ufs in REGIOES.items():
+        if not any(u in presentes for u in ufs):
+            return nome
+    pytest.skip("Todas as regiões têm dados; não há região vazia para asserção")
 
 
 def test_health_check(client: TestClient):
@@ -59,15 +94,14 @@ def test_dashboard_summary_dimensao_residencia(client: TestClient, ano_disponive
 
 def test_dashboard_summary_filtro_uf(client: TestClient, ano_disponivel: int):
     """Verifica o filtro de UF no summary."""
-    # O dataset de teste atual só tem 'BA'
-    uf_teste = "BA"
-    r = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&uf={uf_teste}")
+    uf_com_dados = sorted(_ufs_com_obitos(client))[0]
+    r = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&uf={uf_com_dados}")
     assert r.status_code == 200
     d = r.json()
     assert d["total_obitos"] > 0
 
-    # Verifica se um estado sem dados retorna 0 obitos
-    r_sp = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&uf=SP")
+    uf_vazia = _uf_sem_obitos(client)
+    r_sp = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&uf={uf_vazia}")
     assert r_sp.status_code == 200
     d_sp = r_sp.json()
     assert d_sp["total_obitos"] == 0
@@ -95,16 +129,15 @@ def test_listar_municipios(client: TestClient):
 
 def test_listar_municipios_filtro_uf(client: TestClient):
     """Verifica se o endpoint de listar municipios funciona com filtro de UF."""
-    # O dataset de teste atual só tem 'BA'
-    # 1. Testa com uma UF que tem dados
-    r_ba = client.get("/api/dashboard/municipios?uf=BA")
+    uf_com = sorted(_ufs_com_obitos(client))[0]
+    r_ba = client.get(f"/api/dashboard/municipios?uf={uf_com}")
     assert r_ba.status_code == 200
     munis_ba = r_ba.json()["municipios"]
     assert len(munis_ba) > 0
-    assert all(m["uf"] == "BA" for m in munis_ba)
+    assert all(m["uf"] == uf_com for m in munis_ba)
 
-    # 2. Testa com uma UF que não tem dados
-    r_sp = client.get("/api/dashboard/municipios?uf=SP")
+    uf_vazia = _uf_sem_obitos(client)
+    r_sp = client.get(f"/api/dashboard/municipios?uf={uf_vazia}")
     assert r_sp.status_code == 200
     munis_sp = r_sp.json()["municipios"]
     assert len(munis_sp) == 0
@@ -119,8 +152,8 @@ def test_dashboard_summary_filtro_regiao(client: TestClient, ano_disponivel: int
     assert d_ne["total_obitos"] > 0
     assert "Nordeste" in d_ne["periodo"]
 
-    # Verifica uma região sem dados (Sudeste no dataset de teste)
-    r_se = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&regiao=Sudeste")
+    reg_vazia = _regiao_sem_obitos(client)
+    r_se = client.get(f"/api/dashboard/summary?ano={ano_disponivel}&regiao={reg_vazia}")
     assert r_se.status_code == 200
     assert r_se.json()["total_obitos"] == 0
 
@@ -143,7 +176,7 @@ def test_mapa_filtro_regiao(client: TestClient, ano_disponivel: int):
     assert r_ne.status_code == 200
     d_ne = r_ne.json()
     assert len(d_ne["dados"]) > 0
-    
+
     from backend.routers.utils import REGIOES
     ufs_ne = REGIOES["Nordeste"]
     assert all(d["uf"] in ufs_ne for d in d_ne["dados"])
@@ -156,7 +189,7 @@ def test_geojson_filtro_regiao(client: TestClient, ano_disponivel: int):
     d_ne = r_ne.json()
     assert d_ne["type"] == "FeatureCollection"
     assert len(d_ne["features"]) > 0
-    
+
     from backend.routers.utils import REGIOES
     ufs_ne = REGIOES["Nordeste"]
     for feat in d_ne["features"]:
@@ -174,6 +207,73 @@ def test_municipio_detalhe(client: TestClient, municipio_disponivel: dict):
     assert d["total_obitos"] > 0
     assert len(d["serie_obitos"]) > 0
     assert len(d["obitos_por_tipo_veiculo"]) > 0
+
+
+def test_municipio_detalhe_com_dimensao(client: TestClient, ano_disponivel: int):
+    """Verifica se o parâmetro dimensao funciona no detalhe de município."""
+    # Primeiro obtém um código de município disponível
+    r_mun = client.get("/api/dashboard/municipios")
+    assert r_mun.status_code == 200
+    munis = r_mun.json()["municipios"]
+    assert len(munis) > 0
+    cod_mun = munis[0]["cod_mun_ibge"]
+
+    # Testa com dimensão residência
+    r = client.get(f"/api/dashboard/municipio/{cod_mun}?ano={ano_disponivel}&dimensao=residencia")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["dimensao_ativa"] == "residencia"
+
+    # Testa com dimensão ocorrência (padrão)
+    r2 = client.get(f"/api/dashboard/municipio/{cod_mun}?ano={ano_disponivel}&dimensao=ocorrencia")
+    assert r2.status_code == 200
+    d2 = r2.json()
+    assert d2["dimensao_ativa"] == "ocorrencia"
+
+
+def test_indicadores_municipio_dimensao(client: TestClient, municipio_disponivel: dict):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r_oc = client.get(f"/api/indicadores/municipio/{cod}?dimensao=ocorrencia")
+    assert r_oc.status_code == 200
+    assert r_oc.json()["dimensao_ativa"] == "ocorrencia"
+    r_re = client.get(f"/api/indicadores/municipio/{cod}?dimensao=residencia")
+    assert r_re.status_code == 200
+    assert r_re.json()["dimensao_ativa"] == "residencia"
+
+
+def test_serie_diaria_residencia_indisponivel(
+    client: TestClient, municipio_disponivel: dict, ano_disponivel: int
+):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r = client.get(
+        f"/api/dashboard/municipio/{cod}/serie-diaria",
+        params={"ano": ano_disponivel, "dimensao": "residencia"},
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert d["serie_diaria_disponivel"] is False
+    assert d.get("motivo")
+
+
+def test_serie_diaria_ocorrencia_contrato(
+    client: TestClient, municipio_disponivel: dict, ano_disponivel: int
+):
+    cod = municipio_disponivel["cod_mun_ibge"]
+    r = client.get(
+        f"/api/dashboard/municipio/{cod}/serie-diaria",
+        params={"ano": ano_disponivel, "dimensao": "ocorrencia"},
+    )
+    assert r.status_code == 200
+    d = r.json()
+    assert "serie_diaria_disponivel" in d
+    assert "pontos" in d
+    if d["serie_diaria_disponivel"]:
+        assert isinstance(d["pontos"], list)
+        assert d["resumo"] is not None
+        assert "alerta_concentracao" in d["resumo"]
+        assert "share_obitos_no_dia_pico" in d["resumo"]
+    else:
+        assert d.get("motivo")
 
 
 def test_mapa_obitos(client: TestClient):
@@ -194,15 +294,15 @@ def test_mapa_custos(client: TestClient, ano_disponivel: int):
 
 def test_mapa_filtro_uf(client: TestClient, ano_disponivel: int):
     """Verifica o filtro de UF no endpoint do mapa."""
-    # 1. Testa com uma UF que tem dados
-    r_ba = client.get(f"/api/dashboard/mapa?metrica=obitos&ano={ano_disponivel}&uf=BA")
+    uf_com = sorted(_ufs_com_obitos(client))[0]
+    r_ba = client.get(f"/api/dashboard/mapa?metrica=obitos&ano={ano_disponivel}&uf={uf_com}")
     assert r_ba.status_code == 200
     d_ba = r_ba.json()
     assert len(d_ba["dados"]) > 0
-    assert all(d["uf"] == "BA" for d in d_ba["dados"])
+    assert all(d["uf"] == uf_com for d in d_ba["dados"])
 
-    # 2. Testa com uma UF que não tem dados
-    r_sp = client.get(f"/api/dashboard/mapa?metrica=obitos&ano={ano_disponivel}&uf=SP")
+    uf_vazia = _uf_sem_obitos(client)
+    r_sp = client.get(f"/api/dashboard/mapa?metrica=obitos&ano={ano_disponivel}&uf={uf_vazia}")
     assert r_sp.status_code == 200
     d_sp = r_sp.json()
     assert len(d_sp["dados"]) == 0
@@ -255,6 +355,37 @@ def test_ranking(client: TestClient, ano_disponivel: int):
             d["ranking"][0]["taxa_obitos_100mil"]
             >= d["ranking"][-1]["taxa_obitos_100mil"]
         )
+
+
+def test_ranking_filtros_geograficos(client: TestClient, ano_disponivel: int):
+    """Verifica se o ranking aceita filtros de UF e região."""
+    # Filtro por região (Nordeste tem BA, que é o único estado no dataset de teste)
+    r_ne = client.get(
+        f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil&regiao=Nordeste"
+    )
+    assert r_ne.status_code == 200
+    d_ne = r_ne.json()
+    # O ranking pode estar vazio se não houver dados populacionais para o ano/região,
+    # mas o endpoint deve retornar 200 e a estrutura correta
+    assert "ranking" in d_ne
+    assert "ano" in d_ne
+    assert "metrica" in d_ne
+    # Se houver resultados, todos devem ser do Nordeste
+    if len(d_ne["ranking"]) > 0:
+        from backend.routers.utils import REGIOES
+        ufs_ne = REGIOES["Nordeste"]
+        assert all(m["uf"] in ufs_ne for m in d_ne["ranking"])
+
+    # Filtro por UF (BA tem dados)
+    r_ba = client.get(
+        f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil&uf=BA"
+    )
+    assert r_ba.status_code == 200
+    d_ba = r_ba.json()
+    assert "ranking" in d_ba
+    # Se houver resultados, todos devem ser de BA
+    if len(d_ba["ranking"]) > 0:
+        assert all(m["uf"] == "BA" for m in d_ba["ranking"])
 
 
 def test_cors_headers(client: TestClient):

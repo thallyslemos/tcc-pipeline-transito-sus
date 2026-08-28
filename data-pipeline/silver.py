@@ -42,14 +42,17 @@ def _parquet_source(path: Path) -> str:
 
 _DECODE_IDADE_SIM_SQL = """
 CASE
-    WHEN TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) >= 400
-     AND TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) < 500
-        THEN TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) - 400
-    WHEN TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) >= 500
-        THEN TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) - 500 + 100
-    WHEN TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER) >= 100
-        THEN 0
-    ELSE COALESCE(TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER), 0)
+    WHEN LENGTH(TRIM(CAST({col} AS VARCHAR))) = 3 THEN
+        CASE
+            WHEN TRY_CAST(SUBSTR(TRIM(CAST({col} AS VARCHAR)), 1, 1) AS INTEGER)
+                 IN (0, 1, 2, 3) THEN 0
+            WHEN TRY_CAST(SUBSTR(TRIM(CAST({col} AS VARCHAR)), 1, 1) AS INTEGER) = 4
+                THEN TRY_CAST(SUBSTR(TRIM(CAST({col} AS VARCHAR)), 2, 2) AS INTEGER)
+            WHEN TRY_CAST(SUBSTR(TRIM(CAST({col} AS VARCHAR)), 1, 1) AS INTEGER) = 5
+                THEN 100 + TRY_CAST(SUBSTR(TRIM(CAST({col} AS VARCHAR)), 2, 2) AS INTEGER)
+            ELSE NULL
+        END
+    ELSE TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER)
 END
 """
 
@@ -69,6 +72,7 @@ COALESCE(TRY_CAST(TRIM(CAST({col} AS VARCHAR)) AS INTEGER), 0)
 
 _FAIXA_ETARIA_SQL = """
 CASE
+    WHEN {idade} IS NULL THEN 'Ignorada'
     WHEN {idade} BETWEEN  0 AND 14 THEN '0-14'
     WHEN {idade} BETWEEN 15 AND 24 THEN '15-24'
     WHEN {idade} BETWEEN 25 AND 34 THEN '25-34'
@@ -134,7 +138,10 @@ def processar_silver_sim(bronze_path: Path) -> Path:
                     ({decode_idade})                                  AS idade_anos,
                     COALESCE(TRY_CAST(TRIM(CAST(SEXO AS VARCHAR)) AS INTEGER), 0) AS sexo_int
                 FROM read_parquet('{source}')
-                WHERE LEFT(TRIM(CAST(CAUSABAS AS VARCHAR)), 3) BETWEEN 'V01' AND 'V89'
+                WHERE LEFT(TRIM(CAST(CAUSABAS AS VARCHAR)), 1) = 'V'
+                  AND TRY_CAST(
+                        SUBSTR(TRIM(CAST(CAUSABAS AS VARCHAR)), 2, 2) AS INTEGER
+                    ) BETWEEN 1 AND 89
             )
             SELECT
                 TRIM(CAST(CAUSABAS AS VARCHAR))              AS causabas,
@@ -148,7 +155,8 @@ def processar_silver_sim(bronze_path: Path) -> Path:
                 TRIM(CAST(UF AS VARCHAR))                    AS uf,
                 {tipo_veiculo}                               AS tipo_veiculo,
                 CASE WHEN sexo_int = 1 THEN 'Masculino'
-                     ELSE 'Feminino'
+                     WHEN sexo_int = 2 THEN 'Feminino'
+                     ELSE 'Ignorado'
                 END                                          AS sexo_desc,
                 {faixa_etaria}                               AS faixa_etaria
             FROM parsed

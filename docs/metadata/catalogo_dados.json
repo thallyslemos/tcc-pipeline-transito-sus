@@ -1,0 +1,260 @@
+{
+  "catalog_version": "sim_senatran_evidence_v1",
+  "generated_at": "2026-08-05T12:46:50.949631+00:00",
+  "scope": "SIM com dimensoes IBGE e frota SENATRAN; SIA fora do escopo ativo",
+  "datasets": [
+    {
+      "id": "sim_silver_nacional_v2",
+      "layer": "silver",
+      "status": "validated",
+      "provider": "DATASUS/SIM",
+      "source_url": "https://ftp.datasus.gov.br/dissemin/publicos/",
+      "coverage": {
+        "start": "2010-01-01",
+        "end": "2024-12-31",
+        "ufs": 27
+      },
+      "grain": "uma linha por registro de obito recebido",
+      "keys": [
+        "record_id"
+      ],
+      "quality": {
+        "rows": 20410620,
+        "record_ids_unique": 20410620,
+        "att": 565383,
+        "filter": "is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'"
+      },
+      "path": "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet",
+      "bytes": 1857854228,
+      "sha256": "5869f067227d2c8ea759bbc953aa942c6c7f60fc3f8c448e663c20aa3741c74c"
+    },
+    {
+      "id": "sim_gold_municipio_mes_ocorrencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "tipo_local + municipio + competencia + veiculo + faixa etaria + sexo",
+      "keys": [
+        "tipo_local",
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 482501,
+        "deaths": 565383,
+        "geography_role": "ocorrencia"
+      },
+      "path": "data/gold/sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet",
+      "bytes": 5573733,
+      "sha256": "e667c35224120488e5c3036fb0cb46a33b15adc26dbb00953cc0b7958215ee9c"
+    },
+    {
+      "id": "sim_gold_municipio_mes_residencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "tipo_local + municipio + competencia + veiculo + faixa etaria + sexo",
+      "keys": [
+        "tipo_local",
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 509701,
+        "deaths": 565383,
+        "geography_role": "residencia"
+      },
+      "path": "data/gold/sim_v1_obitos_municipio_mes_residencia_v2.parquet",
+      "bytes": 6192617,
+      "sha256": "3bf1a71f0aa4a7c3d8d7fe25109122123c4d2d542e1bdca82b46fb7dda256bc9"
+    },
+    {
+      "id": "sim_gold_fluxos_residencia_ocorrencia_v1",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "DATASUS/SIM + dimensao municipal IBGE",
+      "source_dataset": "sim_silver_nacional_v2",
+      "coverage": {
+        "start": "2010",
+        "end": "2024"
+      },
+      "grain": "competencia, residencia, ocorrencia, categoria da vitima CID, faixa etaria e sexo",
+      "keys": [
+        "competencia",
+        "cod_mun_residencia_sim_6",
+        "cod_mun_ocorrencia_sim_6",
+        "categoria_vitima_cid",
+        "faixa_etaria",
+        "sexo"
+      ],
+      "quality": {
+        "rows": 525184,
+        "deaths": 565383,
+        "record_ids_unique": 565383,
+        "duplicate_grain_rows": 0
+      },
+      "path": "data/gold/sim_v1_fluxos_residencia_ocorrencia.parquet",
+      "bytes": 8803885,
+      "sha256": "410fede198b138bede3249ad6e559894b5bbbb4370e377e9568b2bcf2d210c9a"
+    },
+    {
+      "id": "ibge_dim_municipio",
+      "layer": "dimension",
+      "status": "partial",
+      "provider": "IBGE",
+      "source_url": "https://servicodados.ibge.gov.br/api/v1/localidades/municipios",
+      "grain": "um municipio",
+      "keys": [
+        "cod_mun_ibge"
+      ],
+      "quality": {
+        "rows": 5537,
+        "coordinates_non_null": 0,
+        "note": "subconjunto local; GeoJSON tem 5571 features"
+      },
+      "path": "data/ibge_municipios.parquet",
+      "bytes": 81437,
+      "sha256": "2bc909833ebfcdfa2a85403bb207854ecd47cebeb72d3d18b37338ab457c2aa7"
+    },
+    {
+      "id": "ibge_populacao",
+      "layer": "dimension",
+      "status": "partial",
+      "provider": "IBGE SIDRA",
+      "source_url": "https://apisidra.ibge.gov.br/values/t/6579",
+      "grain": "municipio-ano",
+      "keys": [
+        "cod_mun_ibge",
+        "ano"
+      ],
+      "quality": {
+        "rows": 49206,
+        "years": [
+          2011,
+          2021,
+          2024
+        ],
+        "note": "2010, 2022 e 2023 ausentes no artefato local"
+      },
+      "path": "data/ibge_populacao.parquet",
+      "bytes": 356956,
+      "sha256": "c01a75a0b53fec9a8ec392f45d5c65b216843224a9dbb1feb1bde8d3efda3b52"
+    },
+    {
+      "id": "ibge_malhas_municipios",
+      "layer": "dimension",
+      "status": "validated",
+      "provider": "IBGE",
+      "source_url": "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR",
+      "grain": "geometria municipal",
+      "keys": [
+        "codarea"
+      ],
+      "quality": {
+        "features": 5571,
+        "null_geometry": 0
+      },
+      "path": "data/ibge_malhas_municipios.geojson",
+      "bytes": 3742533,
+      "sha256": "7d446f3784513549c379a9fb8f2f326714508f774c03d812817402af5ffad15a"
+    },
+    {
+      "id": "senatran_frota",
+      "layer": "silver",
+      "status": "validated",
+      "provider": "SENATRAN/RENAVAM",
+      "source_url": "https://www.gov.br/transportes/pt-br/assuntos/transito/conteudo-Senatran/estatisticas-frota-de-veiculos-senatran",
+      "coverage": {
+        "start": "2010-12-01",
+        "end": "2024-12-01",
+        "ufs": 27,
+        "reference_month": 12
+      },
+      "grain": "linha municipal da origem-ano-tipo de veiculo SENATRAN",
+      "keys": [
+        "cod_mun_ibge",
+        "competencia",
+        "tipo_veiculo_codigo"
+      ],
+      "quality": {
+        "rows": 1754718,
+        "years": 15,
+        "horizontal_totals_reconciled": true,
+        "unmatched_promoted": 0,
+        "note": "nao informados e quarentena preservados apenas na Silver"
+      },
+      "path": "data/silver/senatran_frota_municipio_tipo.parquet",
+      "bytes": 4037805,
+      "sha256": "d79dfa2c1bdc2cb8b22e96ab7aee88cf7d3a77206c6dc93170b1e5df6522bed5",
+      "notes": "Contrato e ressalva do rotulo interno da aba de 2015 descritos em docs/DICIONARIO_DADOS_SENATRAN.md"
+    },
+    {
+      "id": "senatran_frota_gold_municipio_ano",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "SENATRAN/RENAVAM + dimensao municipal IBGE",
+      "source_dataset": "senatran_frota",
+      "coverage": {
+        "start": "2010",
+        "end": "2024",
+        "reference_month": 12
+      },
+      "grain": "codigo IBGE de sete digitos e ano",
+      "keys": [
+        "cod_mun_ibge",
+        "ano"
+      ],
+      "quality": {
+        "rows": 83538,
+        "municipalities": 5570,
+        "duplicates": 0,
+        "metric_status": "available_when_same_municipality_year_exists"
+      },
+      "path": "data/gold/frota_municipio_ano.parquet",
+      "bytes": 3115201,
+      "sha256": "9839b0b9bb350f30a0b1f9962e9ba1b6224b011575e5f22804f5db8cf0b5fa08"
+    },
+    {
+      "id": "senatran_frota_gold_municipio_ano_tipo",
+      "layer": "gold",
+      "status": "validated",
+      "provider": "SENATRAN/RENAVAM + dimensao municipal IBGE",
+      "source_dataset": "senatran_frota",
+      "coverage": {
+        "start": "2010",
+        "end": "2024",
+        "reference_month": 12
+      },
+      "grain": "codigo IBGE de sete digitos, ano e tipo SENATRAN",
+      "keys": [
+        "cod_mun_ibge",
+        "ano",
+        "tipo_veiculo_codigo"
+      ],
+      "quality": {
+        "rows": 1754298,
+        "vehicle_types": 21,
+        "duplicates": 0
+      },
+      "path": "data/gold/frota_municipio_ano_tipo.parquet",
+      "bytes": 4042502,
+      "sha256": "de9cb0bf5a2f7e46e95499281bb5f97a1001c5890bc5f1f83fe5c65982cb5e05"
+    }
+  ]
+}

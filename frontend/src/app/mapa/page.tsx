@@ -1,170 +1,139 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-
+import { useEffect, useRef, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
-import MapLegend from "@/components/map/MapLegend";
-import { fetchAnos, fetchMapa } from "@/lib/api";
-import { formatCurrency, formatNumber } from "@/lib/format";
-import type { MapPoint } from "@/lib/types";
+import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
+import { formatNumber } from "@/lib/format";
+import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
+import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
-
-const TABLE_PAGE_SIZE = 30;
+const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
 export default function MapaPage() {
+  const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
   const [anos, setAnos] = useState<number[]>([]);
+  const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
-  const [metrica, setMetrica] = useState("obitos");
-  const [ano, setAno] = useState("");
+  const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
+  const [tipos, setTipos] = useState<string[]>([]);
+  const [escala, setEscala] = useState<MapScaleMode>("total");
   const [loading, setLoading] = useState(true);
-  const [tablePage, setTablePage] = useState(0);
+
+  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  const anoInicializado = useRef(false);
+  useEffect(() => {
+    fetchSimAnos(filters.dimensao).then((result) => {
+      setAnos(result.anos);
+      if (!anoInicializado.current && result.anos.length) {
+        anoInicializado.current = true;
+        setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
+      }
+    });
+  }, [filters.dimensao]);
+  useEffect(() => {
+    fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
+    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
+  }, [filters.dimensao]);
+  useEffect(() => {
+    setLoading(true);
+    fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
+  }, [filters]);
+  const change = (key: string, value: string) => {
+    setFilters((current) => {
+      const next = { ...current };
+      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
+      if (key === "ano") next.ano = value ? Number(value) : undefined;
+      if (key === "uf") next.uf = value || undefined;
+      if (key === "regiao") next.regiao = value || undefined;
+      if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
+      return next;
+    });
+  };
+  const total = data.reduce((sum, row) => sum + row.valor, 0);
+  const vehicleRateAvailable = data.some((row) => row.taxa_obitos_10mil_veiculos != null);
 
   useEffect(() => {
-    fetchAnos().then((a) => setAnos(a.anos));
-  }, []);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setTablePage(0);
-    fetchMapa(metrica, ano ? Number(ano) : undefined)
-      .then((r) => setData(r.dados))
-      .finally(() => setLoading(false));
-  }, [metrica, ano]);
-
-  useEffect(load, [load]);
-
-  const total = data.reduce((s, d) => s + d.valor, 0);
-  const sorted = [...data].sort((a, b) => b.valor - a.valor);
-  const totalTablePages = Math.ceil(sorted.length / TABLE_PAGE_SIZE);
-  const pagedData = sorted.slice(tablePage * TABLE_PAGE_SIZE, (tablePage + 1) * TABLE_PAGE_SIZE);
-
+    if (!vehicleRateAvailable && escala === "vehicle_rate") setEscala("total");
+  }, [escala, vehicleRateAvailable]);
+  const filterDefs = [
+    { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
+    { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
+    { key: "uf", label: "UF", options: ufs.map((value) => ({ value, label: value })), placeholder: "Todas" },
+    { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
+    { key: "tipo_veiculo", label: "Veiculo", options: tipos.map((value) => ({ value, label: value })), placeholder: "Todos" },
+  ];
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa de Calor</h1>
+          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1>
           <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
-            Distribuição geográfica por município · {data.length} municípios
+            Obitos por municipio - {formatNumber(total)} no filtro atual
           </p>
         </div>
         <FilterBar
-          filters={[
-            {
-              key: "metrica", label: "Métrica",
-              options: [
-                { value: "obitos", label: "Óbitos" },
-                { value: "custos", label: "Custos (R$)" },
-              ],
-              placeholder: "Óbitos",
-            },
-            {
-              key: "ano", label: "Ano",
-              options: anos.map((a) => ({ value: String(a), label: String(a) })),
-            },
-          ]}
-          values={{ metrica, ano }}
-          onChange={(k, v) => {
-            if (k === "metrica") setMetrica(v || "obitos");
-            else setAno(v);
-          }}
+          filters={filterDefs}
+          values={filters as Record<string, string>}
+          onChange={change}
+          onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
-
-      {/* Summary bar */}
-      <div className="flex flex-wrap gap-3">
-        <div className="rounded-lg px-4 py-2"
-          style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-          <p className="text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
-            Total {metrica === "custos" ? "custos" : "óbitos"}
-          </p>
-          <p className="text-lg font-bold" style={{ color: "var(--fg)" }}>
-            {metrica === "custos" ? formatCurrency(total) : formatNumber(total)}
-          </p>
-        </div>
-        <MapLegend metrica={metrica} />
+      <div className="flex items-center gap-2 text-xs">
+        <button
+          type="button"
+          onClick={() => setEscala("total")}
+          className="rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Obitos absolutos
+        </button>
+        <button
+          type="button"
+          onClick={() => setEscala("relative")}
+          className="rounded-lg px-3 py-1.5"
+          style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Taxa / 100 mil
+        </button>
+        <button
+          type="button"
+          onClick={() => setEscala("vehicle_rate")}
+          disabled={!vehicleRateAvailable}
+          title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
+          className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--primary-soft)" : "var(--bg-card)" }}
+        >
+          Taxa / 10 mil veiculos
+        </button>
       </div>
-
-      {/* Map */}
-      <div className="relative overflow-hidden rounded-xl"
-        style={{
-          height: "calc(100vh - 280px)",
-          minHeight: "400px",
-          backgroundColor: "var(--bg-card)",
-          border: "1px solid var(--border)",
-        }}>
-        {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center"
-            style={{ backgroundColor: "color-mix(in srgb, var(--bg-card) 60%, transparent)" }}>
-            <div className="h-8 w-8 animate-spin rounded-full border-4"
-              style={{ borderColor: "var(--border)", borderTopColor: "var(--primary)" }} />
+      {!vehicleRateAvailable && (
+        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi materializado para este recorte.
+        </p>
+      )}
+      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {loading ? (
+          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+            Carregando mapa...
           </div>
+        ) : (
+          <MapView
+            data={data}
+            metrica="obitos"
+            dimensao={filters.dimensao}
+            ano={filters.ano}
+            uf={filters.uf}
+            regiao={filters.regiao}
+            tipo_veiculo={filters.tipo_veiculo}
+            escala={escala}
+          />
         )}
-        <MapView data={data} metrica={metrica} />
       </div>
-
-      {/* Table with Pagination */}
-      <div className="rounded-xl overflow-hidden"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-          <h3 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
-            Ranking por Município
-          </h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead style={{ backgroundColor: "var(--bg-muted)" }}>
-              <tr className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                <th className="px-4 py-2">#</th>
-                <th className="px-4 py-2">Município</th>
-                <th className="px-4 py-2">UF</th>
-                <th className="px-4 py-2 text-right">
-                  {metrica === "custos" ? "Custo Total" : "Óbitos"}
-                </th>
-                <th className="px-4 py-2 text-right">%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedData.map((d, i) => (
-                <tr key={d.cod_mun_ibge}
-                  style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="px-4 py-2" style={{ color: "var(--fg-muted)" }}>
-                    {tablePage * TABLE_PAGE_SIZE + i + 1}
-                  </td>
-                  <td className="px-4 py-2 font-medium" style={{ color: "var(--fg)" }}>{d.municipio}</td>
-                  <td className="px-4 py-2" style={{ color: "var(--fg-secondary)" }}>{d.uf}</td>
-                  <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--fg)" }}>
-                    {metrica === "custos" ? formatCurrency(d.valor) : formatNumber(d.valor)}
-                  </td>
-                  <td className="px-4 py-2 text-right" style={{ color: "var(--fg-muted)" }}>
-                    {total > 0 ? ((d.valor / total) * 100).toFixed(1) : 0}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {totalTablePages > 1 && (
-          <div className="flex items-center justify-center gap-2 py-3"
-            style={{ borderTop: "1px solid var(--border)" }}>
-            <button onClick={() => setTablePage((p) => Math.max(0, p - 1))} disabled={tablePage === 0}
-              className="flex h-7 w-7 items-center justify-center rounded-lg disabled:opacity-30"
-              style={{ border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="text-xs tabular-nums" style={{ color: "var(--fg-secondary)" }}>
-              {tablePage + 1} / {totalTablePages}
-            </span>
-            <button onClick={() => setTablePage((p) => Math.min(totalTablePages - 1, p + 1))}
-              disabled={tablePage >= totalTablePages - 1}
-              className="flex h-7 w-7 items-center justify-center rounded-lg disabled:opacity-30"
-              style={{ border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
+        Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE.
+        Os municipios sem registro permanecem no mapa em estado neutro. {municipios.length} municipios disponiveis para consulta.
       </div>
     </div>
   );

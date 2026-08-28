@@ -8,17 +8,26 @@ import {
   Map,
   Sparkles,
   MessageCircle,
+  Database,
   Sun,
   Moon,
+  GitBranch,
+  CalendarClock,
+  AlertTriangle,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
 const NAV = [
   { href: "/dashboard", label: "Painel Geral", icon: BarChart3 },
   { href: "/municipio", label: "Municípios", icon: Building2 },
+  { href: "/ranking", label: "Ranking", icon: BarChart3 },
   { href: "/mapa", label: "Mapa", icon: Map },
-  { href: "/previsao", label: "Previsão IA", icon: Sparkles },
-  { href: "/chat", label: "Chat IA", icon: MessageCircle },
+  { href: "/fluxos", label: "Fluxos", icon: GitBranch },
+  { href: "/temporal", label: "Temporal", icon: CalendarClock },
+  { href: "/preliminares", label: "Dados preliminares", icon: AlertTriangle },
+  { href: "/previsao", label: "Tendencias", icon: Sparkles },
+  { href: "/chat", label: "Exploracao", icon: MessageCircle },
+  { href: "/dados", label: "Dados e metadados", icon: Database },
 ];
 
 interface Props {
@@ -110,7 +119,7 @@ export default function Sidebar({ open, onClose }: Props) {
             TCC — Sistemas de Informação
           </p>
           <p className="text-[10px]" style={{ color: "var(--fg-muted)" }}>
-            IFBA — DATASUS (SIM/SIA)
+            IFBA — DATASUS (SIM)
           </p>
         </div>
       </aside>

@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+#
+# Imagem de producao da API (FastAPI). Espera servir a partir do PostgreSQL
+# (USE_POSTGRES=true + DATABASE_URL) — ver docs/DEPLOY_VPS.md. A imagem NAO
+# inclui os dados (data/bronze, data/silver, data/gold): a carga do Postgres
+# e feita separadamente pelo pipeline (uv run python -m data-pipeline.run
+# --load-postgres), fora deste container.
+#
+# Build: docker build -f Dockerfile.backend -t transito-sus-api .
+# Run:   docker run -p 8000:8000 -e USE_POSTGRES=true -e DATABASE_URL=... transito-sus-api
+
+FROM python:3.12-slim AS builder
+
+COPY --from=ghcr.io/astral-sh/uv:0.10.7 /uv /uvx /usr/local/bin/
+
+# build-essential/libffi: pysus -> pyreaddbc -> cffi compila codigo C nativo
+# no `uv sync` (sem wheel pre-compilado para esta plataforma). So neste
+# estagio de build.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/app/.venv
+
+# Camada de dependencias isolada do codigo da aplicacao para cache do Docker.
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev --no-editable
+
+COPY backend ./backend
+COPY db ./db
+COPY mcp-server ./mcp-server
+COPY data-pipeline ./data-pipeline
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-editable
+
+FROM python:3.12-slim AS runtime
+
+RUN groupadd --system app && useradd --system --gid app --create-home app
+
+WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    APP_ENV=production
+
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
+COPY --from=builder --chown=app:app /app/backend /app/backend
+COPY --from=builder --chown=app:app /app/db /app/db
+COPY --from=builder --chown=app:app /app/mcp-server /app/mcp-server
+COPY --from=builder --chown=app:app /app/data-pipeline /app/data-pipeline
+COPY --chown=app:app pyproject.toml ./
+
+USER app
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')" || exit 1
+
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]

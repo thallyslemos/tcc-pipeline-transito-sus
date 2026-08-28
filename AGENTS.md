@@ -5,99 +5,67 @@
 
 ---
 
-## 1. Visão Geral do Projeto
+## 1. Visao Geral do Projeto
 
-**Pipeline Analítico de Acidentes de Trânsito no SUS** é um sistema de apoio à decisão que analisa o impacto econômico e as macrotendências de acidentes de trânsito nos dados públicos do Sistema Único de Saúde (SUS) do Brasil.
+O projeto e uma ferramenta de evidencia cientifica sobre mortalidade por acidentes de transporte terrestre no Sistema de Informacoes sobre Mortalidade (SIM). O escopo ativo desta branch e SIM-only, com dimensoes IBGE e frota SENATRAN apenas quando a fonte e o denominador tiverem sido validados. SIA, custos ambulatoriais e comparacoes ONSV ficam documentados como interesse futuro ou teste interno; nao fazem parte da interface nem dos indicadores ativos.
 
 ### O que o projeto faz
 
-1. **Extrai** microdados de mortalidade (SIM) e custos ambulatoriais (SIA) do DATASUS via PySUS
-2. **Transforma** em arquitetura Medallion (Bronze → Silver → Gold) com DuckDB + Parquet
-3. **Enriquece** com dados demográficos do IBGE (localidades, coordenadas, população)
-4. **Expõe** via API REST (FastAPI) para dashboards, mapas e indicadores relativos
-5. **Prediz** tendências de 12 meses com o modelo TimesFM (Google Research)
-6. **Conversa** sobre os dados via chat com Ollama + MCP tools (linguagem natural → SQL)
+1. Extrai e preserva microdados nacionais do SIM via PySUS.
+2. Organiza Bronze, Silver v2 e Gold role-playing com DuckDB e Parquet.
+3. Enriquece a fato com dimensao municipal, malha GeoJSON IBGE, populacao e, quando disponivel, frota SENATRAN.
+4. Audita schema, grao, cobertura temporal, CID-10, idade, sexo, geografia, nulos e duplicidades.
+5. Expoe API SIM-only para dashboard, ranking, consulta municipal, mapa, metadados e paginacao.
+6. Produz insumos reprodutiveis para a analise nacional, estadual e municipal, com foco cientifico inicial na Bahia.
 
-### Fontes de dados
+### Fontes ativas
 
-| Base | Sistema | Órgão | Campos principais |
-|------|---------|-------|-------------------|
-| **SIM** | Sistema de Informações sobre Mortalidade | DATASUS/SVS | `CAUSABAS` (CID-10), `DTOBITO`, `CODMUNOCOR`, `SEXO`, `IDADE` |
-| **SIA/PA** | Sistema de Informações Ambulatoriais | DATASUS | `PA_CIDPRI` (CID-10), `PA_VALAPR`, `PA_QTDAPR`, `PA_MUNPCN` |
-| **IBGE** | Tabela 6579 SIDRA + API Localidades | IBGE | População estimada, nome, UF, lat/lon |
+| Base | Sistema | Orgao | Uso |
+|------|---------|-------|-----|
+| **SIM** | Sistema de Informacoes sobre Mortalidade | DATASUS/SVS | numerador principal; CID-10 V01-V89 |
+| **IBGE** | Localidades, malhas e populacao | IBGE | dimensao municipal, mapa e denominadores |
+| **SENATRAN** | Frota de veiculos | Ministerio dos Transportes | denominador opcional, apos auditoria do leiaute e referencia mensal |
 
-**Filtro CID-10**: Capítulo XX — Acidentes de Transporte Terrestre, códigos **V01 a V89**.
+O filtro cientifico do mart e `is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'`. A Silver preserva o universo recebido e suas flags para auditoria.
 
----
+## 2. Arquitetura e Stack Tecnologica
 
-## 2. Arquitetura e Stack Tecnológica
+### Arquitetura ativa
 
-### Arquitetura Medallion
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        FONTE DE DADOS                          │
-│  DATASUS (SIM/SIA)          IBGE (SIDRA/Localidades)           │
-└──────────┬────────────────────────────┬────────────────────────┘
-           │                            │
-           ▼                            ▼
-┌─────────────────────┐      ┌─────────────────────┐
-│      BRONZE         │      │        IBGE         │
-│  Dados brutos em    │      │  Parquet de         │
-│  Parquet (particionados      │  municípios e       │
-│  por UF/ano)        │      │  população          │
-└──────────┬──────────┘      └──────────┬──────────┘
-           │                            │
-           ▼                            │
-┌─────────────────────┐                 │
-│      SILVER         │                 │
-│  Dados filtrados    │                 │
-│  (CID V01-V89),     │                 │
-│  tipos corrigidos   │                 │
-└──────────┬──────────┘                 │
-           │                            │
-           ▼                            ▼
-┌─────────────────────────────────────────────────────┐
-│                      GOLD                           │
-│  Tabelas agregadas por município/mês:               │
-│  • obitos_ocorrencia_municipio_mes.parquet          │
-│  • obitos_residencia_municipio_mes.parquet          │
-│  • custos_municipio_mes.parquet                     │
-│  • eventos_diarios_municipio.parquet                │
-└──────────────┬──────────────────────────────────────┘
-               │
-    ┌──────────┴──────────┐
-    ▼                     ▼
-┌──────────┐      ┌──────────────┐      ┌─────────────┐
-│ FastAPI  │      │ MCP Server   │      │  Next.js    │
-│ (Porta   │      │ (stdio/      │      │  (Porta     │
-│  8000)   │      │  FastMCP)    │      │   3000)     │
-└──────────┘      └──────────────┘      └─────────────┘
+```text
+DATASUS/SIM -------------> Bronze canonico nacional
+                              |
+                              v
+                         Silver v2 raw-preserving
+                              |
+          +-------------------+-------------------+
+          v                                       v
+   dimensao IBGE / GeoJSON              Gold SIM role-playing
+   populacao / SENATRAN                 ocorrencia | residencia
+          +-------------------+-------------------+
+                              v
+                    FastAPI /api/sim + Next.js
 ```
 
-### Stack Tecnológica
+A dimensao municipal e fisica e unica. Ocorrencia e residencia sao papeis distintos na fato e nos marts. Sem denominador exato do mesmo municipio e ano, a taxa retorna `null` e status `indisponivel`; o numerador nao e descartado.
 
-| Camada | Tecnologia | Versão/Notas |
+### Stack tecnologica
+
+| Camada | Tecnologia | Versao/notas |
 |--------|------------|--------------|
 | Linguagem | Python | 3.12+ |
-| Gerenciador de pacotes | uv | Astral (substitui pip/venv) |
-| Extração | PySUS | DATASUS FTP → Parquet |
-| Processamento | DuckDB | 1.0+ (OLAP in-process) |
-| Armazenamento | Apache Parquet | Colunar, eficiente |
-| Backend | FastAPI | 0.115+ |
-| Configuração | Pydantic Settings | `.env` compartilhado |
-| Logging | structlog | JSON em produção |
-| IA Preditiva | TimesFM | Google Research, 200M params |
-| IA Conversacional | FastMCP + Ollama | Modelo Qwen2.5:3b |
-| Frontend | Next.js 16 | React + TypeScript |
-| UI | Tailwind CSS | Estilos utilitários |
-| Gráficos | Recharts | Visualizações |
-| Mapas | MapLibre GL JS | Mapas interativos |
-| Testes Python | pytest | 35+ testes |
-| Testes Frontend | Vitest + React Testing Library |
-| Lint/Format | ruff | PEP8 + imports + security |
+| Gerenciador | uv | lock Python versionado |
+| Extracao | PySUS | DATASUS FTP/API conforme contrato |
+| Processamento | DuckDB | OLAP local sobre Parquet |
+| Armazenamento | Apache Parquet | Bronze, Silver e Gold |
+| Backend | FastAPI | API SIM-only ativa |
+| Frontend | Next.js + React + TypeScript | dashboard, mapa e consulta |
+| Graficos | Recharts | series e agregacoes |
+| Mapas | MapLibre GL JS | GeoJSON IBGE |
+| Testes Python | pytest | contratos, QA e pipeline |
+| Lint/format | ruff | padrao Python |
 
----
+> As secoes historicas deste guia podem citar SIA, custos ou componentes legados. Nao reative essas rotas no produto sem uma decisao de escopo e um contrato de dados novo.
 
 ## 3. Estrutura de Diretórios
 
@@ -253,10 +221,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 | Ação | Comando |
 |------|---------|
 | Dados amostrais (offline, ~2s) | `uv run python -m data-pipeline.run` |
-| Dados reais do DATASUS | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
+| Dados reais do DATASUS (SIM) | `uv run python -m data-pipeline.run --real --ufs BA --anos 2024` |
 | Apenas IBGE | `uv run python -m data-pipeline.run --ibge` |
+| Auditar/materializar SIM v2 | `uv run python -m data-pipeline.run --sim-evidence --silver-v2 ...` |
 | Apenas malhas GeoJSON | `uv run python -m data-pipeline.run --malhas` |
 | Apenas Gold (requer Silver) | `uv run python -m data-pipeline.run --gold` |
+| Carga PostgreSQL (requer `DATABASE_URL` + migrações) | `uv run python -m data-pipeline.run --load-postgres` |
+| Migrações SQL | `uv run python db/run_migrations.py` |
 | Limpar dados | `rm -rf data/bronze/* data/silver/* data/gold/*` |
 
 ### Serviços
@@ -288,6 +259,17 @@ Antes de considerar uma tarefa "pronta":
 - [ ] Lint limpo: `uv run ruff check .`
 - [ ] Código formatado: `uv run ruff format .`
 - [ ] Testes de frontend passam (se aplicável): `cd frontend && npm test`
+
+### Contratos, API e OpenSpec
+
+Mudanças que afetem o **contrato da API REST** (paths, parâmetros, formato JSON)
+ou o **schema de consumo** do dashboard ou do MCP exigem atualização de
+[docs/SPEC.md](SPEC.md) e testes que cubram o comportamento novo. Se a mudança
+afetar tabelas ou views servidas em produção, atualize também
+[docs/MODELAGEM_DADOS.md](MODELAGEM_DADOS.md) e as migrações em `db/migrations/`.
+
+Fluxo de especificação: [docs/OPENSPEC.md](OPENSPEC.md). PostgreSQL em produção:
+[docs/adr/ADR-002_POSTGRES_SERVING.md](adr/ADR-002_POSTGRES_SERVING.md).
 
 ### Commits
 
@@ -544,6 +526,9 @@ cd frontend && npm test
 | [docs/GUIA_AGENTES.md](docs/GUIA_AGENTES.md) | Metodologia TDD detalhada |
 | [docs/FINANCEIRO.md](docs/FINANCEIRO.md) | Metodologia de cálculos financeiros |
 | [docs/DADOS_MUNICIPIO.md](docs/DADOS_MUNICIPIO.md) | Semântica de municípios |
+| [docs/OPENSPEC.md](docs/OPENSPEC.md) | Fluxo spec → implementar → validar |
+| [docs/MODELAGEM_DADOS.md](docs/MODELAGEM_DADOS.md) | Modelo lógico (Gold + Postgres) |
+| [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md) | Deploy com PostgreSQL na VPS |
 
 ---
 

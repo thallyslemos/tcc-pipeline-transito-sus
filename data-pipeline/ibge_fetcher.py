@@ -22,10 +22,9 @@ from .config import settings
 from .logging import get_logger
 
 logger = get_logger(__name__)
-1100700
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
 METADADOS_MUN_URL = (
-    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/1100700/metadados"
+    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
 )
 MALHAS_BR_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
@@ -46,7 +45,12 @@ class MunicipioLocalidade:
 
 
 def _http_get_with_retry(
-    url: str, *, params: dict | None = None, timeout: float = 30.0, retries: int = 3, delay: float = 1.0
+    url: str,
+    *,
+    params: dict | None = None,
+    timeout: float = 30.0,
+    retries: int = 3,
+    delay: float = 1.0,
 ) -> httpx.Response | None:
     """Wrapper GET com retries e exponential backoff."""
     for attempt in range(retries):
@@ -69,7 +73,7 @@ def fetch_localidades() -> list[MunicipioLocalidade]:
     resp = _http_get_with_retry(LOCALIDADES_URL)
     if not resp:
         return []
-        
+
     data = resp.json()
     municipios: list[MunicipioLocalidade] = []
     for item in data:
@@ -117,7 +121,7 @@ def fetch_populacao(cod_mun: str, ano: int) -> tuple[str, int, int | None]:
     url = f"{SIDRA_BASE_URL}/t/{SIDRA_TABELA}/n6/{cod_mun}/v/{SIDRA_VARIAVEL_POP}/p/{ano}"
     params = {"formato": "json"}
     logger.info("ibge_sidra_busca", cod_mun=cod_mun, ano=ano)
-    
+
     resp = _http_get_with_retry(url, params=params, timeout=60.0)
     if not resp:
         return cod_mun, ano, None
@@ -126,7 +130,7 @@ def fetch_populacao(cod_mun: str, ano: int) -> tuple[str, int, int | None]:
         data = resp.json()
         if not isinstance(data, list) or len(data) < 2:
             return cod_mun, ano, None
-        
+
         valor = data[1].get("V")
         if valor and str(valor).strip() not in ("..", "...", "-"):
             return cod_mun, ano, int(valor)
@@ -143,41 +147,54 @@ def _silver_paths() -> tuple[Path, Path]:
 
 
 def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
-    """Infere combinacoes (cod_mun_ibge, ano, uf) a partir dos Silver."""
-    silver_sim, silver_sia = _silver_paths()
-    combos: set[tuple[str, int, str]] = set()
+    """Infere munic?pio/ano somente do SIM, sem misturar SIA no cat?logo IBGE."""
+    silver_sim, _legacy_sia = _silver_paths()
+    candidates = [
+        settings.resolve(settings.silver_dir)
+        / "sim_v2_nacional_2010_2024_contract_v2.parquet",
+        settings.resolve(settings.silver_dir)
+        / "sim_v2_nacional_2010_2024_contract_v1.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_nacional_2010_2024.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_ba_2010_2024.parquet",
+        silver_sim,
+    ]
+    source = next((path for path in candidates if path.exists()), None)
+    if source is None:
+        return []
 
     con = duckdb.connect(":memory:")
     try:
-        if silver_sim.exists():
-            df_sim = con.sql(
-                f"""
+        columns = {
+            str(row[0]).lower()
+            for row in con.sql(
+                f"DESCRIBE SELECT * FROM read_parquet('{source}')"
+            ).fetchall()
+        }
+        if "cod_mun_ocorrencia_6" in columns:
+            query = f"""
+                SELECT DISTINCT
+                    TRIM(CAST(cod_mun_ocorrencia_6 AS VARCHAR)) AS cod_mun_ibge,
+                    ano_obito AS ano,
+                    TRIM(CAST(uf_ocorrencia AS VARCHAR)) AS uf
+                FROM read_parquet('{source}')
+                WHERE is_v01_v89 AND qa_status = 'ok'
+            """
+        else:
+            query = f"""
                 SELECT DISTINCT
                     TRIM(CAST(cod_mun_ocorrencia AS VARCHAR)) AS cod_mun_ibge,
                     YEAR(competencia) AS ano,
                     TRIM(CAST(uf AS VARCHAR)) AS uf
-                FROM read_parquet('{silver_sim}')
-                """
-            ).fetchdf()
-            for _, row in df_sim.iterrows():
-                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
-
-        if silver_sia.exists():
-            df_sia = con.sql(
-                f"""
-                SELECT DISTINCT
-                    TRIM(CAST(cod_mun AS VARCHAR)) AS cod_mun_ibge,
-                    YEAR(competencia) AS ano,
-                    TRIM(CAST(uf AS VARCHAR)) AS uf
-                FROM read_parquet('{silver_sia}')
-                """
-            ).fetchdf()
-            for _, row in df_sia.iterrows():
-                combos.add((row["cod_mun_ibge"].strip(), int(row["ano"]), row["uf"]))
+                FROM read_parquet('{source}')
+            """
+        rows = con.sql(query).fetchall()
     finally:
         con.close()
 
-    return sorted(combos, key=lambda t: (t[0], t[1]))
+    return sorted(
+        {(str(cod).strip(), int(ano), str(uf).strip()) for cod, ano, uf in rows},
+        key=lambda item: (item[0], item[1]),
+    )
 
 
 def _write_parquet(df: pd.DataFrame, path: Path) -> None:
@@ -205,7 +222,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         return
 
     codigos = sorted({c for (c, _, _) in combos})
-    
+
     localidades = fetch_localidades()
     loc_map_7 = {m.cod_mun_ibge: m for m in localidades}
     loc_map_6 = {m.cod_mun_ibge[:6]: m for m in localidades}
@@ -237,18 +254,23 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     _write_parquet(df_mun, dest_dir / "ibge_municipios.parquet")
     logger.info("ibge_municipios_salvo", registros=len(df_mun))
 
-    # 3) Fetch População em paralelo
-    logger.info("ibge_populacao_iniciando", total_combos=len(combos))
+    # 3) Fetch População em paralelo (deduplicado por municipio/ano)
+    pop_keys: set[tuple[str, int]] = set()
+    for cod, ano, _ in combos:
+        loc = _find_localidade(cod)
+        cod_sidra = loc.cod_mun_ibge if loc else cod
+        pop_keys.add((cod_sidra, ano))
+
+    logger.info(
+        "ibge_populacao_iniciando",
+        total_combos=len(combos),
+        total_chaves_unicas=len(pop_keys),
+    )
     pop_rows = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # Garante que usamos o código de 7 dígitos do IBGE para a API
         tasks = {
-            executor.submit(
-                fetch_populacao,
-                (_find_localidade(cod).cod_mun_ibge if _find_localidade(cod) else cod),
-                ano
-            )
-            for cod, ano, _ in combos
+            executor.submit(fetch_populacao, cod, ano)
+            for cod, ano in pop_keys
         }
         for future in as_completed(tasks):
             cod, ano, pop = future.result()
@@ -260,7 +282,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     df_pop = pd.DataFrame(pop_rows).drop_duplicates(subset=["cod_mun_ibge", "ano"])
     _write_parquet(df_pop, dest_dir / "ibge_populacao.parquet")
     logger.info("ibge_populacao_salvo", registros=len(df_pop))
-    
+
     # 4) Malhas GeoJSON
     baixar_malhas_geojson(dest_dir / "ibge_malhas_municipios.geojson")
 
@@ -281,7 +303,7 @@ def baixar_malhas_geojson(dest: Path | None = None) -> Path:
     resp = _http_get_with_retry(MALHAS_BR_URL, timeout=60.0)
     if not resp:
         return dest
-        
+
     geojson = resp.json()
 
     n_features = len(geojson.get("features", []))

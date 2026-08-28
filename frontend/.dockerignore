@@ -1,0 +1,7 @@
+node_modules
+.next
+e2e
+*.test.tsx
+*.test.ts
+.env.local
+.env.*.local

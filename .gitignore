@@ -29,8 +29,21 @@ htmlcov/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/.env*.local
+frontend/tsconfig.tsbuildinfo
+
+# Binários locais (CLI DuckDB etc.)
+duckdb_cli*.zip
 
 # OS
 .DS_Store
 Thumbs.db
 data/ibge_malhas_municipios.geojson
+
+# Playwright artifacts
+frontend/test-results/
+frontend/.playwright-browsers/
+
+# Análises locais (fora do produto)
+data/analysis/
+data/quality/
