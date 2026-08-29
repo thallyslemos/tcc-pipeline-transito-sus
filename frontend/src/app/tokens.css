@@ -1,0 +1,183 @@
+/* =============================================================================
+   V01–V89 · Design System v2.1
+   Fonte única de verdade de cor, tipografia e geometria.
+   Origem: design/tokens.css (revisado pelo usuário a partir de proposta
+   gerada no Claude Design). Ver design/DESIGN_SYSTEM.md e design/DECISOES.md.
+
+   REGRA DE OURO
+   Dado preenche. Interface traça.
+   Uma cor de dado (rampa de risco, paleta categórica) só aparece como
+   PREENCHIMENTO de área — barra, fatia, feição de mapa, célula de heatmap.
+   Uma cor de interface (marca, foco, estados) só aparece como TRAÇO, PONTO,
+   ÍCONE ou TEXTO. Nenhuma cor cruza a fronteira.
+
+   Nenhum hexadecimal deve existir fora deste arquivo e de src/lib/theme/.
+
+   Este arquivo NÃO declara regras de `html`/`body` (globals.css é dono
+   disso) — só tokens + utilitários universais que ainda não existiam no
+   projeto (mono tabular, foco visível, reduced-motion, impressão).
+   ============================================================================= */
+
+:root {
+  /* ---- tipografia · duas famílias ------------------------------------- */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ---- superfície e tinta · neutros levemente quentes ------------------ */
+  --canvas:    #FAFAF9;   /* fundo da aplicação                            */
+  --surface:   #FFFFFF;   /* card, tabela, painel                          */
+  --sunken:    #F4F4F2;   /* nota de método, estado vazio, cabeçalho fixo  */
+  --border:    #E4E4E0;   /* régua de 1px — substitui toda sombra          */
+  --hairline:  #C9C9C3;   /* divisória interna, contorno de feição no mapa */
+  --ink:       #22262B;   /* texto primário            · 15,2:1 no branco  */
+  --ink-2:     #5B6169;   /* texto secundário e notas  ·  6,3:1 AA         */
+  --ink-3:     #838A92;   /* rótulo mono, meta         ·  3,5:1 AA-large   */
+
+  /* ---- institucional · SÓ interface, nunca codifica valor -------------- */
+  --brand:      #2F5C93;
+  --brand-ink:  #22456E;
+  --brand-soft: #E7EDF5;
+  --focus:      #5B8FCE;
+
+  /* ---- rampa de risco · dado sequencial -------------------------------
+     Matiz única, luminância estritamente decrescente (0,849 → 0,108).
+     Legível em escala de cinza, segura para deuteranopia e comparável
+     entre filtros porque as classes são fixas (ver --break-*).           */
+  --risk-1:  #FBEBD9;
+  --risk-2:  #F6D0AE;
+  --risk-3:  #E9A87F;
+  --risk-4:  #CE7551;
+  --risk-5:  #9E3E24;
+  --no-data: #E5E6E7;
+
+  /* Rótulo sobre a rampa: até risk-3 usa tinta; de risk-4 em diante, canvas.
+     Nota: design/validar_paleta.py calcula contraste tinta=4,56 / canvas=3,20
+     para risk-4 (tinta seria marginalmente melhor) — mas ambos passam só
+     AA-large (3:1), nunca AA pleno (4,5:1), e a decisão escrita no
+     DESIGN_SYSTEM.md §3.2 e DECISOES.md §B-3 agrupa risk-4 com risk-5
+     (canvas), por tratamento visual consistente entre os dois degraus mais
+     escuros. Mantido conforme o documento; registrado aqui para não se
+     perder na próxima revisão. */
+  --on-risk-lo: #22262B;
+  --on-risk-hi: #FAFAF9;
+
+  /* Cortes fixos da rampa · quintis de taxa por 100 mil, 2010–2024, congelados.
+     O filtro repinta feições; a legenda nunca muda.                       */
+  --break-1: 12;
+  --break-2: 18;
+  --break-3: 26;
+  --break-4: 39;
+
+  /* ---- categórico · tipo de vítima · 4 matizes + 1 neutro --------------
+     Mesma luminância (OKLCH L=0,52) e mesmo croma (C=0,088): nenhuma
+     categoria parece mais grave por acidente de cor. Todas fora da matiz
+     da rampa de risco. "Outros / não especificado" é CINZA de propósito —
+     é a categoria que não carrega informação, e não deve competir.        */
+  --cat-moto:     #686098;
+  --cat-pedestre: #676F2F;
+  --cat-auto:     #02787D;
+  --cat-ciclista: #8B5479;
+  --cat-outros:   #8A9096;
+
+  /* ---- estado de UI · só traço, ponto, ícone ou texto ------------------ */
+  --attention:     #B57A2E;  /* incerteza: população estimada, preliminar  */
+  --attention-ink: #744C00;  /* o mesmo estado quando vira TEXTO (7,6:1)   */
+  --ok:            #1D6746;
+  --alert:         #AB2F3F;
+  --disabled:      #EDEDEA;
+
+  /* Tons suaves derivados (NÃO fazem parte da proposta original — extensão
+     mínima pra sustentar a ponte de alias em globals.css: o app atual usa
+     fundo-tinta de chip/badge em vários lugares e o design system não
+     definiu variante "soft" pra --ok/--attention/--alert/--brand fora de
+     --brand-soft). Cor de fundo de chip é papel de INTERFACE (estado), não
+     de dado — está dentro da regra de ouro. Remover junto com o resto da
+     ponte na Fase 11 se nada mais depender deles. */
+  --ok-soft:          color-mix(in srgb, var(--ok) 14%, var(--surface));
+  --attention-soft:   color-mix(in srgb, var(--attention) 14%, var(--surface));
+  --alert-soft:       color-mix(in srgb, var(--alert) 12%, var(--surface));
+
+  /* ---- qualidade do dado ---------------------------------------------- */
+  --hatch-nd: repeating-linear-gradient(45deg,
+              #E5E6E7 0 4px, #D5D6D7 4px 8px);          /* sem dado       */
+  --hatch-prelim: repeating-linear-gradient(45deg,
+              rgba(181,122,46,0.16) 0 5px, transparent 5px 10px); /* prelim */
+
+  /* ---- eixos e grade de gráfico --------------------------------------- */
+  --chart-grid: #EDEDEA;
+  --chart-axis: #5B6169;
+  --chart-ref:  #C9C9C3;
+
+  /* ---- geometria ------------------------------------------------------- */
+  --radius:      6px;
+  --radius-sm:   4px;
+  --radius-pill: 999px;
+  --space-1:  4px;  --space-2:  8px;  --space-3: 12px;
+  --space-4: 16px;  --space-6: 24px;  --space-8: 32px;  --space-12: 48px;
+
+  /* Sem sombra em card, tabela ou KPI: separação é régua de 1px.
+     A única sombra do sistema é a de elemento que flutua de fato.        */
+  --shadow-pop: 0 8px 24px -8px rgba(34, 38, 43, 0.18);
+}
+
+/* =============================================================================
+   Tema escuro. Só redefine tokens — nenhuma regra nova.
+   Compatível com o seletor .dark já usado por ThemeProvider.tsx.
+   A rampa inverte a direção (baixo risco perto do fundo), mas mantém a
+   ordem de luminância. EXPORTAÇÃO DE FIGURA SEMPRE EM TEMA CLARO.
+   ============================================================================= */
+[data-theme="dark"], .dark {
+  --canvas:   #16181B;   --surface:  #1D2024;   --sunken:   #22262B;
+  --border:   #2E3238;   --hairline: #3D424A;
+  --ink:      #EDEDEA;   --ink-2:    #A9AEB4;   --ink-3:    #7C838B;
+
+  --brand:      #7FA8DA;  --brand-ink: #A8C4E6;
+  --brand-soft: rgba(127, 168, 218, 0.14);
+  --focus:      #9CC0E8;
+
+  --risk-1: #3A2A20;  --risk-2: #5A3A26;  --risk-3: #874E2E;
+  --risk-4: #B76A42;  --risk-5: #E08C5E;  --no-data: #2A2D31;
+  --on-risk-lo: #EDEDEA;  --on-risk-hi: #16181B;
+
+  --cat-moto:     #A6A0D7;  --cat-pedestre: #A6AE73;
+  --cat-auto:     #66B7BB;  --cat-ciclista: #CA94B8;
+  --cat-outros:   #8E949A;
+
+  --attention: #D9A75E;  --attention-ink: #D9A75E;
+  --ok:        #74B592;  --alert: #E17177;
+  --disabled:  #26292E;
+
+  --hatch-nd: repeating-linear-gradient(45deg,
+              #2A2D31 0 4px, #35383D 4px 8px);
+  --hatch-prelim: repeating-linear-gradient(45deg,
+              rgba(217,167,94,0.20) 0 5px, transparent 5px 10px);
+
+  --chart-grid: #2A2D31;  --chart-axis: #A9AEB4;  --chart-ref: #3D424A;
+}
+
+/* =============================================================================
+   Utilitários universais novos (não existiam antes deste design system)
+   ============================================================================= */
+
+/* Todo número é mono e tabular: colunas alinham e dígitos não dançam ao filtrar. */
+.num, td.num, th.num, .kpi-valor, .eixo-tick {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+:where(a, button, [role="button"], input, select, summary):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Impressão e exportação: fundo branco, régua preservada, nada de tema escuro. */
+@media print {
+  :root { --canvas: #FFFFFF; --surface: #FFFFFF; }
+  body { background: #FFFFFF; }
+}

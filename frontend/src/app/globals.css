@@ -1,114 +1,86 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
-/* ─── Design Tokens ─── */
-:root {
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-
-  /* Surface */
-  --bg: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-muted: #f1f5f9;
-  --bg-inset: #e2e8f0;
-  --bg-overlay: rgba(0, 0, 0, 0.4);
-
-  /* Text */
-  --fg: #0f172a;
-  --fg-secondary: #475569;
-  --fg-muted: #94a3b8;
-  --fg-inverse: #ffffff;
-
-  /* Borders */
-  --border: #e2e8f0;
-  --border-hover: #cbd5e1;
-
-  /* Primary */
-  --primary: #2563eb;
-  --primary-fg: #ffffff;
-  --primary-soft: #dbeafe;
-  --primary-muted: #93c5fd;
-
-  /* Semantic: Deaths (Red) */
-  --deaths: #dc2626;
-  --deaths-soft: #fef2f2;
-  --deaths-muted: #fca5a5;
-  --deaths-glow: rgba(220, 38, 38, 0.15);
-
-  --health: #2563eb;
-  --health-soft: #eff6ff;
-  --health-muted: #93c5fd;
-
-  /* Semantic: Success (Emerald) */
-  --success: #059669;
-  --success-soft: #ecfdf5;
-  --success-muted: #6ee7b7;
-
-  /* Semantic: Warning (Amber) — usado para denominadores estimados/aproximados */
-  --warning: #d97706;
-  --warning-soft: #fffbeb;
-  --warning-muted: #fcd34d;
-
-  /* Chart grid */
-  --chart-grid: #f1f5f9;
-  --chart-text: #94a3b8;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-  --shadow-glow-deaths: 0 0 20px rgba(220, 38, 38, 0.12);
-
-  /* Radius */
-  --radius: 0.75rem;
-  --radius-lg: 1rem;
+/* Corrige a geometria do tema padrão do Tailwind v4 pros 6px/4px do design
+   system, sem precisar tocar nenhuma classe rounded-lg/rounded-xl existente. */
+@theme {
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 6px;
 }
 
-/* ─── Dark Theme ─── */
-.dark {
-  --bg: #0b1120;
-  --bg-card: #111827;
-  --bg-card-hover: #1e293b;
-  --bg-muted: #1e293b;
-  --bg-inset: #0f172a;
+/* =============================================================================
+   PONTE TEMPORÁRIA — tokens antigos redefinidos sobre os novos, pra migrar o
+   app inteiro sem reescrever ~15 arquivos numa unica PR. Cada alias e
+   removido a medida que os componentes migram pros tokens novos diretamente
+   (Fases 3-10 do design system); o que sobrar e apagado na Fase 11 (ver
+   design/DESIGN_SYSTEM.md e o plano de implementacao). Definido uma unica
+   vez em :root — nao precisa repetir em .dark porque var(--canvas) etc. ja
+   resolve pro valor do tema atual automaticamente.
+   NAO adicionar uso novo destes nomes; use os tokens novos direto.
+   ============================================================================= */
+:root {
+  --bg: var(--canvas);
+  --bg-card: var(--surface);
+  --bg-card-hover: var(--sunken);
+  --bg-muted: var(--sunken);
+  --bg-inset: var(--sunken);
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+
+  --fg: var(--ink);
+  --fg-secondary: var(--ink-2);
+  --fg-muted: var(--ink-2);
+  --fg-inverse: var(--canvas);
+
+  --border-hover: var(--hairline);
+
+  --primary: var(--brand);
+  --primary-fg: var(--canvas);
+  --primary-soft: var(--brand-soft);
+  --primary-muted: var(--brand-ink);
+
+  --deaths: var(--risk-5);
+  --deaths-soft: var(--risk-1);
+  --deaths-muted: var(--risk-3);
+  /* Apesar do nome, --deaths-glow preenche a banda de incerteza da previsao
+     em ForecastChart.tsx (dado, nao efeito de UI) — nao pode virar
+     transparent, senao a banda some. Usa risk-2 (o componente ja aplica
+     fillOpacity=0.6 por cima). */
+  --deaths-glow: var(--risk-2);
+
+  --health: var(--brand);
+  --health-soft: var(--brand-soft);
+  --health-muted: var(--brand-ink);
+
+  --success: var(--ok);
+  --success-soft: var(--ok-soft);
+  --success-muted: var(--ok);
+
+  --warning: var(--attention);
+  --warning-soft: var(--attention-soft);
+  --warning-muted: var(--attention-ink);
+
+  /* --danger nunca tinha sido definido em nenhum tema (bug preexistente: o
+     unico uso, em dashboard/page.tsx, renderizava sem cor). Corrigido aqui
+     de graca ao migrar pro token novo equivalente. */
+  --danger: var(--alert);
+
+  --chart-text: var(--chart-axis);
+
+  /* --shadow-sm hoje só veste card estático (KpiCard/ChartCard) — vira none,
+     a régua de 1px é quem separa. --shadow-md/--shadow-lg, na prática, só
+     vestem elemento que FLUTUA de verdade (tooltip do Recharts, popup do
+     MapLibre, popover do InfoTip, dropdown de fluxos) — viram --shadow-pop,
+     não none, senão essas superfícies perdem separação visual do que está
+     atrás delas. */
+  --shadow-sm: none;
+  --shadow-md: var(--shadow-pop);
+  --shadow-lg: var(--shadow-pop);
+  --shadow-glow-deaths: none;
+}
+
+[data-theme="dark"], .dark {
   --bg-overlay: rgba(0, 0, 0, 0.6);
-
-  --fg: #f1f5f9;
-  --fg-secondary: #94a3b8;
-  --fg-muted: #64748b;
-  --fg-inverse: #0f172a;
-
-  --border: #1e293b;
-  --border-hover: #334155;
-
-  --primary: #3b82f6;
-  --primary-fg: #ffffff;
-  --primary-soft: rgba(59, 130, 246, 0.15);
-  --primary-muted: #60a5fa;
-
-  --deaths: #ef4444;
-  --deaths-soft: rgba(239, 68, 68, 0.1);
-  --deaths-muted: #f87171;
-  --deaths-glow: rgba(239, 68, 68, 0.25);
-
-  --health: #3b82f6;
-  --health-soft: rgba(59, 130, 246, 0.1);
-  --health-muted: #60a5fa;
-
-  --success: #10b981;
-  --success-soft: rgba(16, 185, 129, 0.1);
-  --success-muted: #34d399;
-
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.12);
-  --warning-muted: #fbbf24;
-
-  --chart-grid: #1e293b;
-  --chart-text: #64748b;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  --shadow-glow-deaths: 0 0 30px rgba(239, 68, 68, 0.2), 0 0 60px rgba(239, 68, 68, 0.06);
 }
 
 /* ─── Base ─── */
