@@ -7,11 +7,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -21,6 +18,7 @@ import { AlertTriangle } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
 import KpiStat from "@/components/ui/KpiStat";
+import RankedBar from "@/components/ui/RankedBar";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -33,12 +31,28 @@ import { formatNumber } from "@/lib/format";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
-const PIE_COLORS = ["#ef4444", "#f97316", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4", "#6366f1"];
-const SEXO_COLORS: Record<string, string> = {
-  Masculino: "#3b82f6",
-  Feminino: "#ec4899",
-  Ignorado: "#6b7280",
-};
+
+/**
+ * Mapeia tipo_veiculo (ate 9 categorias vindas do backend, ver
+ * data-pipeline/sim_prelim_gold.py) para a paleta categorica de tipo de
+ * vitima (design/DESIGN_SYSTEM.md §3.3: so 5 tokens — 4 matizes + outros).
+ * Categorias fora das 4 principais caem em --cat-outros; "a paleta nao se
+ * estende".
+ */
+function corCategoriaVeiculo(tipoVeiculo: string): string {
+  switch (tipoVeiculo) {
+    case "Motociclista":
+      return "var(--cat-moto)";
+    case "Pedestre":
+      return "var(--cat-pedestre)";
+    case "Automovel":
+      return "var(--cat-auto)";
+    case "Ciclista":
+      return "var(--cat-ciclista)";
+    default:
+      return "var(--cat-outros)";
+  }
+}
 
 function ThemedTooltip(props: Record<string, unknown>) {
   return (
@@ -57,20 +71,6 @@ function ThemedTooltip(props: Record<string, unknown>) {
   );
 }
 
-function SemanticLegend({ items }: { items: { name: string; color: string }[] }) {
-  return (
-    <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
-      {items.map((item) => (
-        <div key={item.name} className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
-          <span className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>
-            {item.name}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
@@ -153,20 +153,12 @@ export default function DashboardPage() {
   };
 
   const topMunicipios = useMemo(() => municipios.slice(0, 10), [municipios]);
-  const veiculoLegend = useMemo(
-    () =>
-      (data?.obitos_por_tipo_veiculo ?? []).map((row, index) => ({
-        name: row.tipo_veiculo,
-        color: PIE_COLORS[index % PIE_COLORS.length],
-      })),
+  const itensVeiculo = useMemo(
+    () => (data?.obitos_por_tipo_veiculo ?? []).map((row) => ({ nome: row.tipo_veiculo, valor: row.total })),
     [data?.obitos_por_tipo_veiculo],
   );
-  const sexoLegend = useMemo(
-    () =>
-      (data?.obitos_por_sexo ?? []).map((row, index) => ({
-        name: row.sexo,
-        color: SEXO_COLORS[row.sexo] ?? PIE_COLORS[index % PIE_COLORS.length],
-      })),
+  const itensSexo = useMemo(
+    () => (data?.obitos_por_sexo ?? []).map((row) => ({ nome: row.sexo, valor: row.total })),
     [data?.obitos_por_sexo],
   );
 
@@ -281,26 +273,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <ChartCard title="Obitos por Tipo de Veiculo">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={data.obitos_por_tipo_veiculo}
-                dataKey="total"
-                nameKey="tipo_veiculo"
-                cx="50%"
-                cy="50%"
-                outerRadius={75}
-                innerRadius={35}
-                paddingAngle={2}
-              >
-                {data.obitos_por_tipo_veiculo.map((_, index) => (
-                  <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-            </PieChart>
-          </ResponsiveContainer>
-          <SemanticLegend items={veiculoLegend} />
+          <RankedBar itens={itensVeiculo} corPorItem={corCategoriaVeiculo} />
         </ChartCard>
 
         <ChartCard title="Obitos por Faixa Etaria">
@@ -315,36 +288,13 @@ export default function DashboardPage() {
                 width={45}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]}>
-                {data.obitos_por_faixa_etaria.map((_, index) => (
-                  <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Bar>
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--risk-2)" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
 
         <ChartCard title="Distribuicao por Sexo">
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={data.obitos_por_sexo}
-                dataKey="total"
-                nameKey="sexo"
-                cx="50%"
-                cy="50%"
-                outerRadius={75}
-                innerRadius={35}
-                paddingAngle={3}
-              >
-                {data.obitos_por_sexo.map((row, index) => (
-                  <Cell key={index} fill={SEXO_COLORS[row.sexo] ?? PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-            </PieChart>
-          </ResponsiveContainer>
-          <SemanticLegend items={sexoLegend} />
+          <RankedBar itens={itensSexo} />
         </ChartCard>
       </div>
 
