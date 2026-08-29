@@ -6,8 +6,10 @@ import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 import FilterBar from "@/components/filters/FilterBar";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
+import Lede from "@/components/ui/Lede";
 import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
+import { gerarLeitura } from "@/lib/leitura";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import SeloQualidade from "@/components/ui/SeloQualidade";
@@ -87,6 +89,26 @@ function RankingContent() {
     if (!vehicleRateAvailable && sortMode === "vehicle_rate") setSortMode("rate");
   }, [vehicleRateAvailable, sortMode]);
 
+  // Auditoria S2: R3 (divergencia) precisa do recorte inteiro pra comparar
+  // "lider por contagem" x "lider por taxa" direito — a tabela visivel e
+  // paginada (PAGE_SIZE=50), entao usa uma busca a parte (mesmo limite de
+  // 200 que dashboard/mapa/etc ja usam pros proprios agregados do recorte).
+  const [municipiosParaLeitura, setMunicipiosParaLeitura] = useState<SimMunicipio[]>([]);
+  useEffect(() => {
+    fetchSimMunicipios(filters, 1, 200).then((result) => setMunicipiosParaLeitura(result.municipios));
+  }, [filters]);
+
+  const leituraRanking = useMemo(() => {
+    if (!municipiosParaLeitura.length) return null;
+    return gerarLeitura({
+      r3: municipiosParaLeitura.map((m) => ({
+        municipio: m.municipio,
+        obitos: m.obitos,
+        taxa: m.taxa_obitos_100mil,
+      })),
+    });
+  }, [municipiosParaLeitura]);
+
   const handleChange = (key: string, value: string) => {
     setPage(1);
     setFilters((current) => {
@@ -137,6 +159,10 @@ function RankingContent() {
       </div>
 
       <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
+
+      {/* Auditoria S2: e a tela que mais pede a regra R3 (divergencia
+          contagem x taxa) — os dados ja estao na propria tabela. */}
+      <Lede rotulo="Contagem x taxa" leitura={leituraRanking} />
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
         <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "rate" ? "var(--brand-soft)" : "var(--surface)" }} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>

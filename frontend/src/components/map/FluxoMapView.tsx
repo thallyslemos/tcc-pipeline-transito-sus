@@ -7,7 +7,7 @@ import { MapboxOverlay } from "@deck.gl/mapbox";
 import { ArcLayer } from "@deck.gl/layers";
 import { useTheme } from "@/components/ThemeProvider";
 import { buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
-import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
+import { MAP_NEUTRAL_COLOR, mapChoroplethGradientCss, mapChoroplethRgb } from "@/lib/mapGradient";
 import { formatPercentual } from "@/lib/format";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import type { SimFluxoEdge } from "@/lib/types";
@@ -25,13 +25,21 @@ interface ArcDatum {
 
 type RgbColor = [number, number, number];
 
+/**
+ * design/DESIGN_SYSTEM.md §8.1 — auditoria S1: o design system original nao
+ * previa uma cor de DADO propria pro mapa de fluxos, entao o arco usava
+ * ambar/laranja generico (sem correspondencia com nenhum token). Valores
+ * literais (deck.gl nao le var() do CSS) espelhando --flow-origin/
+ * --flow-destino de app/tokens.css — origem em azul de exposicao
+ * (residencia), destino em vermelho de risco (= --risk-5, ocorrencia).
+ */
 const ARC_COLOR_LIGHT: { source: RgbColor; target: RgbColor } = {
-  source: [251, 191, 36], // amber-400: ponto de partida do fluxo
-  target: [194, 65, 12], // orange-800: ponto de chegada do fluxo
+  source: [79, 134, 179], // --flow-origin claro
+  target: [158, 62, 36], // --flow-destino claro (= --risk-5)
 };
 const ARC_COLOR_DARK: { source: RgbColor; target: RgbColor } = {
-  source: [253, 224, 71], // amber-300
-  target: [251, 113, 36], // orange-500
+  source: [106, 158, 202], // --flow-origin escuro
+  target: [224, 140, 94], // --flow-destino escuro (= --risk-5 escuro)
 };
 
 interface Props {
@@ -332,16 +340,26 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
         style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}
       >
         <div className="flex items-center gap-2">
+          {/* Auditoria S1: legenda desatualizada — ainda mostrava o
+              gradiente azul->vermelho generico ja substituido pela rampa de
+              risco em mapGradient.ts (auditoria B2). */}
           <span
             className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: "linear-gradient(90deg, rgb(30,64,175) 0%, rgb(185,28,28) 100%)" }}
+            style={{ background: mapChoroplethGradientCss(dark) }}
           />
           Escala de obitos
         </div>
         <div className="mt-1 flex items-center gap-2">
+          {/* Auditoria S1: swatch usava ambar/laranja generico, sem
+              correspondencia com as cores reais do arco (--flow-origin/
+              --flow-destino). */}
           <span
             className="inline-block h-1.5 w-6 rounded-full"
-            style={{ background: "linear-gradient(90deg, #fbbf24 0%, #c2410c 100%)" }}
+            style={{
+              background: dark
+                ? "linear-gradient(90deg, rgb(106,158,202) 0%, rgb(224,140,94) 100%)"
+                : "linear-gradient(90deg, rgb(79,134,179) 0%, rgb(158,62,36) 100%)",
+            }}
           />
           Arco 3D origem &rarr; destino (arraste com botao direito para inclinar)
         </div>

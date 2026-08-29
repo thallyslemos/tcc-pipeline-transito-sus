@@ -79,6 +79,15 @@
   --break-3: 26;
   --break-4: 39;
 
+  /* ---- fluxos residência → ocorrência ----------------------------------
+     Cores de DADO (preenchem), não de interface. A direção do fluxo é lida
+     pelo gradiente: origem em azul de exposição, destino no vermelho de
+     risco. --flow-origin é deliberadamente distinto de --brand.
+     design/DESIGN_SYSTEM.md §8.1 (S1 da auditoria — lacuna do design
+     system original: nao previa cor de dado propria pro mapa de fluxos). */
+  --flow-origin:  #4F86B3;
+  --flow-destino: #9E3E24;   /* = risk-5 */
+
   /* ---- categórico · tipo de vítima · 4 matizes + 1 neutro --------------
      Mesma luminância (OKLCH L=0,52) e mesmo croma (C=0,088): nenhuma
      categoria parece mais grave por acidente de cor. Todas fora da matiz
@@ -150,6 +159,9 @@
   --risk-1: #3A2A20;  --risk-2: #5A3A26;  --risk-3: #874E2E;
   --risk-4: #B76A42;  --risk-5: #E08C5E;  --no-data: #2A2D31;
   --on-risk-lo: #EDEDEA;  --on-risk-hi: #16181B;
+
+  --flow-origin:  #6A9ECA;
+  --flow-destino: #E08C5E;
 
   --cat-moto:     #A6A0D7;  --cat-pedestre: #A6AE73;
   --cat-auto:     #66B7BB;  --cat-ciclista: #CA94B8;
