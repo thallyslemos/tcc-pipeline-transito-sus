@@ -1,23 +1,56 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function MunicipioPage() {
-  const [dimensao, setDimensao] = useState<FilterValues["dimensao"]>("ocorrencia");
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <MunicipioContent />
+    </Suspense>
+  );
+}
+
+function MunicipioContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const recorteUrl = lerRecorteDaUrl(searchParamsIniciais);
+  const [dimensao, setDimensao] = useState<FilterValues["dimensao"]>(() => recorteUrl.dimensao ?? "ocorrencia");
   const [anos, setAnos] = useState<number[]>([]);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
-  const [cod, setCod] = useState("");
-  const [ano, setAno] = useState<number | undefined>();
+  const [cod, setCod] = useState(() => recorteUrl.municipio ?? "");
+  const [ano, setAno] = useState<number | undefined>(() => recorteUrl.ano);
   const [detail, setDetail] = useState<SimMunicipioDetail | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx).
+  useEffect(() => {
+    const query = serializarRecorte({ dimensao, ano, municipio: cod }).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [dimensao, ano, cod, pathname, router]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
 
   // Camada 3 (design/DESIGN_SYSTEM.md §6.2): serie_mensal e uma CONTAGEM,
   // nao uma taxa — mesmo ajuste de sujeito/formatador ja usado em /temporal
@@ -71,6 +104,16 @@ export default function MunicipioPage() {
           </select>
         </div>
       </div>
+
+      <BarraDeRecorte
+        chips={[
+          { rotulo: "Dimensão", valor: dimensao === "residencia" ? "Residência" : "Ocorrência" },
+          ...(detail ? [{ rotulo: "Município", valor: `${detail.municipio} (${detail.uf})` }] : []),
+          { rotulo: "Ano", valor: ano ? String(ano) : "Todos" },
+        ]}
+        n={detail?.total_obitos ?? 0}
+        aoClicarLink={copiarLinkDoRecorte}
+      />
 
       {loading && <div className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando...</div>}
       {!loading && detail && (

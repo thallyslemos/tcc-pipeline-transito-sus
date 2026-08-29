@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 import FilterBar from "@/components/filters/FilterBar";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa10k } from "@/lib/format";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import type { FilterValues, SimMunicipio } from "@/lib/types";
 
@@ -13,8 +16,30 @@ const PAGE_SIZE = 50;
 
 type SortMode = "absolute" | "rate" | "vehicle_rate";
 
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function RankingPage() {
-  const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <RankingContent />
+    </Suspense>
+  );
+}
+
+function RankingContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const [filters, setFilters] = useState<FilterValues>(() => ({
+    dimensao: "ocorrencia",
+    ...lerRecorteDaUrl(searchParamsIniciais),
+  }));
   const [anos, setAnos] = useState<number[]>([]);
   const [rows, setRows] = useState<SimMunicipio[]>([]);
   const [total, setTotal] = useState(0);
@@ -25,17 +50,25 @@ export default function RankingPage() {
 
   const vehicleRateAvailable = rows.some((row) => row.taxa_obitos_10mil_veiculos != null);
 
-  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  // So auto-seleciona o ultimo ano na carga inicial, e so se nenhum ano ja
+  // estiver definido (nem da URL nem de escolha do usuario) — ver
+  // dashboard/page.tsx pro mesmo guard e o motivo.
   const anoInicializado = useRef(false);
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
+        setFilters((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
   }, [filters.dimensao]);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx).
+  useEffect(() => {
+    const query = serializarRecorte(filters).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [filters, pathname, router]);
 
   useEffect(() => {
     setLoading(true);
@@ -61,6 +94,17 @@ export default function RankingPage() {
       if (key === "uf") next.uf = value || undefined;
       return next;
     });
+  };
+
+  const chipsRecorte = useMemo(() => {
+    const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
+    if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
+    chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
+    return chips;
+  }, [filters]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
   };
 
   const ordered = [...rows].sort((a, b) => {
@@ -89,6 +133,8 @@ export default function RankingPage() {
         </div>
         <FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={handleChange} onReset={() => { setPage(1); setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) }); }} />
       </div>
+
+      <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--fg-secondary)" }}>
         <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "rate" ? "var(--primary-soft)" : "var(--bg-card)" }} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>

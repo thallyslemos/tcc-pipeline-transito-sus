@@ -1,18 +1,43 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import FilterBar from "@/components/filters/FilterBar";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function MapaPage() {
-  const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <MapaContent />
+    </Suspense>
+  );
+}
+
+function MapaContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const [filters, setFilters] = useState<FilterValues>(() => ({
+    dimensao: "ocorrencia",
+    ...lerRecorteDaUrl(searchParamsIniciais),
+  }));
   const [anos, setAnos] = useState<number[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
@@ -21,17 +46,26 @@ export default function MapaPage() {
   const [escala, setEscala] = useState<MapScaleMode>("total");
   const [loading, setLoading] = useState(true);
 
-  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  // So auto-seleciona o ultimo ano na carga inicial, e so se nenhum ano ja
+  // estiver definido (ver dashboard/page.tsx pro mesmo guard e o motivo).
   const anoInicializado = useRef(false);
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
+        setFilters((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
   }, [filters.dimensao]);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx). Nao inclui `escala`
+  // (nao faz parte de FilterValues/recorte.ts) — o link do recorte reproduz
+  // o filtro, nao cada toggle de UI.
+  useEffect(() => {
+    const query = serializarRecorte(filters).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [filters, pathname, router]);
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
@@ -57,6 +91,19 @@ export default function MapaPage() {
   useEffect(() => {
     if (!vehicleRateAvailable && escala === "vehicle_rate") setEscala("total");
   }, [escala, vehicleRateAvailable]);
+  const chipsRecorte = useMemo(() => {
+    const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
+    if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
+    if (filters.regiao) chips.push({ rotulo: "Região", valor: filters.regiao });
+    chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
+    if (filters.tipo_veiculo) chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
+    return chips;
+  }, [filters]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
+
   const filterDefs = [
     { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
     { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
@@ -80,6 +127,7 @@ export default function MapaPage() {
           onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
+      <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
       <div className="flex items-center gap-2 text-xs">
         <button
           type="button"

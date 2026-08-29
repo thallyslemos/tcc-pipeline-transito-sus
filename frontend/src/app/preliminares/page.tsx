@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
   Legend,
@@ -15,6 +16,7 @@ import { AlertTriangle } from "lucide-react";
 
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -25,6 +27,7 @@ import {
   fetchSimSummary,
 } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import type {
   SimPrelimCompletude,
   SimPrelimMunicipio,
@@ -64,11 +67,41 @@ function FaixaAvisoPreliminar({ texto, dataExtracao }: { texto: string; dataExtr
   );
 }
 
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function PreliminaresPage() {
-  const [dimensao, setDimensao] = useState<"ocorrencia" | "residencia">("ocorrencia");
-  const [uf, setUf] = useState<string | undefined>(undefined);
-  const [ano, setAno] = useState<number>(PRELIM_ANOS[0]);
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <PreliminaresContent />
+    </Suspense>
+  );
+}
+
+function PreliminaresContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const recorteUrl = lerRecorteDaUrl(searchParamsIniciais);
+  const [dimensao, setDimensao] = useState<"ocorrencia" | "residencia">(() => recorteUrl.dimensao ?? "ocorrencia");
+  const [uf, setUf] = useState<string | undefined>(() => recorteUrl.uf);
+  const [ano, setAno] = useState<number>(() => recorteUrl.ano ?? PRELIM_ANOS[0]);
   const [ufs, setUfs] = useState<string[]>([]);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx).
+  useEffect(() => {
+    const query = serializarRecorte({ dimensao, uf, ano }).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [dimensao, uf, ano, pathname, router]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
 
   const [summary, setSummary] = useState<SimPrelimSummary | null>(null);
   const [consolidadoPorMes, setConsolidadoPorMes] = useState<{ competencia: string; total: number }[]>([]);
@@ -218,6 +251,16 @@ export default function PreliminaresPage() {
           }}
         />
       </div>
+
+      <BarraDeRecorte
+        chips={[
+          { rotulo: "Dimensão", valor: dimensao === "residencia" ? "Residência" : "Ocorrência" },
+          ...(uf ? [{ rotulo: "UF", valor: uf }] : []),
+          { rotulo: "Ano", valor: String(ano) },
+        ]}
+        n={summary?.total_obitos ?? 0}
+        aoClicarLink={copiarLinkDoRecorte}
+      />
 
       {loading && (
         <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
