@@ -9,85 +9,11 @@
   --radius-xl: 6px;
 }
 
-/* =============================================================================
-   PONTE TEMPORÁRIA — tokens antigos redefinidos sobre os novos, pra migrar o
-   app inteiro sem reescrever ~15 arquivos numa unica PR. Cada alias e
-   removido a medida que os componentes migram pros tokens novos diretamente
-   (Fases 3-10 do design system); o que sobrar e apagado na Fase 11 (ver
-   design/DESIGN_SYSTEM.md e o plano de implementacao). Definido uma unica
-   vez em :root — nao precisa repetir em .dark porque var(--canvas) etc. ja
-   resolve pro valor do tema atual automaticamente.
-   NAO adicionar uso novo destes nomes; use os tokens novos direto.
-   ============================================================================= */
-:root {
-  --bg: var(--canvas);
-  --bg-card: var(--surface);
-  --bg-card-hover: var(--sunken);
-  --bg-muted: var(--sunken);
-  --bg-inset: var(--sunken);
-  --bg-overlay: rgba(0, 0, 0, 0.4);
-
-  --fg: var(--ink);
-  --fg-secondary: var(--ink-2);
-  --fg-muted: var(--ink-2);
-  --fg-inverse: var(--canvas);
-
-  --border-hover: var(--hairline);
-
-  --primary: var(--brand);
-  --primary-fg: var(--canvas);
-  --primary-soft: var(--brand-soft);
-  --primary-muted: var(--brand-ink);
-
-  --deaths: var(--risk-5);
-  --deaths-soft: var(--risk-1);
-  --deaths-muted: var(--risk-3);
-  /* Apesar do nome, --deaths-glow preenche a banda de incerteza da previsao
-     em ForecastChart.tsx (dado, nao efeito de UI) — nao pode virar
-     transparent, senao a banda some. Usa risk-2 (o componente ja aplica
-     fillOpacity=0.6 por cima). */
-  --deaths-glow: var(--risk-2);
-
-  --health: var(--brand);
-  --health-soft: var(--brand-soft);
-  --health-muted: var(--brand-ink);
-
-  --success: var(--ok);
-  --success-soft: var(--ok-soft);
-  --success-muted: var(--ok);
-
-  --warning: var(--attention);
-  --warning-soft: var(--attention-soft);
-  --warning-muted: var(--attention-ink);
-
-  /* --danger nunca tinha sido definido em nenhum tema (bug preexistente: o
-     unico uso, em dashboard/page.tsx, renderizava sem cor). Corrigido aqui
-     de graca ao migrar pro token novo equivalente. */
-  --danger: var(--alert);
-
-  --chart-text: var(--chart-axis);
-
-  /* --shadow-sm hoje só veste card estático (KpiCard/ChartCard) — vira none,
-     a régua de 1px é quem separa. --shadow-md/--shadow-lg, na prática, só
-     vestem elemento que FLUTUA de verdade (tooltip do Recharts, popup do
-     MapLibre, popover do InfoTip, dropdown de fluxos) — viram --shadow-pop,
-     não none, senão essas superfícies perdem separação visual do que está
-     atrás delas. */
-  --shadow-sm: none;
-  --shadow-md: var(--shadow-pop);
-  --shadow-lg: var(--shadow-pop);
-  --shadow-glow-deaths: none;
-}
-
-[data-theme="dark"], .dark {
-  --bg-overlay: rgba(0, 0, 0, 0.6);
-}
-
 /* ─── Base ─── */
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg);
-  color: var(--fg);
+  background-color: var(--canvas);
+  color: var(--ink);
 }
 
 /* smooth transitions on theme change */
@@ -101,32 +27,32 @@ body * {
   stroke: var(--chart-grid);
 }
 .dark .recharts-text {
-  fill: var(--chart-text);
+  fill: var(--chart-axis);
 }
 
 /* MapLibre popup theming */
 .maplibregl-popup-content {
-  background-color: var(--bg-card) !important;
+  background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
   border-radius: 8px !important;
-  box-shadow: var(--shadow-md) !important;
-  color: var(--fg) !important;
+  box-shadow: var(--shadow-pop) !important;
+  color: var(--ink) !important;
   padding: 8px 12px !important;
 }
 .maplibregl-popup-tip {
-  border-top-color: var(--bg-card) !important;
+  border-top-color: var(--surface) !important;
 }
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: var(--bg-card) !important;
+  border-top-color: var(--surface) !important;
 }
 .maplibregl-popup-anchor-top .maplibregl-popup-tip {
-  border-bottom-color: var(--bg-card) !important;
+  border-bottom-color: var(--surface) !important;
 }
 .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: var(--bg-card) !important;
+  border-right-color: var(--surface) !important;
 }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: var(--bg-card) !important;
+  border-left-color: var(--surface) !important;
 }
 
 /* Custom scrollbar */
@@ -142,5 +68,5 @@ body * {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--fg-muted);
+  background: var(--ink-2);
 }

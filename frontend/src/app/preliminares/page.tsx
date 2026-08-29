@@ -47,18 +47,18 @@ function FaixaAvisoPreliminar({ texto, dataExtracao }: { texto: string; dataExtr
     <div
       className="flex items-start gap-3 rounded-xl px-4 py-3 text-sm"
       style={{
-        backgroundColor: "var(--warning-soft)",
-        border: "1px solid var(--warning)",
-        color: "var(--fg)",
+        backgroundColor: "var(--attention-soft)",
+        border: "1px solid var(--attention)",
+        color: "var(--ink)",
       }}
       role="alert"
     >
-      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--warning)" }} />
+      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--attention)" }} />
       <div>
-        <p className="font-semibold" style={{ color: "var(--warning)" }}>
+        <p className="font-semibold" style={{ color: "var(--attention)" }}>
           Dados preliminares — sujeitos a revisao
         </p>
-        <p className="mt-0.5 text-xs" style={{ color: "var(--fg-secondary)" }}>
+        <p className="mt-0.5 text-xs" style={{ color: "var(--ink-2)" }}>
           {texto}
           {dataExtracao ? ` Extraido do DATASUS em ${dataExtracao}.` : ""}
         </p>
@@ -73,7 +73,7 @@ export default function PreliminaresPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando...
         </div>
       }
@@ -207,10 +207,10 @@ function PreliminaresContent() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
+        <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
           Dados preliminares do SIM
         </h1>
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Camada complementar (PRELIM/DORES) — captacao ainda em andamento, isolada da serie consolidada.
         </p>
       </div>
@@ -225,9 +225,9 @@ function PreliminaresContent() {
 
       <div
         className="flex items-start gap-3 rounded-xl px-4 py-3 text-xs"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}
       >
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--fg-muted)" }} />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--ink-2)" }} />
         <p>
           <b>Comparacao direta com anos consolidados esta desabilitada nesta tela.</b> Dados preliminares nao
           sao apenas &ldquo;nao revisados&rdquo; — sao incompletos: a base cresce por meses apos o fim do ano.
@@ -239,7 +239,7 @@ function PreliminaresContent() {
 
       <div
         className="flex flex-wrap items-end gap-4 rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <FilterBar
           filters={filterDefs}
@@ -263,7 +263,7 @@ function PreliminaresContent() {
       />
 
       {loading && (
-        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando dados preliminares...
         </div>
       )}
@@ -271,7 +271,7 @@ function PreliminaresContent() {
       {indisponivel && !loading && (
         <div
           className="rounded-xl p-6 text-center text-sm"
-          style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-muted)" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}
         >
           Nenhum dado preliminar foi ingerido ainda neste ambiente. Rode{" "}
           <code className="rounded bg-black/10 px-1.5 py-0.5">
@@ -284,7 +284,7 @@ function PreliminaresContent() {
       {erro && !loading && (
         <div
           className="rounded-lg px-4 py-3 text-sm"
-          style={{ backgroundColor: "var(--deaths-soft)", color: "var(--deaths)", border: "1px solid var(--deaths)" }}
+          style={{ backgroundColor: "var(--risk-1)", color: "var(--risk-5)", border: "1px solid var(--risk-5)" }}
         >
           {erro}
         </div>
@@ -314,8 +314,8 @@ function PreliminaresContent() {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
+                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
                 <Tooltip
                   formatter={(value, name) => [
                     value == null ? "N/D" : formatNumber(Number(value)),
@@ -331,7 +331,7 @@ function PreliminaresContent() {
                 <Line
                   type="monotone"
                   dataKey="consolidado_2024"
-                  stroke="var(--primary)"
+                  stroke="var(--brand)"
                   strokeWidth={2}
                   dot={false}
                   connectNulls
@@ -369,7 +369,7 @@ function PreliminaresContent() {
                         <th
                           key={h}
                           className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider"
-                          style={{ color: "var(--fg-muted)" }}
+                          style={{ color: "var(--ink-2)" }}
                         >
                           {h}
                         </th>
@@ -389,7 +389,7 @@ function PreliminaresContent() {
                         <td className="px-3 py-2 tabular-nums">
                           <span
                             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                            style={{ backgroundColor: "var(--warning-soft)", color: "var(--warning)" }}
+                            style={{ backgroundColor: "var(--attention-soft)", color: "var(--attention)" }}
                           >
                             {pct(linha.completude_estimada)}
                           </span>
@@ -403,20 +403,20 @@ function PreliminaresContent() {
           )}
 
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
                 Municipios — dados preliminares
               </h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
                     {["Municipio", "UF", "Obitos", "Extraido em"].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--fg-muted)" }}
+                        style={{ color: "var(--ink-2)" }}
                       >
                         {h}
                       </th>
@@ -426,24 +426,24 @@ function PreliminaresContent() {
                 <tbody>
                   {municipios.map((m) => (
                     <tr key={m.cod_mun_ibge} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td className="px-4 py-2.5 font-medium" style={{ color: "var(--fg)" }}>
+                      <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>
                         <span className="inline-flex items-center gap-1.5">
                           {m.municipio}
-                          <AlertTriangle className="h-3 w-3" style={{ color: "var(--warning)" }} />
+                          <AlertTriangle className="h-3 w-3" style={{ color: "var(--attention)" }} />
                         </span>
                       </td>
-                      <td className="px-4 py-2.5" style={{ color: "var(--fg-secondary)" }}>{m.uf}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--fg)" }}>
+                      <td className="px-4 py-2.5" style={{ color: "var(--ink-2)" }}>{m.uf}</td>
+                      <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--ink)" }}>
                         {formatNumber(m.obitos)}
                       </td>
-                      <td className="px-4 py-2.5 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+                      <td className="px-4 py-2.5 text-[11px]" style={{ color: "var(--ink-2)" }}>
                         {m.data_extracao ?? "N/D"}
                       </td>
                     </tr>
                   ))}
                   {municipios.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-6 text-center text-sm" style={{ color: "var(--fg-muted)" }}>
+                      <td colSpan={4} className="px-4 py-6 text-center text-sm" style={{ color: "var(--ink-2)" }}>
                         Nenhum municipio preliminar no recorte selecionado
                       </td>
                     </tr>

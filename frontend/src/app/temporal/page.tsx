@@ -48,14 +48,14 @@ function ThemedTooltip(props: Record<string, unknown>) {
     <Tooltip
       {...props}
       contentStyle={{
-        backgroundColor: "var(--bg-card)",
+        backgroundColor: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 8,
-        color: "var(--fg)",
-        boxShadow: "var(--shadow-md)",
+        color: "var(--ink)",
+        boxShadow: "var(--shadow-pop)",
       }}
-      itemStyle={{ color: "var(--fg)" }}
-      labelStyle={{ color: "var(--fg)", fontWeight: 600 }}
+      itemStyle={{ color: "var(--ink)" }}
+      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
     />
   );
 }
@@ -67,9 +67,9 @@ const CLASSE_LABEL: Record<string, string> = {
 };
 
 const CLASSE_COLOR: Record<string, string> = {
-  evento_unico: "var(--deaths)",
-  concentrado: "#f59e0b",
-  difuso: "var(--success)",
+  evento_unico: "var(--risk-5)",
+  concentrado: "var(--attention)",
+  difuso: "var(--ok)",
 };
 
 export default function TemporalPage() {
@@ -175,10 +175,10 @@ export default function TemporalPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
+        <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
           Analise Temporal
         </h1>
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Serie mensal, distribuicao por dia da semana e concentracao temporal (casos de evento unico)
         </p>
       </div>
@@ -186,10 +186,10 @@ export default function TemporalPage() {
       {/* Filters */}
       <div
         className="flex flex-wrap items-end gap-4 rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
             Dimensao
           </span>
           <div className="flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}>
@@ -200,8 +200,8 @@ export default function TemporalPage() {
                 onClick={() => setFilters((f) => ({ ...f, dimensao: dim }))}
                 className="px-3 py-2 text-xs font-medium capitalize transition-colors"
                 style={{
-                  backgroundColor: filters.dimensao === dim ? "var(--primary)" : "var(--bg-card)",
-                  color: filters.dimensao === dim ? "var(--primary-fg)" : "var(--fg-secondary)",
+                  backgroundColor: filters.dimensao === dim ? "var(--brand)" : "var(--surface)",
+                  color: filters.dimensao === dim ? "var(--canvas)" : "var(--ink-2)",
                 }}
               >
                 {dim}
@@ -249,14 +249,14 @@ export default function TemporalPage() {
       </div>
 
       {loading && (
-        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando dados temporais...
         </div>
       )}
       {error && !loading && (
         <div
           className="rounded-lg px-4 py-3 text-sm"
-          style={{ backgroundColor: "var(--deaths-soft)", color: "var(--deaths)", border: "1px solid var(--deaths)" }}
+          style={{ backgroundColor: "var(--risk-1)", color: "var(--risk-5)", border: "1px solid var(--risk-5)" }}
         >
           {error}
         </div>
@@ -303,16 +303,16 @@ export default function TemporalPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis
                   dataKey="competencia"
-                  tick={{ fontSize: 9, fill: "var(--chart-text)" }}
+                  tick={{ fontSize: 9, fill: "var(--chart-axis)" }}
                   interval={serieChartData.length > 24 ? Math.floor(serieChartData.length / 24) : 0}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
                 <ThemedTooltip
                   formatter={(value: number) => [formatNumber(value), "Obitos"]}
                 />
                 <Bar dataKey="obitos" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                   {serieChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.pico ? "var(--deaths)" : "var(--primary)"} />
+                    <Cell key={i} fill={entry.pico ? "var(--risk-5)" : "var(--brand)"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -328,18 +328,18 @@ export default function TemporalPage() {
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={diaSemanaChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
+                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
                 <ThemedTooltip formatter={(value: number) => [value.toFixed(3), "Media por dia"]} />
                 <ReferenceLine
                   y={mediaGeralDia}
-                  stroke="var(--fg-muted)"
+                  stroke="var(--ink-2)"
                   strokeDasharray="4 4"
-                  label={{ value: "media geral", fontSize: 10, fill: "var(--fg-muted)", position: "insideTopRight" }}
+                  label={{ value: "media geral", fontSize: 10, fill: "var(--ink-2)", position: "insideTopRight" }}
                 />
                 <Bar dataKey="media_por_dia" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                   {diaSemanaChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fimDeSemana ? "var(--deaths)" : "var(--primary)"} />
+                    <Cell key={i} fill={entry.fimDeSemana ? "var(--risk-5)" : "var(--brand)"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -348,23 +348,23 @@ export default function TemporalPage() {
 
           {/* Outliers */}
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
                 Municipios com concentracao temporal (evento unico / concentrado)
               </h2>
-              <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+              <p className="text-xs" style={{ color: "var(--ink-2)" }}>
                 Taxas anuais dominadas por um unico dia ou mes nao descrevem risco viario habitual — ver caso Gaviao/2024
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
                     {["Municipio", "UF", "Ano", "Obitos", "Meses c/ obito", "% mes pico", "% dia pico", "Classe"].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider"
-                        style={{ color: "var(--fg-muted)" }}
+                        style={{ color: "var(--ink-2)" }}
                       >
                         {h}
                       </th>
@@ -374,19 +374,19 @@ export default function TemporalPage() {
                 <tbody>
                   {(outliers?.municipios ?? []).map((m) => (
                     <tr key={`${m.cod_mun_ibge}-${m.ano}`} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td className="px-4 py-2.5 font-medium" style={{ color: "var(--fg)" }}>{m.municipio}</td>
-                      <td className="px-4 py-2.5" style={{ color: "var(--fg-secondary)" }}>{m.uf}</td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--fg-secondary)" }}>{m.ano}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--fg)" }}>
+                      <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>{m.municipio}</td>
+                      <td className="px-4 py-2.5" style={{ color: "var(--ink-2)" }}>{m.uf}</td>
+                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>{m.ano}</td>
+                      <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--ink)" }}>
                         {formatNumber(m.obitos_ano)}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--fg-secondary)" }}>
+                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
                         {m.meses_com_obito}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--fg-secondary)" }}>
+                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
                         {pct(m.share_mes_pico)}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--fg-secondary)" }}>
+                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
                         {pct(m.share_dia_pico)}
                       </td>
                       <td className="px-4 py-2.5">
@@ -404,7 +404,7 @@ export default function TemporalPage() {
                   ))}
                   {(outliers?.municipios.length ?? 0) === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-6 text-center text-sm" style={{ color: "var(--fg-muted)" }}>
+                      <td colSpan={8} className="px-4 py-6 text-center text-sm" style={{ color: "var(--ink-2)" }}>
                         Nenhum municipio com concentracao temporal relevante no recorte selecionado
                       </td>
                     </tr>
@@ -415,7 +415,7 @@ export default function TemporalPage() {
             {outliers && (
               <div
                 className="px-4 py-2 text-[10px]"
-                style={{ backgroundColor: "var(--bg-card)", borderTop: "1px solid var(--border)", color: "var(--fg-muted)" }}
+                style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--border)", color: "var(--ink-2)" }}
               >
                 {outliers.notas_metodologicas}
               </div>

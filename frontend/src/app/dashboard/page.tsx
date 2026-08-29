@@ -67,14 +67,14 @@ function ThemedTooltip(props: Record<string, unknown>) {
     <Tooltip
       {...props}
       contentStyle={{
-        backgroundColor: "var(--bg-card)",
+        backgroundColor: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 8,
-        color: "var(--fg)",
-        boxShadow: "var(--shadow-md)",
+        color: "var(--ink)",
+        boxShadow: "var(--shadow-pop)",
       }}
-      itemStyle={{ color: "var(--fg)" }}
-      labelStyle={{ color: "var(--fg)", fontWeight: 600 }}
+      itemStyle={{ color: "var(--ink)" }}
+      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
     />
   );
 }
@@ -87,7 +87,7 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando dados do SIM...
         </div>
       }
@@ -299,14 +299,14 @@ function DashboardContent() {
 
   if (loading && !data) {
     return (
-      <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+      <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
         Carregando dados do SIM...
       </div>
     );
   }
   if (error && !data) {
     return (
-      <div className="rounded-xl p-6 text-sm" style={{ backgroundColor: "var(--bg-card)", color: "var(--danger)" }}>
+      <div className="rounded-xl p-6 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--alert)" }}>
         {error}
       </div>
     );
@@ -317,10 +317,10 @@ function DashboardContent() {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
             Painel SIM
           </h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Mortalidade por acidentes de transporte terrestre - {data.periodo}
           </p>
         </div>
@@ -354,22 +354,22 @@ function DashboardContent() {
             <AreaChart data={data.obitos_por_mes}>
               <defs>
                 <linearGradient id="gObitosMes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--deaths)" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="var(--deaths)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--risk-5)" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="var(--risk-5)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis
                 dataKey="competencia"
-                tick={{ fontSize: 10, fill: "var(--chart-text)" }}
+                tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
                 interval="preserveStartEnd"
               />
-              <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
               <Area
                 type="monotone"
                 dataKey="total"
-                stroke="var(--deaths)"
+                stroke="var(--risk-5)"
                 fill="url(#gObitosMes)"
                 strokeWidth={2}
                 isAnimationActive={false}
@@ -397,10 +397,10 @@ function DashboardContent() {
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data.obitos_por_ano}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                  <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+                  <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
                   <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-                  <Line type="monotone" dataKey="total" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="total" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </GraficoMoldura>
@@ -417,11 +417,11 @@ function DashboardContent() {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
               <YAxis
                 dataKey="faixa_etaria"
                 type="category"
-                tick={{ fontSize: 11, fill: "var(--chart-text)" }}
+                tick={{ fontSize: 11, fill: "var(--chart-axis)" }}
                 width={45}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
@@ -440,15 +440,15 @@ function DashboardContent() {
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topMunicipios} layout="vertical" margin={{ left: 20, right: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
               <YAxis
                 type="category"
                 dataKey="municipio"
                 width={110}
-                tick={{ fontSize: 10, fill: "var(--chart-text)" }}
+                tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Bar dataKey="obitos" fill="var(--deaths)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+              <Bar dataKey="obitos" fill="var(--risk-5)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </GraficoMoldura>
@@ -457,9 +457,9 @@ function DashboardContent() {
       <div
         className="rounded-xl p-4 text-xs"
         style={{
-          backgroundColor: "var(--bg-card)",
+          backgroundColor: "var(--surface)",
           border: "1px solid var(--border)",
-          color: "var(--fg-secondary)",
+          color: "var(--ink-2)",
         }}
       >
         {popCobertura && popCobertura.total_municipio_ano > 0 ? (
@@ -469,7 +469,7 @@ function DashboardContent() {
             (mesmo municipio e ano no IBGE); {formatNumber(popCobertura.estimada)}
             {" "}({((popCobertura.estimada / popCobertura.total_municipio_ano) * 100).toFixed(0)}%) usam a
             populacao do ano IBGE mais proximo
-            <AlertTriangle className="mx-0.5 inline h-3 w-3" style={{ color: "var(--warning)" }} />
+            <AlertTriangle className="mx-0.5 inline h-3 w-3" style={{ color: "var(--attention)" }} />
             e {formatNumber(popCobertura.indisponivel)} nao tem denominador disponivel (N/D). Frota SENATRAN
             permanece {data.denominadores.frota}.
           </span>

@@ -66,7 +66,7 @@ export default function Sidebar({ open, onClose }: Props) {
       {open && (
         <div
           className="fixed inset-0 z-30 lg:hidden"
-          style={{ backgroundColor: "var(--bg-overlay)" }}
+          style={{ backgroundColor: "var(--overlay)" }}
           onClick={onClose}
         />
       )}
@@ -76,7 +76,7 @@ export default function Sidebar({ open, onClose }: Props) {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
-          backgroundColor: "var(--bg-card)",
+          backgroundColor: "var(--surface)",
           borderRight: "1px solid var(--border)",
         }}
       >
@@ -86,14 +86,14 @@ export default function Sidebar({ open, onClose }: Props) {
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
-            style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}>
+            style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}>
             SUS
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+            <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
               Trânsito no SUS
             </p>
-            <p className="text-[11px]" style={{ color: "var(--fg-muted)" }}>
+            <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
               Pipeline Analítico
             </p>
           </div>
@@ -118,8 +118,8 @@ export default function Sidebar({ open, onClose }: Props) {
                     onClick={onClose}
                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
                     style={{
-                      backgroundColor: active ? "var(--primary-soft)" : "transparent",
-                      color: active ? "var(--primary)" : "var(--fg-secondary)",
+                      backgroundColor: active ? "var(--brand-soft)" : "transparent",
+                      color: active ? "var(--brand)" : "var(--ink-2)",
                     }}
                   >
                     <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.8} />
@@ -136,7 +136,7 @@ export default function Sidebar({ open, onClose }: Props) {
           <button
             onClick={toggle}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
-            style={{ color: "var(--fg-secondary)" }}
+            style={{ color: "var(--ink-2)" }}
           >
             {theme === "dark" ? (
               <Sun className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -147,10 +147,10 @@ export default function Sidebar({ open, onClose }: Props) {
           </button>
         </div>
         <div className="px-5 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-          <p className="text-[10px]" style={{ color: "var(--fg-muted)" }}>
+          <p className="text-[10px]" style={{ color: "var(--ink-2)" }}>
             TCC — Sistemas de Informação
           </p>
-          <p className="text-[10px]" style={{ color: "var(--fg-muted)" }}>
+          <p className="text-[10px]" style={{ color: "var(--ink-2)" }}>
             IFBA — DATASUS (SIM)
           </p>
           {/* design/DESIGN_SYSTEM.md §10 — proveniencia global fixa do

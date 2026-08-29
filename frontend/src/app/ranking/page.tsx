@@ -22,7 +22,7 @@ export default function RankingPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando...
         </div>
       }
@@ -126,8 +126,8 @@ function RankingContent() {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Ranking SIM</h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Ranking SIM</h1>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Comparacao municipal com denominador explicito - {total} municipios
           </p>
         </div>
@@ -136,26 +136,26 @@ function RankingContent() {
 
       <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--fg-secondary)" }}>
-        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "rate" ? "var(--primary-soft)" : "var(--bg-card)" }} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
+      <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
+        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "rate" ? "var(--brand-soft)" : "var(--surface)" }} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
         <button
           className="rounded-lg px-3 py-1.5 disabled:opacity-40"
-          style={{ backgroundColor: sortMode === "vehicle_rate" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: sortMode === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa por 10 mil veiculos (SENATRAN)" : "Indisponivel sem frota pareada no recorte"}
           onClick={() => setSortMode("vehicle_rate")}
         >
           Taxa / 10 mil veic.
         </button>
-        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "absolute" ? "var(--primary-soft)" : "var(--bg-card)" }} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
+        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "absolute" ? "var(--brand-soft)" : "var(--surface)" }} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
         <ArrowUpDown className="h-3.5 w-3.5" />
       </div>
 
-      <div className="overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        {loading ? <div className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando...</div> : (
+      <div className="overflow-hidden rounded-xl" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+        {loading ? <div className="p-8 text-center text-sm" style={{ color: "var(--ink-2)" }}>Carregando...</div> : (
           <table className="w-full text-sm">
-            <thead style={{ backgroundColor: "var(--bg-muted)" }}>
-              <tr className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            <thead style={{ backgroundColor: "var(--sunken)" }}>
+              <tr className="text-xs" style={{ color: "var(--ink-2)" }}>
                 <th className="px-4 py-3 text-left">#</th>
                 <th className="px-4 py-3 text-left">Municipio</th>
                 <th className="px-4 py-3 text-left">UF</th>
@@ -169,12 +169,12 @@ function RankingContent() {
             <tbody>
               {ordered.map((row, index) => (
                 <tr key={row.cod_mun_ibge} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td className="px-4 py-2" style={{ color: "var(--fg-muted)" }}>{(page - 1) * PAGE_SIZE + index + 1}</td>
-                  <td className="px-4 py-2 font-medium" style={{ color: "var(--fg)" }}>{row.municipio}</td>
-                  <td className="px-4 py-2" style={{ color: "var(--fg-secondary)" }}>{row.uf}</td>
+                  <td className="px-4 py-2" style={{ color: "var(--ink-2)" }}>{(page - 1) * PAGE_SIZE + index + 1}</td>
+                  <td className="px-4 py-2 font-medium" style={{ color: "var(--ink)" }}>{row.municipio}</td>
+                  <td className="px-4 py-2" style={{ color: "var(--ink-2)" }}>{row.uf}</td>
                   <td className="px-4 py-2 text-right">{row.populacao == null ? "N/D" : formatNumber(row.populacao)}</td>
                   <td className="px-4 py-2 text-right">{row.frota_total == null ? "N/D" : formatNumber(row.frota_total)}</td>
-                  <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--deaths)" }}>{formatNumber(row.obitos)}</td>
+                  <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--risk-5)" }}>{formatNumber(row.obitos)}</td>
                   <td className="px-4 py-2 text-right font-mono">
                     <span className="inline-flex items-center gap-1">
                       {row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}
@@ -193,7 +193,7 @@ function RankingContent() {
             </tbody>
           </table>
         )}
-        <div className="flex items-center justify-between px-4 py-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--fg-muted)" }}>
+        <div className="flex items-center justify-between px-4 py-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--ink-2)" }}>
           <span>{total ? `${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} de ${total}` : "Sem dados"}</span>
           <div className="flex items-center gap-2">
             <button aria-label="Pagina anterior" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded p-1 disabled:opacity-30" style={{ border: "1px solid var(--border)" }}><ChevronLeft className="h-4 w-4" /></button>

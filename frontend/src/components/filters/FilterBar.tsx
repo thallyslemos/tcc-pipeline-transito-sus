@@ -36,7 +36,7 @@ export default function FilterBar<T extends string>({
           <label
             htmlFor={`filter-${f.key}`}
             className="text-[11px] font-medium uppercase tracking-wider"
-            style={{ color: "var(--fg-muted)" }}
+            style={{ color: "var(--ink-2)" }}
           >
             {f.label}
           </label>
@@ -46,10 +46,10 @@ export default function FilterBar<T extends string>({
             onChange={(e) => onChange(f.key as T, e.target.value)}
             className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
             style={{
-              backgroundColor: "var(--bg-card)",
+              backgroundColor: "var(--surface)",
               border: "1px solid var(--border)",
-              color: "var(--fg)",
-              "--tw-ring-color": "var(--primary)",
+              color: "var(--ink)",
+              "--tw-ring-color": "var(--brand)",
             } as React.CSSProperties}
           >
             <option value="">{f.placeholder || "Todos"}</option>
@@ -67,7 +67,7 @@ export default function FilterBar<T extends string>({
           className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors"
           style={{
             border: "1px solid var(--border)",
-            color: "var(--fg-secondary)",
+            color: "var(--ink-2)",
           }}
         >
           <X className="h-3.5 w-3.5" />

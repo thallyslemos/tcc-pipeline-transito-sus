@@ -34,6 +34,12 @@ export async function exportarPng(
 
     const dataUrl = await toPng(elemento, {
       pixelRatio: opcoes.pixelRatio ?? 2,
+      // Literal, nao var(--canvas): a captura roda com .dark ja removido
+      // (linha acima), entao o valor claro e sempre o correto aqui — mas
+      // html-to-image resolve backgroundColor ANTES de clonar o restante da
+      // arvore, num ponto em que a variavel CSS nem sempre esta disponivel
+      // pro no clonado. Mantido como excecao documentada, no mesmo espirito
+      // de lib/theme/chart.ts e lib/theme/mapaClasses.ts.
       backgroundColor: "#FAFAF9",
     });
 

@@ -20,7 +20,7 @@ export default function MapaPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando...
         </div>
       }
@@ -115,8 +115,8 @@ function MapaContent() {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Mapa SIM</h1>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Obitos por municipio - {formatNumber(total)} no filtro atual
           </p>
         </div>
@@ -133,7 +133,7 @@ function MapaContent() {
           type="button"
           onClick={() => setEscala("total")}
           className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "total" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Obitos absolutos
         </button>
@@ -141,7 +141,7 @@ function MapaContent() {
           type="button"
           onClick={() => setEscala("relative")}
           className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "relative" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 100 mil
         </button>
@@ -151,19 +151,19 @@ function MapaContent() {
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
           className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 10 mil veiculos
         </button>
       </div>
       {!vehicleRateAvailable && (
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi materializado para este recorte.
         </p>
       )}
-      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
             Carregando mapa...
           </div>
         ) : (
@@ -179,7 +179,7 @@ function MapaContent() {
           />
         )}
       </div>
-      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
+      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}>
         Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE.
         Os municipios sem registro permanecem no mapa em estado neutro. {municipios.length} municipios disponiveis para consulta.
       </div>

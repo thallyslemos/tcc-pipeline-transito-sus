@@ -61,7 +61,7 @@ function MunicipioCombobox({
 
   return (
     <div ref={ref} className="relative w-full max-w-xs">
-      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
         Municipio alvo
       </label>
       <div className="relative">
@@ -71,10 +71,10 @@ function MunicipioCombobox({
           placeholder="Digite o nome ou codigo IBGE..."
           className="h-9 w-full rounded-lg px-2.5 pr-8 text-sm focus:outline-none focus:ring-2"
           style={{
-            backgroundColor: "var(--bg-card)",
+            backgroundColor: "var(--surface)",
             border: "1px solid var(--border)",
-            color: "var(--fg)",
-            ["--tw-ring-color" as string]: "var(--primary)",
+            color: "var(--ink)",
+            ["--tw-ring-color" as string]: "var(--brand)",
           }}
           onFocus={() => { setOpen(true); doSearch(search); }}
           onChange={(e) => {
@@ -85,22 +85,22 @@ function MunicipioCombobox({
             doSearch(term);
           }}
         />
-        <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4" style={{ color: "var(--fg-muted)" }} />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4" style={{ color: "var(--ink-2)" }} />
       </div>
       {open && (results.length > 0 || searching) && (
         <ul
           className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-lg py-1 shadow-lg"
-          style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           {searching && results.length === 0 && (
-            <li className="px-3 py-2 text-sm" style={{ color: "var(--fg-muted)" }}>Buscando...</li>
+            <li className="px-3 py-2 text-sm" style={{ color: "var(--ink-2)" }}>Buscando...</li>
           )}
           {results.map((m) => (
             <li
               key={m.cod_mun_ibge}
               className="cursor-pointer px-3 py-2 text-sm transition-colors"
-              style={{ color: "var(--fg)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--primary-soft)")}
+              style={{ color: "var(--ink)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--brand-soft)")}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
               onMouseDown={(e) => {
                 e.preventDefault();
@@ -111,7 +111,7 @@ function MunicipioCombobox({
               }}
             >
               <span className="font-medium">{m.municipio}</span>
-              <span className="ml-2 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+              <span className="ml-2 text-[11px]" style={{ color: "var(--ink-2)" }}>
                 {m.uf} · {m.cod_mun_ibge}
               </span>
             </li>
@@ -168,10 +168,10 @@ export default function FluxosPage() {
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
+        <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
           Fluxos Residencia-Ocorrencia
         </h1>
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Visualize a ligacao entre municipio de ocorrencia e municipio de residencia das vitimas
         </p>
       </div>
@@ -179,7 +179,7 @@ export default function FluxosPage() {
       {/* Controls */}
       <div
         className="flex flex-wrap items-end gap-4 rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <MunicipioCombobox
           value={municipioSelecionado}
@@ -188,7 +188,7 @@ export default function FluxosPage() {
 
         {/* Direcao */}
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
             Direcao
           </span>
           <div className="flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}>
@@ -197,8 +197,8 @@ export default function FluxosPage() {
               onClick={() => setDirecao("origens")}
               className="px-3 py-2 text-xs font-medium transition-colors"
               style={{
-                backgroundColor: direcao === "origens" ? "var(--primary)" : "var(--bg-card)",
-                color: direcao === "origens" ? "var(--primary-fg)" : "var(--fg-secondary)",
+                backgroundColor: direcao === "origens" ? "var(--brand)" : "var(--surface)",
+                color: direcao === "origens" ? "var(--canvas)" : "var(--ink-2)",
               }}
             >
               Origens das vitimas
@@ -208,8 +208,8 @@ export default function FluxosPage() {
               onClick={() => setDirecao("destinos")}
               className="px-3 py-2 text-xs font-medium transition-colors"
               style={{
-                backgroundColor: direcao === "destinos" ? "var(--primary)" : "var(--bg-card)",
-                color: direcao === "destinos" ? "var(--primary-fg)" : "var(--fg-secondary)",
+                backgroundColor: direcao === "destinos" ? "var(--brand)" : "var(--surface)",
+                color: direcao === "destinos" ? "var(--canvas)" : "var(--ink-2)",
               }}
             >
               Destinos dos residentes
@@ -219,14 +219,14 @@ export default function FluxosPage() {
 
         {/* Ano */}
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+          <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
             Ano
           </label>
           <select
             value={ano ?? ""}
             onChange={(e) => setAno(e.target.value ? Number(e.target.value) : undefined)}
             className="h-9 min-w-[110px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink)" }}
           >
             <option value="">Todos</option>
             {anos.map((a) => (
@@ -237,14 +237,14 @@ export default function FluxosPage() {
 
         {/* Veiculo */}
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--fg-muted)" }}>
+          <label className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
             Veiculo
           </label>
           <select
             value={tipoVeiculo ?? ""}
             onChange={(e) => setTipoVeiculo(e.target.value || undefined)}
             className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg)" }}
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink)" }}
           >
             <option value="">Todos</option>
             {tipos.map((t) => (
@@ -258,7 +258,7 @@ export default function FluxosPage() {
       {municipioSelecionado && (
         <div
           className="rounded-lg px-4 py-2 text-xs"
-          style={{ backgroundColor: "var(--primary-soft)", color: "var(--primary)", border: "1px solid var(--primary)" }}
+          style={{ backgroundColor: "var(--brand-soft)", color: "var(--brand)", border: "1px solid var(--brand)" }}
         >
           {direcao === "origens" ? (
             <>
@@ -276,12 +276,12 @@ export default function FluxosPage() {
 
       {/* Loading / Error */}
       {loading && (
-        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando fluxos...
         </div>
       )}
       {error && !loading && (
-        <div className="rounded-lg px-4 py-3 text-sm" style={{ backgroundColor: "var(--deaths-soft)", color: "var(--deaths)", border: "1px solid var(--deaths)" }}>
+        <div className="rounded-lg px-4 py-3 text-sm" style={{ backgroundColor: "var(--risk-1)", color: "var(--risk-5)", border: "1px solid var(--risk-5)" }}>
           {error}
         </div>
       )}
@@ -316,7 +316,7 @@ export default function FluxosPage() {
       {fluxo && geoData && !loading && (
         <div
           className="h-[520px] overflow-hidden rounded-xl"
-          style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           <FluxoMapView
             geoData={geoData}
@@ -333,23 +333,23 @@ export default function FluxosPage() {
           className="rounded-xl overflow-hidden"
           style={{ border: "1px solid var(--border)" }}
         >
-          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
-            <h2 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
+            <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
               {direcao === "origens" ? "Municipios de residencia das vitimas" : "Municipios de ocorrencia dos residentes"}
             </h2>
-            <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            <p className="text-xs" style={{ color: "var(--ink-2)" }}>
               Top {fluxo.filtros.top_n} por obitos · {fluxo.total_ambos_encontrados} obitos com ambas as geografias encontradas
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--bg-card)" }}>
+                <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
                   {["#", "Municipio", "UF", "Obitos", "Participacao", "Status geo."].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--fg-muted)" }}
+                      style={{ color: "var(--ink-2)" }}
                     >
                       {h}
                     </th>
@@ -362,36 +362,36 @@ export default function FluxosPage() {
                     key={edge.cod_mun_ibge}
                     style={{
                       borderBottom: "1px solid var(--border)",
-                      backgroundColor: edge.propria_municipio ? "var(--primary-soft)" : "transparent",
+                      backgroundColor: edge.propria_municipio ? "var(--brand-soft)" : "transparent",
                     }}
                   >
-                    <td className="px-4 py-2.5 text-[11px] tabular-nums" style={{ color: "var(--fg-muted)" }}>
+                    <td className="px-4 py-2.5 text-[11px] tabular-nums" style={{ color: "var(--ink-2)" }}>
                       {i + 1}
                     </td>
-                    <td className="px-4 py-2.5 font-medium" style={{ color: "var(--fg)" }}>
+                    <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>
                       {edge.municipio}
                       {edge.propria_municipio && (
                         <span
                           className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                          style={{ backgroundColor: "var(--primary)", color: "var(--primary-fg)" }}
+                          style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}
                         >
                           Proprio
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5" style={{ color: "var(--fg-secondary)" }}>{edge.uf}</td>
-                    <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--fg)" }}>
+                    <td className="px-4 py-2.5" style={{ color: "var(--ink-2)" }}>{edge.uf}</td>
+                    <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--ink)" }}>
                       {formatNumber(edge.obitos)}
                     </td>
-                    <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--fg-secondary)" }}>
+                    <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
                       {pct(edge.participacao)}
                     </td>
                     <td className="px-4 py-2.5">
                       <span
                         className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                         style={{
-                          backgroundColor: edge.geografia_status === "encontrado" ? "var(--success-soft)" : "var(--deaths-soft)",
-                          color: edge.geografia_status === "encontrado" ? "var(--success)" : "var(--deaths)",
+                          backgroundColor: edge.geografia_status === "encontrado" ? "var(--ok-soft)" : "var(--risk-1)",
+                          color: edge.geografia_status === "encontrado" ? "var(--ok)" : "var(--risk-5)",
                         }}
                       >
                         {edge.geografia_status}
@@ -404,7 +404,7 @@ export default function FluxosPage() {
           </div>
           <div
             className="px-4 py-2 text-[10px]"
-            style={{ backgroundColor: "var(--bg-card)", borderTop: "1px solid var(--border)", color: "var(--fg-muted)" }}
+            style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--border)", color: "var(--ink-2)" }}
           >
             {fluxo.notas_metodologicas}
           </div>
@@ -415,13 +415,13 @@ export default function FluxosPage() {
       {!municipioSelecionado && !loading && (
         <div
           className="flex h-48 flex-col items-center justify-center gap-2 rounded-xl"
-          style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
-          <GitBranch className="h-8 w-8" style={{ color: "var(--fg-muted)" }} />
-          <p className="text-sm font-medium" style={{ color: "var(--fg-secondary)" }}>
+          <GitBranch className="h-8 w-8" style={{ color: "var(--ink-2)" }} />
+          <p className="text-sm font-medium" style={{ color: "var(--ink-2)" }}>
             Selecione um municipio para visualizar os fluxos
           </p>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Digite o nome ou codigo IBGE no campo acima
           </p>
         </div>

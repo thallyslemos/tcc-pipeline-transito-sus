@@ -315,7 +315,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       <div ref={container} className="h-full w-full" />
       <div
         className="absolute bottom-3 left-3 z-10 rounded-lg px-3 py-2 text-[11px]"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-muted)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}
       >
         <div className="flex items-center gap-2">
           <span

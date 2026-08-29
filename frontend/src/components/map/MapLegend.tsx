@@ -29,8 +29,8 @@ export default function MapLegend({ escala, minV, maxV, relativeCount }: Props) 
   const emptyMessage = escala === "vehicle_rate"
     ? "Sem denominador SENATRAN no recorte atual."
     : "Sem denominador populacional no filtro atual.";
-  return <div className="flex min-w-[200px] flex-col gap-1.5 rounded-lg px-3 py-2" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
-    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--fg-secondary)" }}>{title}</span>
-    {empty ? <span className="text-[11px]" style={{ color: "var(--fg-muted)" }}>{emptyMessage}</span> : <><span className="text-[9px]" style={{ color: "var(--fg-muted)" }}>Faixa conforme os municipios exibidos.</span><div className="h-3 w-full rounded-full" style={{ background: mapChoroplethGradientCss(theme === "dark") }} /><div className="flex justify-between text-[10px] tabular-nums" style={{ color: "var(--fg-muted)" }}><span>{format(minV)}</span><span>{format(maxV)}</span></div></>}
+  return <div className="flex min-w-[200px] flex-col gap-1.5 rounded-lg px-3 py-2" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+    <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--ink-2)" }}>{title}</span>
+    {empty ? <span className="text-[11px]" style={{ color: "var(--ink-2)" }}>{emptyMessage}</span> : <><span className="text-[9px]" style={{ color: "var(--ink-2)" }}>Faixa conforme os municipios exibidos.</span><div className="h-3 w-full rounded-full" style={{ background: mapChoroplethGradientCss(theme === "dark") }} /><div className="flex justify-between text-[10px] tabular-nums" style={{ color: "var(--ink-2)" }}><span>{format(minV)}</span><span>{format(maxV)}</span></div></>}
   </div>;
 }

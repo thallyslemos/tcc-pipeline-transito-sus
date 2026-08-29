@@ -19,7 +19,7 @@ export default function MunicipioPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
           Carregando...
         </div>
       }
@@ -87,18 +87,18 @@ function MunicipioContent() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Municipio no SIM</h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>Consulta por ocorrencia ou residencia.</p>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Municipio no SIM</h1>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>Consulta por ocorrencia ou residencia.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <select aria-label="Dimensao" value={dimensao} onChange={(event) => { setDimensao(event.target.value as FilterValues["dimensao"]); setDetail(null); }} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--bg-card)", color: "var(--fg)", border: "1px solid var(--border)" }}>
+          <select aria-label="Dimensao" value={dimensao} onChange={(event) => { setDimensao(event.target.value as FilterValues["dimensao"]); setDetail(null); }} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}>
             <option value="ocorrencia">Ocorrencia</option>
             <option value="residencia">Residencia</option>
           </select>
-          <select aria-label="Municipio" value={cod} onChange={(event) => setCod(event.target.value)} className="max-w-64 rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--bg-card)", color: "var(--fg)", border: "1px solid var(--border)" }}>
+          <select aria-label="Municipio" value={cod} onChange={(event) => setCod(event.target.value)} className="max-w-64 rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}>
             {municipios.map((row) => <option key={row.cod_mun_ibge} value={row.cod_mun_ibge}>{row.municipio} ({row.uf})</option>)}
           </select>
-          <select aria-label="Ano" value={ano ?? ""} onChange={(event) => setAno(event.target.value ? Number(event.target.value) : undefined)} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--bg-card)", color: "var(--fg)", border: "1px solid var(--border)" }}>
+          <select aria-label="Ano" value={ano ?? ""} onChange={(event) => setAno(event.target.value ? Number(event.target.value) : undefined)} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}>
             <option value="">Todos os anos</option>
             {anos.map((value) => <option key={value} value={value}>{value}</option>)}
           </select>
@@ -115,7 +115,7 @@ function MunicipioContent() {
         aoClicarLink={copiarLinkDoRecorte}
       />
 
-      {loading && <div className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>Carregando...</div>}
+      {loading && <div className="p-8 text-center text-sm" style={{ color: "var(--ink-2)" }}>Carregando...</div>}
       {!loading && detail && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -140,14 +140,14 @@ function MunicipioContent() {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={detail.serie_mensal}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+                <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
                 <Tooltip formatter={(value) => [formatNumber(Number(value)), "Obitos"]} />
-                <Line type="monotone" dataKey="obitos" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="obitos" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </GraficoMoldura>
-          <p className="flex flex-wrap items-center gap-1 text-xs" style={{ color: "var(--fg-muted)" }}>
+          <p className="flex flex-wrap items-center gap-1 text-xs" style={{ color: "var(--ink-2)" }}>
             Populacao IBGE: {detail.populacao == null ? "N/D" : formatNumber(detail.populacao)} ({detail.populacao_status}
             {detail.populacao_origem === "estimada" ? ", estimada" : detail.populacao_origem === "exata" ? ", exata" : ""}).
             <PopulacaoBadge

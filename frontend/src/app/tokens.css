@@ -11,7 +11,14 @@
    Uma cor de interface (marca, foco, estados) só aparece como TRAÇO, PONTO,
    ÍCONE ou TEXTO. Nenhuma cor cruza a fronteira.
 
-   Nenhum hexadecimal deve existir fora deste arquivo e de src/lib/theme/.
+   Nenhum hexadecimal deve existir fora deste arquivo e de src/lib/theme/
+   (chart.ts, mapaClasses.ts) — exceto onde o proprio ambiente de renderizacao
+   nao resolve var() (Fase 11, auditoria final):
+   - components/map/FluxoMapView.tsx: paint expressions do MapLibre GL JS e
+     popup/tooltip html injetado como string crua (mesmo motivo de
+     mapaClasses.ts — WebGL nao le custom property).
+   - lib/exportar/rasterizar.ts: backgroundColor de html-to-image, resolvido
+     antes do no clonado herdar o cascade de :root.
 
    Este arquivo NÃO declara regras de `html`/`body` (globals.css é dono
    disso) — só tokens + utilitários universais que ainda não existiam no
@@ -32,6 +39,10 @@
   --ink:       #22262B;   /* texto primário            · 15,2:1 no branco  */
   --ink-2:     #5B6169;   /* texto secundário e notas  ·  6,3:1 AA         */
   --ink-3:     #838A92;   /* rótulo mono, meta         ·  3,5:1 AA-large   */
+  /* Nao faz parte da proposta original — extensao minima (Fase 11): o
+     app ja usava um fundo semitransparente pro backdrop do menu mobile
+     e o design system nao propoe um equivalente novo. */
+  --overlay: rgba(0, 0, 0, 0.4);
 
   /* ---- institucional · SÓ interface, nunca codifica valor -------------- */
   --brand:      #2F5C93;
@@ -130,6 +141,7 @@
   --canvas:   #16181B;   --surface:  #1D2024;   --sunken:   #22262B;
   --border:   #2E3238;   --hairline: #3D424A;
   --ink:      #EDEDEA;   --ink-2:    #A9AEB4;   --ink-3:    #7C838B;
+  --overlay:  rgba(0, 0, 0, 0.6);
 
   --brand:      #7FA8DA;  --brand-ink: #A8C4E6;
   --brand-soft: rgba(127, 168, 218, 0.14);
