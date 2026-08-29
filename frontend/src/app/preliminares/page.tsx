@@ -276,12 +276,14 @@ export default function PreliminaresPage() {
                 <Tooltip
                   formatter={(value, name) => [
                     value == null ? "N/D" : formatNumber(Number(value)),
-                    name === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano}`,
+                    name === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano} · cobertura parcial`,
                   ]}
                   labelFormatter={(mes) => `Mes ${mes}`}
                 />
                 <Legend
-                  formatter={(value) => (value === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano}`)}
+                  formatter={(value) =>
+                    value === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano} · cobertura parcial`
+                  }
                 />
                 <Line
                   type="monotone"
@@ -291,16 +293,24 @@ export default function PreliminaresPage() {
                   dot={false}
                   connectNulls
                   name="consolidado_2024"
+                  isAnimationActive={false}
                 />
+                {/* design/DESIGN_SYSTEM.md §7b: dado preliminar nunca no mesmo
+                    eixo que o consolidado sem quebra visual — aqui a quebra e
+                    o traco tracejado em --attention (a regua vertical de
+                    inicio do periodo nao se aplica: este grafico justapoe as
+                    duas series por mes-do-ano, nao por uma linha do tempo
+                    continua). */}
                 <Line
                   type="monotone"
                   dataKey="preliminar"
-                  stroke="var(--warning)"
+                  stroke="var(--attention)"
                   strokeWidth={2}
                   strokeDasharray="6 4"
                   dot={{ r: 3 }}
                   connectNulls
                   name="preliminar"
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>

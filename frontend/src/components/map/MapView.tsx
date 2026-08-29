@@ -10,6 +10,7 @@ import { MAP_NEUTRAL_COLOR, mapChoroplethClasse, mapChoroplethRgb } from "@/lib/
 import type { MapPoint } from "@/lib/types";
 import MapLegend, { type MapScaleMode } from "@/components/map/MapLegend";
 import ClassLegend from "@/components/ui/ClassLegend";
+import { textoQualidade } from "@/content/qualidade";
 
 /**
  * design/DESIGN_SYSTEM.md §8: cor de "relative" (taxa/100mil) vem de classes
@@ -96,7 +97,11 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
     const population = properties.populacao != null ? `<br/><span style="opacity:.7">Populacao:</span> <b>${formatNumber(Number(properties.populacao))}</b>` : "";
     const popEstimada = properties.populacao_origem === "estimada";
     const popBadge = popEstimada
-      ? ` <span title="Populacao estimada: ano ${properties.populacao_ano_referencia ?? "?"} (defasagem de ${properties.populacao_defasagem_anos ?? "?"} ${properties.populacao_defasagem_anos === 1 ? "ano" : "anos"})" style="color:var(--warning);cursor:help">&#9888;</span>`
+      ? ` <span title="${textoQualidade({
+          motivo: "populacao_estimada",
+          anoReferencia: Number(properties.populacao_ano_referencia ?? 0) || "?",
+          defasagemAnos: properties.populacao_defasagem_anos == null ? null : Number(properties.populacao_defasagem_anos),
+        })}" style="color:var(--attention);cursor:help">&#9888;</span>`
       : "";
     const rate = properties.taxa_obitos_100mil != null ? `<br/><span style="opacity:.7">Taxa:</span> <b>${formatTaxa100k(Number(properties.taxa_obitos_100mil))}</b> / 100 mil hab.${popBadge}` : "";
     const vehicleRate = properties.taxa_obitos_10mil_veiculos != null
