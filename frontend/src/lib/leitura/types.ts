@@ -23,6 +23,18 @@ export interface MunicipioTaxa {
   taxa: number | null;
 }
 
+export interface OpcoesR1 {
+  /**
+   * Sujeito da frase, com artigo (concordancia de genero fica por conta do
+   * chamador): "A taxa" (padrao, exemplo literal do documento-fonte) ou,
+   * por exemplo, "O total de óbitos" quando a serie e uma contagem, nao
+   * uma taxa — usar o rotulo errado afirmaria uma coisa que o numero nao e.
+   */
+  sujeito?: string;
+  /** Formatador do valor: formatTaxa100k (padrao) para taxa, formatNumber para contagem. */
+  formatarValor?: (valor: number) => string;
+}
+
 export interface InputG1 {
   totalObitos: number;
 }
@@ -52,13 +64,17 @@ export interface LeituraSuprimida {
 
 export type Leitura = LeituraGerada | LeituraSuprimida;
 
-/** Entrada do orquestrador gerarLeitura(): cada campo e opcional porque nem
+/**
+ * Entrada do orquestrador gerarLeitura(): cada campo e opcional porque nem
  * toda tela tem dado suficiente para todo check — o orquestrador so tenta
- * o que recebeu. */
+ * o que recebeu. `r1.opcoes` existe porque nem toda serie de R1 e uma taxa
+ * (ver OpcoesR1 em tendencia.ts) — o template so pode dizer "a taxa" quando
+ * o valor realmente e uma taxa.
+ */
 export interface EntradaLeitura {
   g1?: InputG1;
   g2?: InputG2;
-  r1?: PontoSerieAnual[];
+  r1?: { pontos: PontoSerieAnual[]; opcoes?: OpcoesR1 };
   r2?: MunicipioContagem[];
   r3?: MunicipioTaxa[];
 }

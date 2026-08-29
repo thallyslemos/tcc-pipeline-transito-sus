@@ -35,6 +35,20 @@ describe("R1 · tendencia", () => {
     expect(leitura?.texto).toContain("queda");
   });
 
+  it("aceita sujeito e formatador customizados para series que nao sao taxa", () => {
+    const serie = [
+      { periodo: "2024-01", valor: 279 },
+      { periodo: "2024-02", valor: 209 },
+      { periodo: "2024-03", valor: 300 },
+    ];
+    const leitura = gerarR1(serie, {
+      sujeito: "O total de óbitos",
+      formatarValor: (v) => v.toLocaleString("pt-BR"),
+    });
+    expect(leitura?.texto).toContain("O total de óbitos passou de 279");
+    expect(leitura?.texto).not.toContain("A taxa");
+  });
+
   it("calcula percentual de variacao corretamente", () => {
     const serie = [
       { periodo: "2020", valor: 10 },

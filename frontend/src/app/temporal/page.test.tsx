@@ -117,10 +117,10 @@ describe("TemporalPage", () => {
     render(<TemporalPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Serie mensal de obitos")).toBeInTheDocument();
+      expect(screen.getByText(/Total de óbitos por competência mensal do óbito/)).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Distribuicao por dia da semana")).toBeInTheDocument();
+    expect(screen.getByText(/Média de óbitos por dia da semana/)).toBeInTheDocument();
     expect(screen.getByText("Municipios com concentracao temporal (evento unico / concentrado)")).toBeInTheDocument();
     expect(screen.getByText("Gaviao")).toBeInTheDocument();
     expect(screen.getByText("Evento unico")).toBeInTheDocument();

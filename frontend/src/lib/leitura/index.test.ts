@@ -9,11 +9,13 @@ describe("gerarLeitura · orquestrador", () => {
   it("guardas tem precedencia sobre regras: G1 vence mesmo com r1/r2/r3 presentes", () => {
     const leitura = gerarLeitura({
       g1: { totalObitos: 5 },
-      r1: [
-        { periodo: "2010", valor: 10 },
-        { periodo: "2020", valor: 15 },
-        { periodo: "2024", valor: 20 },
-      ],
+      r1: {
+        pontos: [
+          { periodo: "2010", valor: 10 },
+          { periodo: "2020", valor: 15 },
+          { periodo: "2024", valor: 20 },
+        ],
+      },
     });
     expect(leitura?.gerado).toBe(false);
     expect(leitura?.regra).toBe("G1");
@@ -23,11 +25,13 @@ describe("gerarLeitura · orquestrador", () => {
     const leitura = gerarLeitura({
       g1: { totalObitos: 20 }, // nao dispara (>= 20)
       g2: { totalObitos: 20, shareDiaPico: 0.9 }, // dispara
-      r1: [
-        { periodo: "2010", valor: 10 },
-        { periodo: "2020", valor: 15 },
-        { periodo: "2024", valor: 20 },
-      ],
+      r1: {
+        pontos: [
+          { periodo: "2010", valor: 10 },
+          { periodo: "2020", valor: 15 },
+          { periodo: "2024", valor: 20 },
+        ],
+      },
     });
     expect(leitura?.gerado).toBe(false);
     expect(leitura?.regra).toBe("G2");
@@ -35,11 +39,13 @@ describe("gerarLeitura · orquestrador", () => {
 
   it("sem guarda disparando, aplica a primeira regra com dado suficiente (R1 antes de R2/R3)", () => {
     const leitura = gerarLeitura({
-      r1: [
-        { periodo: "2010", valor: 10 },
-        { periodo: "2020", valor: 15 },
-        { periodo: "2024", valor: 20 },
-      ],
+      r1: {
+        pontos: [
+          { periodo: "2010", valor: 10 },
+          { periodo: "2020", valor: 15 },
+          { periodo: "2024", valor: 20 },
+        ],
+      },
       r2: [
         { municipio: "A", obitos: 10 },
         { municipio: "B", obitos: 8 },

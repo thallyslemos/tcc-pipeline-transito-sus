@@ -29,7 +29,7 @@ export function gerarLeitura(entrada: EntradaLeitura): Leitura | null {
     if (g2) return g2;
   }
   if (entrada.r1) {
-    const r1 = gerarR1(entrada.r1);
+    const r1 = gerarR1(entrada.r1.pontos, entrada.r1.opcoes);
     if (r1) return r1;
   }
   if (entrada.r2) {
