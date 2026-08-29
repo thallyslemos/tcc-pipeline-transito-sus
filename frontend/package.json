@@ -15,6 +15,7 @@
     "@deck.gl/layers": "^9.3.10",
     "@deck.gl/mapbox": "^9.3.10",
     "clsx": "^2.1.1",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.19.0",
     "next": "latest",

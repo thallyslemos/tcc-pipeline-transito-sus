@@ -33,6 +33,9 @@ import {
 import { formatNumber } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { baixarCsv } from "@/lib/exportar/csv";
+import { exportarPng } from "@/lib/exportar/rasterizar";
+import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
@@ -207,6 +210,44 @@ function DashboardContent() {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
   };
 
+  // design/DESIGN_SYSTEM.md §11 — CSV com numerador (obitos) e denominador
+  // (populacao) em colunas separadas, pra taxa poder ser recalculada fora
+  // do sistema. Exportado pelo botao "Exportar" da BarraDeRecorte (dado
+  // tabular do recorte inteiro, nao de um grafico especifico).
+  const exportarMunicipiosCsv = () => {
+    baixarCsv(
+      nomeArquivoExportacao(
+        { uf: filters.uf, regiao: filters.regiao, anoInicio: filters.ano, dimensao: filters.dimensao },
+        "csv"
+      ),
+      municipios.map((m) => ({
+        municipio: m.municipio,
+        uf: m.uf,
+        obitos_numerador: m.obitos,
+        populacao_denominador: m.populacao ?? "",
+        taxa_100mil: m.taxa_obitos_100mil ?? "",
+      }))
+    );
+  };
+
+  // PNG @2x do grafico "Evolucao anual", com a moldura (titulo/nota/
+  // proveniencia) rasterizada junto — demonstra a capacidade do §11;
+  // GraficoMoldura nao ganhou um botao de exportar proprio nesta fase
+  // (manteria o contrato do componente estavel), entao o gatilho fica
+  // aqui, ao lado do grafico.
+  const evolucaoAnualRef = useRef<HTMLDivElement>(null);
+  const exportarEvolucaoAnualPng = () => {
+    if (evolucaoAnualRef.current) {
+      exportarPng(
+        evolucaoAnualRef.current,
+        nomeArquivoExportacao(
+          { uf: filters.uf, regiao: filters.regiao, anoInicio: filters.ano, dimensao: filters.dimensao, medida: "evolucaoanual" },
+          "png"
+        )
+      );
+    }
+  };
+
   const topMunicipios = useMemo(() => municipios.slice(0, 10), [municipios]);
   const itensVeiculo = useMemo(
     () => (data?.obitos_por_tipo_veiculo ?? []).map((row) => ({ nome: row.tipo_veiculo, valor: row.total })),
@@ -291,7 +332,12 @@ function DashboardContent() {
         />
       </div>
 
-      <BarraDeRecorte chips={chipsRecorte} n={data.total_obitos} aoClicarLink={copiarLinkDoRecorte} />
+      <BarraDeRecorte
+        chips={chipsRecorte}
+        n={data.total_obitos}
+        aoClicarLink={copiarLinkDoRecorte}
+        aoClicarExportar={exportarMunicipiosCsv}
+      />
 
       <Lede rotulo="Panorama do recorte" leitura={leituraPainel} />
 
@@ -332,17 +378,34 @@ function DashboardContent() {
           </ResponsiveContainer>
         </GraficoMoldura>
 
-        <GraficoMoldura medidaId="evolucao_anual_obitos" leitura={leituraPainel}>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={data.obitos_por_ano}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-              <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
-              <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Line type="monotone" dataKey="total" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </GraficoMoldura>
+        <div>
+          <div className="mb-1 flex justify-end">
+            <button
+              type="button"
+              onClick={exportarEvolucaoAnualPng}
+              className="text-[11px] underline"
+              style={{ color: "var(--brand)" }}
+            >
+              Exportar PNG
+            </button>
+          </div>
+          {/* ref no wrapper (nao dentro de GraficoMoldura): a moldura inteira
+              — titulo, nota de metodo e leitura — vai junto na captura
+              (§11: "uma figura exportada sem moldura nao e citavel"). */}
+          <div ref={evolucaoAnualRef}>
+            <GraficoMoldura medidaId="evolucao_anual_obitos" leitura={leituraPainel}>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={data.obitos_por_ano}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                  <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
+                  <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
+                  <Line type="monotone" dataKey="total" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </GraficoMoldura>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
