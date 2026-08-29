@@ -8,6 +8,7 @@ import { ArcLayer } from "@deck.gl/layers";
 import { useTheme } from "@/components/ThemeProvider";
 import { buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
 import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
+import { formatPercentual } from "@/lib/format";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import type { SimFluxoEdge } from "@/lib/types";
 
@@ -40,21 +41,15 @@ interface Props {
   direcao: "origens" | "destinos";
 }
 
-function tileUrl(isDark: boolean): string[] {
-  const base = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
-  return ["a", "b", "c", "d"].map((s) => base.replace("{s}", s));
-}
-
-function mapStyle(isDark: boolean): maplibregl.StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      carto: { type: "raster", tiles: tileUrl(isDark), tileSize: 256, attribution: "&copy; CARTO &copy; OpenStreetMap" },
-    },
-    layers: [{ id: "carto-tiles", type: "raster", source: "carto" }],
-  };
+/**
+ * Auditoria A6 — ver o mesmo comentario em MapView.tsx: o raster antigo do
+ * CARTO parou de servir tile de verdade sem chave (PNG 200 OK com "API KEY
+ * REQUIRED" escrito por cima). Estilo GL vetorial oficial continua gratuito.
+ */
+function mapStyle(isDark: boolean): string {
+  return isDark
+    ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+    : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 }
 
 /**
@@ -188,7 +183,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       const p = feature.properties as Record<string, unknown>;
       const hasFlow = p.has_flow === true || p.has_flow === "true";
       const obitos = hasFlow ? `<b>${Number(p.obitos).toLocaleString("pt-BR")}</b> obitos` : "Sem fluxo registrado";
-      const part = hasFlow && Number(p.obitos) > 0 ? ` (${(Number(p.participacao) * 100).toFixed(1)}%)` : "";
+      const part = hasFlow && Number(p.obitos) > 0 ? ` (${formatPercentual(Number(p.participacao) * 100)}%)` : "";
       const proprio = p.propria_municipio === true || p.propria_municipio === "true" ? "<br/><span style='opacity:.7'>Proprio municipio</span>" : "";
       const alvo = p.is_alvo === true || p.is_alvo === "true" ? "<br/><span style='color:#f97316;font-weight:600'>Municipio alvo</span>" : "";
       popup.current
@@ -231,7 +226,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
             `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6">` +
             `<b>${object.municipio}</b> <span style="opacity:.6">${object.uf}</span>` +
             `<br/><b>${object.obitos.toLocaleString("pt-BR")}</b> obitos` +
-            ` (${(object.participacao * 100).toFixed(1)}%)</div>`,
+            ` (${formatPercentual(object.participacao * 100)}%)</div>`,
           style: {
             backgroundColor: dark ? "#1f2937" : "#ffffff",
             color: dark ? "#f3f4f6" : "#111827",
@@ -281,6 +276,15 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
     }
   }, [geoData, arestas, codigoAlvo, direcao, dark]);
 
+  // Mesmo bug e mesma correcao de MapView.tsx (auditoria B1): addLayers muda
+  // de identidade a cada troca de municipio/direcao/tema, e tinha-lo como
+  // dependencia do efeito de CRIACAO do mapa desmontava e recriava a
+  // instancia inteira a cada interacao — o basemap sumia por alguns
+  // segundos. addLayersRef quebra esse acoplamento; o mapa e criado uma
+  // unica vez, e troca de tema so troca o estilo via setStyle.
+  const addLayersRef = useRef(addLayers);
+  useEffect(() => { addLayersRef.current = addLayers; }, [addLayers]);
+
   useEffect(() => {
     if (!container.current || map.current) return;
     const instance = new maplibregl.Map({
@@ -296,7 +300,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
     deckOverlay.current = overlay;
     instance.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     popup.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "260px" });
-    instance.on("load", addLayers);
+    instance.on("load", () => addLayersRef.current());
     map.current = instance;
     return () => {
       popup.current?.remove();
@@ -304,7 +308,17 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       map.current = null;
       deckOverlay.current = null;
     };
-  }, [addLayers, dark]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const temaMontado = useRef(false);
+  useEffect(() => {
+    if (!temaMontado.current) { temaMontado.current = true; return; }
+    const instance = map.current;
+    if (!instance) return;
+    instance.once("idle", () => addLayersRef.current());
+    instance.setStyle(mapStyle(dark));
+  }, [dark]);
 
   useEffect(() => {
     addLayers();

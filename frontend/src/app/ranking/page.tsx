@@ -7,9 +7,11 @@ import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import FilterBar from "@/components/filters/FilterBar";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
-import { formatNumber, formatTaxa10k } from "@/lib/format";
+import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
+import SeloQualidade from "@/components/ui/SeloQualidade";
+import { taxaInstavel } from "@/content/qualidade";
 import type { FilterValues, SimMunicipio } from "@/lib/types";
 
 const PAGE_SIZE = 50;
@@ -177,12 +179,19 @@ function RankingContent() {
                   <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--risk-5)" }}>{formatNumber(row.obitos)}</td>
                   <td className="px-4 py-2 text-right font-mono">
                     <span className="inline-flex items-center gap-1">
-                      {row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}
+                      {row.taxa_obitos_100mil == null ? "N/D" : formatTaxa100k(row.taxa_obitos_100mil)}
                       <PopulacaoBadge
                         origem={row.populacao_origem}
                         anoReferencia={row.populacao_ano_referencia}
                         defasagemAnos={row.populacao_defasagem_anos}
                       />
+                      {/* Auditoria A4: G1 (motor de leitura) so guarda o N do
+                          recorte inteiro, nunca o de uma linha — um
+                          municipio com poucos obitos pode liderar o ranking
+                          por taxa so por acaso de contagem pequena. */}
+                      {row.taxa_obitos_100mil != null && taxaInstavel(row.obitos, row.populacao) && (
+                        <SeloQualidade entrada={{ motivo: "taxa_instavel", obitos: row.obitos }} />
+                      )}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right font-mono">

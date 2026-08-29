@@ -8,7 +8,7 @@ import {
   fetchSimPopulacaoCobertura,
   fetchSimPrelimMetadata,
 } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPercentual, formatTaxa100k } from "@/lib/format";
 import type { SimCatalog, SimMunicipio, SimPopulacaoCobertura, SimPrelimMetadata } from "@/lib/types";
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
@@ -137,7 +137,7 @@ export default function DadosPage() {
                 {formatNumber(popCobertura.exata)}
               </p>
               <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
-                Exata ({((popCobertura.exata / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+                Exata ({formatPercentual((popCobertura.exata / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
             <div className="rounded-lg p-3" style={{ backgroundColor: "var(--attention-soft)" }}>
@@ -145,7 +145,7 @@ export default function DadosPage() {
                 {formatNumber(popCobertura.estimada)}
               </p>
               <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
-                Estimada ({((popCobertura.estimada / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+                Estimada ({formatPercentual((popCobertura.estimada / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
             <div className="rounded-lg p-3" style={{ backgroundColor: "var(--sunken)" }}>
@@ -153,7 +153,7 @@ export default function DadosPage() {
                 {formatNumber(popCobertura.indisponivel)}
               </p>
               <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
-                Indisponivel (N/D) ({((popCobertura.indisponivel / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+                Indisponivel (N/D) ({formatPercentual((popCobertura.indisponivel / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
           </div>
@@ -216,7 +216,7 @@ export default function DadosPage() {
                   <td className="px-3 py-2">{row.uf}</td>
                   <td className="px-3 py-2 text-right">{formatNumber(row.obitos)}</td>
                   <td className="px-3 py-2 text-right">
-                    {row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}
+                    {row.taxa_obitos_100mil == null ? "N/D" : formatTaxa100k(row.taxa_obitos_100mil)}
                   </td>
                 </tr>
               ))}

@@ -43,7 +43,10 @@ function MapaContent() {
   const [data, setData] = useState<MapPoint[]>([]);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
-  const [escala, setEscala] = useState<MapScaleMode>("total");
+  // design/DESIGN_SYSTEM.md principio 2 (taxa antes de contagem) — auditoria
+  // B2: o padrao ao abrir a tela era "total" (contagem absoluta, escala
+  // relativa ao recorte filtrado), a unica visao SEM classe fixa validada.
+  const [escala, setEscala] = useState<MapScaleMode>("relative");
   const [loading, setLoading] = useState(true);
 
   // So auto-seleciona o ultimo ano na carga inicial, e so se nenhum ano ja

@@ -4,7 +4,6 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -26,7 +25,7 @@ import {
   fetchSimPrelimSummary,
   fetchSimSummary,
 } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPercentual } from "@/lib/format";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import type {
   SimPrelimCompletude,
@@ -36,9 +35,42 @@ import type {
 
 const PRELIM_ANOS = [2025, 2026];
 
+// design/DESIGN_SYSTEM.md §2: "percentual com uma casa", pt-BR (virgula) —
+// auditoria A2.
 function pct(value: number | null | undefined): string {
   if (value == null) return "N/D";
-  return `${(value * 100).toFixed(0)}%`;
+  return `${formatPercentual(value * 100)}%`;
+}
+
+// design/DESIGN_SYSTEM.md §9: legenda sempre em DOM, nunca <Legend/> nativo
+// do Recharts (auditoria B3/M6 — este grafico ainda usava o nativo).
+function ThemedTooltip(props: Record<string, unknown>) {
+  return (
+    <Tooltip
+      {...props}
+      contentStyle={{
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        color: "var(--ink)",
+        boxShadow: "var(--shadow-pop)",
+      }}
+      itemStyle={{ color: "var(--ink)" }}
+      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
+    />
+  );
+}
+
+function LegendaLinha({ cor, tracejado, rotulo }: { cor: string; tracejado?: boolean; rotulo: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="inline-block h-0 w-4"
+        style={{ borderTop: `2px ${tracejado ? "dashed" : "solid"} ${cor}` }}
+      />
+      <span style={{ color: "var(--ink-2)" }}>{rotulo}</span>
+    </span>
+  );
 }
 
 /** Faixa de aviso PERSISTENTE — nunca um toast, sempre visivel no topo da tela. */
@@ -310,28 +342,31 @@ function PreliminaresContent() {
             />
           </div>
 
-          <GraficoMoldura medidaId="padrao_mensal_consolidado_x_preliminar">
+          <GraficoMoldura
+            medidaId="padrao_mensal_consolidado_x_preliminar"
+            legenda={
+              <div className="flex flex-wrap gap-4 text-xs">
+                <LegendaLinha cor="var(--risk-5)" rotulo="Consolidado 2024" />
+                <LegendaLinha cor="var(--attention)" tracejado rotulo={`Preliminar ${ano} · cobertura parcial`} />
+              </div>
+            }
+          >
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
                 <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
-                <Tooltip
-                  formatter={(value, name) => [
+                <ThemedTooltip
+                  formatter={(value: number, name: string) => [
                     value == null ? "N/D" : formatNumber(Number(value)),
                     name === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano} · cobertura parcial`,
                   ]}
-                  labelFormatter={(mes) => `Mes ${mes}`}
-                />
-                <Legend
-                  formatter={(value) =>
-                    value === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano} · cobertura parcial`
-                  }
+                  labelFormatter={(mes: number) => `Mes ${mes}`}
                 />
                 <Line
                   type="monotone"
                   dataKey="consolidado_2024"
-                  stroke="var(--brand)"
+                  stroke="var(--risk-5)"
                   strokeWidth={2}
                   dot={false}
                   connectNulls
@@ -384,7 +419,9 @@ function PreliminaresContent() {
                           {linha.obitos_prelim == null ? "N/D" : formatNumber(linha.obitos_prelim)}
                         </td>
                         <td className="px-3 py-2 tabular-nums">
-                          {linha.media_consolidado == null ? "N/D" : linha.media_consolidado.toFixed(1)}
+                          {linha.media_consolidado == null
+                            ? "N/D"
+                            : linha.media_consolidado.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                         </td>
                         <td className="px-3 py-2 tabular-nums">
                           <span

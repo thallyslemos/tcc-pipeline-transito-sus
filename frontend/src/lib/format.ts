@@ -25,11 +25,16 @@ export function formatTaxa100k(value: number): string {
   }).format(value);
 }
 
-/** Taxa de obitos por 10 mil veiculos, quando a frota SENATRAN esta disponivel. */
+/**
+ * Taxa de obitos por 10 mil veiculos, quando a frota SENATRAN esta
+ * disponivel. Auditoria A2: usava 2 casas decimais, inconsistente com a
+ * taxa por 100 mil (1 casa) na mesma tabela — design/DESIGN_SYSTEM.md §2 e
+ * a regra pt-BR nao abrem excecao por tipo de taxa.
+ */
 export function formatTaxa10k(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
   }).format(value);
 }
 
@@ -39,4 +44,15 @@ export function formatPercentual(value: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(value);
+}
+
+/**
+ * Valor-p de teste estatistico (ex.: qui-quadrado). Auditoria A3: um valor-p
+ * nunca e exatamente zero — "p=0.0000" (alem de nao ser pt-BR) e um valor
+ * numericamente impossivel de se ler como fato; abaixo do menor valor
+ * representavel com 4 casas, o certo e "p < 0,0001".
+ */
+export function formatPValor(value: number): string {
+  if (value < 0.0001) return "p < 0,0001";
+  return `p = ${new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(value)}`;
 }

@@ -12,13 +12,13 @@ import {
   fetchSimTipos,
 } from "@/lib/api";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPercentual } from "@/lib/format";
 import type { SimFluxo, SimMunicipio } from "@/lib/types";
 
 const FluxoMapView = dynamic(() => import("@/components/map/FluxoMapView"), { ssr: false });
 
 function pct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatPercentual(value * 100)}%`;
 }
 
 function MunicipioCombobox({

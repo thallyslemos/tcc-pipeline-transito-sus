@@ -34,13 +34,18 @@ interface Props {
   escala: MapScaleMode;
 }
 
-function tileUrl(isDark: boolean): string[] {
-  const base = isDark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png" : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
-  return ["a", "b", "c", "d"].map((subdomain) => base.replace("{s}", subdomain));
-}
-
-function style(isDark: boolean): maplibregl.StyleSpecification {
-  return { version: 8, sources: { carto: { type: "raster", tiles: tileUrl(isDark), tileSize: 256, attribution: "&copy; CARTO &copy; OpenStreetMap" } }, layers: [{ id: "carto-tiles", type: "raster", source: "carto" }] };
+/**
+ * Auditoria A6: o endpoint raster antigo (basemaps.cartocdn.com/light_all/
+ * .../{z}/{x}/{y}@2x.png) parou de servir tile de verdade sem chave de API —
+ * toda resposta e um PNG 200 OK com "API KEY REQUIRED" escrito por cima
+ * (nao e erro de rede, nao aparece no console). O estilo GL vetorial oficial
+ * (Positron/Dark Matter) continua gratuito e sem chave nem marca d'agua —
+ * MapLibre aceita a url do style.json direto em `style`.
+ */
+function style(isDark: boolean): string {
+  return isDark
+    ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+    : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 }
 
 function valueOf(point: MapPoint | Record<string, unknown>, escala: MapScaleMode): number | null {
@@ -92,6 +97,49 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
       .catch(() => setGeoData(null));
   }, [ano, dimensao, regiao, tipo_veiculo, uf]);
 
+  // Auditoria S4: o mapa abria sempre mostrando a America do Sul inteira pra
+  // exibir uma UF. So reenquadra quando o RECORTE muda (geoData/data), nunca
+  // ao trocar so a escala de cor — senao o mapa pula a cada clique em
+  // "Taxa/100 mil" vs "Obitos absolutos". Soma manual em vez de
+  // Math.min(...coords) porque um estado inteiro pode ter dezenas de
+  // milhares de vertices de poligono — spread de array grande demais
+  // estoura a pilha de argumentos da funcao.
+  const fitToRecorte = useCallback(() => {
+    const instance = map.current;
+    if (!instance) return;
+    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+    const somaCoord = (lon: number, lat: number) => {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    };
+    if (mode === "polygons" && geoData) {
+      for (const feature of geoData.features) {
+        const g = feature.geometry;
+        if (!g) continue;
+        if (g.type === "Polygon") for (const ring of g.coordinates) for (const [lon, lat] of ring as number[][]) somaCoord(lon, lat);
+        else if (g.type === "MultiPolygon") for (const polygon of g.coordinates) for (const ring of polygon) for (const [lon, lat] of ring as number[][]) somaCoord(lon, lat);
+      }
+    } else {
+      for (const point of data) if (point.lat != null && point.lon != null) somaCoord(point.lon, point.lat);
+    }
+    if (!Number.isFinite(minLon)) return;
+    const bounds: [[number, number], [number, number]] = [[minLon, minLat], [maxLon, maxLat]];
+    instance.fitBounds(bounds, { padding: 40, maxZoom: 8, animate: !!instance.isStyleLoaded() });
+  }, [data, geoData, mode]);
+
+  // Ref sempre atualizada (mesmo motivo de addLayersRef) — chamada tanto no
+  // "load"/"idle" inicial do mapa quanto no efeito abaixo, que cobre troca
+  // de recorte depois que o mapa ja existe.
+  const fitToRecorteRef = useRef(fitToRecorte);
+  useEffect(() => { fitToRecorteRef.current = fitToRecorte; }, [fitToRecorte]);
+
+  useEffect(() => {
+    if (!map.current) return;
+    fitToRecorte();
+  }, [fitToRecorte]);
+
   const popupHtml = useCallback((properties: Record<string, unknown>) => {
     const hasData = properties.has_data !== false;
     const population = properties.populacao != null ? `<br/><span style="opacity:.7">Populacao:</span> <b>${formatNumber(Number(properties.populacao))}</b>` : "";
@@ -131,15 +179,38 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
     }
   }, [data, dark, escala, geoData, mode, popupHtml, visual]);
 
+  // addLayersRef sempre aponta pra versao mais recente de addLayers, sem
+  // colocar addLayers na lista de dependencias do efeito de CRIACAO do mapa
+  // abaixo. Bug real corrigido aqui (auditoria B1): addLayers muda de
+  // identidade a cada troca de escala/filtro/tema (ve dependencias do
+  // useCallback acima); tendo addLayers como dependencia do efeito que cria
+  // `new maplibregl.Map(...)`, QUALQUER uma dessas trocas desmontava
+  // (`instance.remove()`) e recriava o mapa inteiro do zero — o basemap
+  // sumia e so voltava quando o novo evento "load" disparasse, segundos
+  // depois. O mapa agora e criado uma unica vez; troca de tema so troca o
+  // estilo do basemap via setStyle, sem destruir a instancia.
+  const addLayersRef = useRef(addLayers);
+  useEffect(() => { addLayersRef.current = addLayers; }, [addLayers]);
+
   useEffect(() => {
     if (!container.current || map.current) return;
     const instance = new maplibregl.Map({ container: container.current, style: style(dark), center: [-49.5, -14.5], zoom: 3.8 });
     instance.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     popup.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "280px" });
-    instance.on("load", addLayers);
+    instance.on("load", () => { addLayersRef.current(); fitToRecorteRef.current(); });
     map.current = instance;
     return () => { popup.current?.remove(); instance.remove(); map.current = null; };
-  }, [addLayers, dark]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const temaMontado = useRef(false);
+  useEffect(() => {
+    if (!temaMontado.current) { temaMontado.current = true; return; }
+    const instance = map.current;
+    if (!instance) return;
+    instance.once("idle", () => addLayersRef.current());
+    instance.setStyle(style(dark));
+  }, [dark]);
 
   useEffect(() => { addLayers(); }, [addLayers]);
   const hasPolygons = geoData?.features?.some((feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""));

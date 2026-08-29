@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { textoQualidade } from "./qualidade";
+import { coeficienteVariacao, taxaInstavel, textoQualidade } from "./qualidade";
 
 describe("textoQualidade", () => {
   it("populacao_estimada com defasagem", () => {
@@ -33,5 +33,50 @@ describe("textoQualidade", () => {
 
   it("frota_ausente", () => {
     expect(textoQualidade({ motivo: "frota_ausente" })).toContain("Frota SENATRAN não pareada");
+  });
+
+  it("taxa_instavel cita o numero de obitos e o coeficiente de variacao", () => {
+    // caso real: Gaviao, BA, 2024 — 20 obitos, taxa 445,1/100mil (auditoria A4)
+    const texto = textoQualidade({ motivo: "taxa_instavel", obitos: 20 });
+    expect(texto).toContain("20 óbitos");
+    expect(texto).toContain("22%");
+  });
+
+  it("taxa_instavel usa singular para 1 obito", () => {
+    expect(textoQualidade({ motivo: "taxa_instavel", obitos: 1 })).toContain("1 óbito ");
+  });
+});
+
+describe("coeficienteVariacao", () => {
+  it("CV = 1/sqrt(obitos)", () => {
+    expect(coeficienteVariacao(20)).toBeCloseTo(0.2236, 4);
+    expect(coeficienteVariacao(100)).toBeCloseTo(0.1, 4);
+  });
+
+  it("obitos zero da CV infinito (instabilidade maxima)", () => {
+    expect(coeficienteVariacao(0)).toBe(Infinity);
+  });
+});
+
+describe("taxaInstavel", () => {
+  it("Gaviao (BA, 2024): 20 obitos, populacao 4.493 — instavel pela populacao", () => {
+    expect(taxaInstavel(20, 4493)).toBe(true);
+  });
+
+  it("obitos abaixo do limiar e instavel mesmo com populacao grande", () => {
+    expect(taxaInstavel(19, 1_000_000)).toBe(true);
+  });
+
+  it("populacao abaixo do limiar e instavel mesmo com muitos obitos", () => {
+    expect(taxaInstavel(500, 20_000)).toBe(true);
+  });
+
+  it("municipio grande com muitos obitos nao e instavel", () => {
+    expect(taxaInstavel(210, 2_900_000)).toBe(false);
+  });
+
+  it("populacao nula nao dispara pela populacao, so pelo N de obitos", () => {
+    expect(taxaInstavel(50, null)).toBe(false);
+    expect(taxaInstavel(5, null)).toBe(true);
   });
 });

@@ -30,7 +30,7 @@ import {
   fetchSimSummary,
   fetchSimTipos,
 } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import { baixarCsv } from "@/lib/exportar/csv";
@@ -197,6 +197,28 @@ function DashboardContent() {
     });
   };
 
+  // Auditoria A1: o painel nao tinha nenhum KPI de taxa, so contagem e
+  // metadado — contra o principio "taxa antes de contagem". A API devolve
+  // taxa_obitos_100mil por MUNICIPIO (nao um agregado pronto pro recorte
+  // inteiro), entao a taxa do recorte e a soma dos obitos sobre a soma da
+  // populacao dos municipios com denominador disponivel (nao a media das
+  // taxas municipais, que pesaria igual um municipio de 2 mil habitantes e
+  // um de 2 milhoes).
+  const agregadoTaxa = useMemo(() => {
+    const comPopulacao = municipios.filter((m) => m.populacao != null && m.populacao > 0);
+    const populacaoTotal = comPopulacao.reduce((soma, m) => soma + (m.populacao ?? 0), 0);
+    const obitosComPopulacao = comPopulacao.reduce((soma, m) => soma + m.obitos, 0);
+    const comFrota = municipios.filter((m) => m.frota_total != null && m.frota_total > 0);
+    const frotaTotal = comFrota.reduce((soma, m) => soma + (m.frota_total ?? 0), 0);
+    const obitosComFrota = comFrota.reduce((soma, m) => soma + m.obitos, 0);
+    return {
+      taxa100mil: populacaoTotal > 0 ? (obitosComPopulacao / populacaoTotal) * 100000 : null,
+      municipiosSemPop: municipios.length - comPopulacao.length,
+      taxa10milVeiculos: frotaTotal > 0 ? (obitosComFrota / frotaTotal) * 10000 : null,
+      municipiosSemFrota: municipios.length - comFrota.length,
+    };
+  }, [municipios]);
+
   const chipsRecorte = useMemo(() => {
     const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
     if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
@@ -341,11 +363,33 @@ function DashboardContent() {
 
       <Lede rotulo="Panorama do recorte" leitura={leituraPainel} />
 
+      {/* Auditoria A1: "Fonte" e "Geografia" saem daqui — sao metadado, nao
+          medida, e ja aparecem em outro lugar da tela (fonte no rodape do
+          menu, dimensao no chip "Dimensao" da BarraDeRecorte acima); no
+          lugar entram as duas taxas do recorte, que faltavam por completo. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiStat rotulo="Obitos ATT" valor={formatNumber(data.total_obitos)} denominador={data.dimensao} />
         <KpiStat rotulo="Municipios" valor={formatNumber(data.municipios)} denominador="com registro" />
-        <KpiStat rotulo="Fonte" valor="SIM" denominador="DATASUS" />
-        <KpiStat rotulo="Geografia" valor={data.dimensao} denominador="papel analitico" />
+        <KpiStat
+          rotulo="Taxa / 100 mil"
+          valor={agregadoTaxa.taxa100mil == null ? "N/D" : formatTaxa100k(agregadoTaxa.taxa100mil)}
+          denominador={
+            agregadoTaxa.municipiosSemPop > 0
+              ? `Populacao IBGE do recorte (${agregadoTaxa.municipiosSemPop} municipio(s) sem denominador)`
+              : "Populacao IBGE do recorte"
+          }
+          termoAjuda="taxa_100mil"
+        />
+        <KpiStat
+          rotulo="Taxa / 10 mil veic."
+          valor={agregadoTaxa.taxa10milVeiculos == null ? "N/D" : formatTaxa10k(agregadoTaxa.taxa10milVeiculos)}
+          denominador={
+            agregadoTaxa.taxa10milVeiculos == null
+              ? "Frota SENATRAN indisponivel no recorte"
+              : `Frota SENATRAN do recorte${agregadoTaxa.municipiosSemFrota > 0 ? ` (${agregadoTaxa.municipiosSemFrota} sem frota)` : ""}`
+          }
+          termoAjuda="taxa_10mil_veiculos"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -454,32 +498,53 @@ function DashboardContent() {
         </GraficoMoldura>
       </div>
 
-      <div
-        className="rounded-xl p-4 text-xs"
-        style={{
-          backgroundColor: "var(--surface)",
-          border: "1px solid var(--border)",
-          color: "var(--ink-2)",
-        }}
-      >
-        {popCobertura && popCobertura.total_municipio_ano > 0 ? (
-          <span className="inline-flex items-center gap-1">
-            Cobertura populacional do recorte: {formatNumber(popCobertura.exata)} de{" "}
-            {formatNumber(popCobertura.total_municipio_ano)} municipio-ano ({((popCobertura.exata / popCobertura.total_municipio_ano) * 100).toFixed(0)}%) com populacao exata
-            (mesmo municipio e ano no IBGE); {formatNumber(popCobertura.estimada)}
-            {" "}({((popCobertura.estimada / popCobertura.total_municipio_ano) * 100).toFixed(0)}%) usam a
-            populacao do ano IBGE mais proximo
-            <AlertTriangle className="mx-0.5 inline h-3 w-3" style={{ color: "var(--attention)" }} />
-            e {formatNumber(popCobertura.indisponivel)} nao tem denominador disponivel (N/D). Frota SENATRAN
-            permanece {data.denominadores.frota}.
-          </span>
-        ) : (
-          <>
-            Populacao usa o ano exato quando disponivel ou o ano IBGE mais proximo do mesmo municipio, com
-            marcacao visual nas taxas estimadas. Frota SENATRAN permanece {data.denominadores.frota}.
-          </>
-        )}
-      </div>
+      {(() => {
+        // Auditoria A5: com >5% dos pares municipio-ano do recorte usando
+        // populacao aproximada (§7a), o aviso precisa ser um aviso de
+        // verdade — cor de atencao, nao a mesma nota cinza do rodape comum
+        // (em 2010, por exemplo, e 100% dos municipios da Bahia).
+        const percEstimada =
+          popCobertura && popCobertura.total_municipio_ano > 0
+            ? popCobertura.estimada / popCobertura.total_municipio_ano
+            : 0;
+        const aproximado = percEstimada > 0.05;
+        return (
+          <div
+            className="rounded-xl p-4 text-xs"
+            style={{
+              backgroundColor: aproximado ? "var(--attention-soft)" : "var(--surface)",
+              border: `1px solid ${aproximado ? "var(--attention)" : "var(--border)"}`,
+              color: "var(--ink-2)",
+            }}
+            role={aproximado ? "alert" : undefined}
+          >
+            {popCobertura && popCobertura.total_municipio_ano > 0 ? (
+              <span className="inline-flex items-center gap-1">
+                <AlertTriangle
+                  className="mr-0.5 inline h-3.5 w-3.5 shrink-0"
+                  style={{ color: "var(--attention)" }}
+                />
+                {aproximado && (
+                  <strong style={{ color: "var(--attention-ink)" }}>
+                    {formatPercentual(percEstimada * 100)}% do recorte usa populacao aproximada —{" "}
+                  </strong>
+                )}
+                Cobertura populacional do recorte: {formatNumber(popCobertura.exata)} de{" "}
+                {formatNumber(popCobertura.total_municipio_ano)} municipio-ano ({formatPercentual((popCobertura.exata / popCobertura.total_municipio_ano) * 100)}%) com populacao exata
+                (mesmo municipio e ano no IBGE); {formatNumber(popCobertura.estimada)}
+                {" "}({formatPercentual(percEstimada * 100)}%) usam a populacao do ano IBGE mais proximo
+                e {formatNumber(popCobertura.indisponivel)} nao tem denominador disponivel (N/D). Frota SENATRAN
+                permanece {data.denominadores.frota}.
+              </span>
+            ) : (
+              <>
+                Populacao usa o ano exato quando disponivel ou o ano IBGE mais proximo do mesmo municipio, com
+                marcacao visual nas taxas estimadas. Frota SENATRAN permanece {data.denominadores.frota}.
+              </>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

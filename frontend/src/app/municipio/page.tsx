@@ -7,10 +7,11 @@ import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
-import { formatNumber, formatTaxa10k } from "@/lib/format";
+import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
+import { taxaInstavel } from "@/content/qualidade";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
 // useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
@@ -122,13 +123,19 @@ function MunicipioContent() {
             <KpiStat rotulo="Obitos" valor={formatNumber(detail.total_obitos)} denominador={`${detail.municipio} - ${detail.uf}`} />
             <KpiStat
               rotulo="Taxa / 100 mil"
-              valor={detail.taxa_obitos_100mil == null ? "N/D" : detail.taxa_obitos_100mil.toFixed(1)}
+              valor={detail.taxa_obitos_100mil == null ? "N/D" : formatTaxa100k(detail.taxa_obitos_100mil)}
               denominador={
-                detail.populacao_origem === "estimada"
+                (detail.populacao_origem === "estimada"
                   ? `Populacao estimada (${detail.populacao_ano_referencia}, defasagem ${detail.populacao_defasagem_anos} ${detail.populacao_defasagem_anos === 1 ? "ano" : "anos"})`
                   : detail.populacao_origem === "exata"
                     ? "Populacao do mesmo ano"
-                    : "Denominador indisponivel"
+                    : "Denominador indisponivel") +
+                // Auditoria A4: mesmo aviso de instabilidade estatistica do
+                // ranking (G1 do motor de leitura so olha o N do recorte
+                // inteiro, nunca o de um municipio so).
+                (detail.taxa_obitos_100mil != null && taxaInstavel(detail.total_obitos, detail.populacao)
+                  ? ` · taxa instável (${detail.total_obitos} óbitos)`
+                  : "")
               }
               termoAjuda="taxa_100mil"
             />

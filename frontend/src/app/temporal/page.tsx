@@ -24,7 +24,7 @@ import {
   fetchSimTemporalSerieMensal,
   fetchSimTipos,
 } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPValor, formatPercentual } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import type { SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
 
@@ -38,9 +38,11 @@ interface TemporalFilterState {
   tipo_veiculo?: string;
 }
 
+// design/DESIGN_SYSTEM.md §2: "percentual com uma casa", sempre pt-BR
+// (virgula) — auditoria A2, .toFixed() sozinho gera separador em ponto.
 function pct(value: number | null | undefined): string {
   if (value == null) return "-";
-  return `${(value * 100).toFixed(1)}%`;
+  return `${formatPercentual(value * 100)}%`;
 }
 
 function ThemedTooltip(props: Record<string, unknown>) {
@@ -280,12 +282,16 @@ export default function TemporalPage() {
             />
             <KpiStat
               rotulo="Razao fim de semana / dia util"
-              valor={diaSemana.razao_fim_semana != null ? diaSemana.razao_fim_semana.toFixed(2) : "-"}
+              valor={
+                diaSemana.razao_fim_semana != null
+                  ? diaSemana.razao_fim_semana.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : "-"
+              }
               denominador={`${pct(diaSemana.fim_de_semana.proporcao_observada)} dos obitos no fim de semana`}
             />
             <KpiStat
               rotulo="Qui-quadrado (dia da semana)"
-              valor={diaSemana.qui_quadrado.p_valor != null ? `p=${diaSemana.qui_quadrado.p_valor.toFixed(4)}` : "-"}
+              valor={diaSemana.qui_quadrado.p_valor != null ? formatPValor(diaSemana.qui_quadrado.p_valor) : "-"}
               denominador={
                 diaSemana.qui_quadrado.significativo_005 === null
                   ? "sem dados suficientes"
@@ -312,7 +318,7 @@ export default function TemporalPage() {
                 />
                 <Bar dataKey="obitos" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                   {serieChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.pico ? "var(--risk-5)" : "var(--brand)"} />
+                    <Cell key={i} fill={entry.pico ? "var(--risk-5)" : "var(--hairline)"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -330,7 +336,12 @@ export default function TemporalPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
                 <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
-                <ThemedTooltip formatter={(value: number) => [value.toFixed(3), "Media por dia"]} />
+                <ThemedTooltip
+                  formatter={(value: number) => [
+                    value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+                    "Media por dia",
+                  ]}
+                />
                 <ReferenceLine
                   y={mediaGeralDia}
                   stroke="var(--ink-2)"
@@ -339,7 +350,7 @@ export default function TemporalPage() {
                 />
                 <Bar dataKey="media_por_dia" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                   {diaSemanaChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fimDeSemana ? "var(--risk-5)" : "var(--brand)"} />
+                    <Cell key={i} fill={entry.fimDeSemana ? "var(--risk-5)" : "var(--hairline)"} />
                   ))}
                 </Bar>
               </BarChart>

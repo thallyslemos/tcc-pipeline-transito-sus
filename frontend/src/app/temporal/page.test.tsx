@@ -130,7 +130,7 @@ describe("TemporalPage", () => {
     render(<TemporalPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("1.08")).toBeInTheDocument();
+      expect(screen.getByText("1,08")).toBeInTheDocument();
     });
   });
 });
