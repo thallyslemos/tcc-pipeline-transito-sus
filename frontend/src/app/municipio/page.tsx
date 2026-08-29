@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import ChartCard from "@/components/charts/ChartCard";
+import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa10k } from "@/lib/format";
+import { gerarLeitura } from "@/lib/leitura";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
@@ -17,6 +18,20 @@ export default function MunicipioPage() {
   const [ano, setAno] = useState<number | undefined>();
   const [detail, setDetail] = useState<SimMunicipioDetail | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Camada 3 (design/DESIGN_SYSTEM.md §6.2): serie_mensal e uma CONTAGEM,
+  // nao uma taxa — mesmo ajuste de sujeito/formatador ja usado em /temporal
+  // e /dashboard.
+  const leituraSerie = useMemo(() => {
+    if (!detail) return null;
+    return gerarLeitura({
+      g1: { totalObitos: detail.total_obitos },
+      r1: {
+        pontos: detail.serie_mensal.map((p) => ({ periodo: p.competencia, valor: p.obitos })),
+        opcoes: { sujeito: "O total de óbitos", formatarValor: formatNumber },
+      },
+    });
+  }, [detail]);
 
   useEffect(() => {
     fetchSimAnos(dimensao).then((result) => {
@@ -78,17 +93,17 @@ export default function MunicipioPage() {
             <KpiStat rotulo="Taxa / 10 mil veic." valor={detail.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(detail.taxa_obitos_10mil_veiculos)} denominador={detail.frota_status === "disponivel" ? "Obitos ATT / frota" : "Sem frota pareada"} termoAjuda="taxa_10mil_veiculos" />
             <KpiStat rotulo="Dimensao" valor={detail.dimensao} denominador="Papel geografico" termoAjuda="dimensao_ocorrencia_residencia" />
           </div>
-          <ChartCard title="Serie mensal" subtitle="Obitos ATT no periodo selecionado">
+          <GraficoMoldura medidaId="serie_mensal_obitos" leitura={leituraSerie}>
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={detail.serie_mensal}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                 <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-text)" }} />
                 <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
                 <Tooltip formatter={(value) => [formatNumber(Number(value)), "Obitos"]} />
-                <Line type="monotone" dataKey="obitos" stroke="var(--deaths)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="obitos" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
-          </ChartCard>
+          </GraficoMoldura>
           <p className="flex flex-wrap items-center gap-1 text-xs" style={{ color: "var(--fg-muted)" }}>
             Populacao IBGE: {detail.populacao == null ? "N/D" : formatNumber(detail.populacao)} ({detail.populacao_status}
             {detail.populacao_origem === "estimada" ? ", estimada" : detail.populacao_origem === "exata" ? ", exata" : ""}).

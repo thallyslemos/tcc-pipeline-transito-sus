@@ -16,7 +16,8 @@ import {
 } from "recharts";
 import { AlertTriangle } from "lucide-react";
 
-import ChartCard from "@/components/charts/ChartCard";
+import GraficoMoldura from "@/components/ui/GraficoMoldura";
+import Lede from "@/components/ui/Lede";
 import KpiStat from "@/components/ui/KpiStat";
 import RankedBar from "@/components/ui/RankedBar";
 import FilterBar from "@/components/filters/FilterBar";
@@ -28,6 +29,7 @@ import {
   fetchSimTipos,
 } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { gerarLeitura } from "@/lib/leitura";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
@@ -162,6 +164,20 @@ export default function DashboardPage() {
     [data?.obitos_por_sexo],
   );
 
+  // Camada 3 (design/DESIGN_SYSTEM.md §6.2): obitos_por_ano e uma CONTAGEM,
+  // nao uma taxa — mesmo ajuste de sujeito/formatador ja usado em /temporal.
+  const leituraPainel = useMemo(() => {
+    if (!data) return null;
+    return gerarLeitura({
+      g1: { totalObitos: data.total_obitos },
+      r1: {
+        pontos: data.obitos_por_ano.map((p) => ({ periodo: String(p.ano), valor: p.total })),
+        opcoes: { sujeito: "O total de óbitos", formatarValor: formatNumber },
+      },
+      r2: municipios.map((m) => ({ municipio: m.municipio, obitos: m.obitos })),
+    });
+  }, [data, municipios]);
+
   const filterDefs = [
     {
       key: "dimensao",
@@ -222,6 +238,8 @@ export default function DashboardPage() {
         />
       </div>
 
+      <Lede rotulo="Panorama do recorte" leitura={leituraPainel} />
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiStat rotulo="Obitos ATT" valor={formatNumber(data.total_obitos)} denominador={data.dimensao} />
         <KpiStat rotulo="Municipios" valor={formatNumber(data.municipios)} denominador="com registro" />
@@ -230,7 +248,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Evolucao mensal" subtitle="Variacao mensal de obitos no recorte filtrado">
+        <GraficoMoldura medidaId="serie_mensal_obitos">
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={data.obitos_por_mes}>
               <defs>
@@ -253,30 +271,31 @@ export default function DashboardPage() {
                 stroke="var(--deaths)"
                 fill="url(#gObitosMes)"
                 strokeWidth={2}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </GraficoMoldura>
 
-        <ChartCard title="Evolucao anual" subtitle="Obitos com causa V01-V89 e QA aprovado">
+        <GraficoMoldura medidaId="evolucao_anual_obitos" leitura={leituraPainel}>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={data.obitos_por_ano}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
               <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
               <YAxis tick={{ fontSize: 11, fill: "var(--chart-text)" }} />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Line type="monotone" dataKey="total" stroke="var(--deaths)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="total" stroke="var(--deaths)" strokeWidth={2} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </GraficoMoldura>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <ChartCard title="Obitos por Tipo de Veiculo">
+        <GraficoMoldura medidaId="obitos_por_tipo_veiculo">
           <RankedBar itens={itensVeiculo} corPorItem={corCategoriaVeiculo} />
-        </ChartCard>
+        </GraficoMoldura>
 
-        <ChartCard title="Obitos por Faixa Etaria">
+        <GraficoMoldura medidaId="obitos_por_faixa_etaria">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -288,18 +307,18 @@ export default function DashboardPage() {
                 width={45}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--risk-2)" />
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--risk-2)" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </GraficoMoldura>
 
-        <ChartCard title="Distribuicao por Sexo">
+        <GraficoMoldura medidaId="distribuicao_por_sexo">
           <RankedBar itens={itensSexo} />
-        </ChartCard>
+        </GraficoMoldura>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Top 10 Municipios - Obitos" subtitle="Ordenacao pelo filtro atual">
+        <GraficoMoldura medidaId="ranking_municipios_obitos">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topMunicipios} layout="vertical" margin={{ left: 20, right: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -311,10 +330,10 @@ export default function DashboardPage() {
                 tick={{ fontSize: 10, fill: "var(--chart-text)" }}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Bar dataKey="obitos" fill="var(--deaths)" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="obitos" fill="var(--deaths)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-        </ChartCard>
+        </GraficoMoldura>
       </div>
 
       <div

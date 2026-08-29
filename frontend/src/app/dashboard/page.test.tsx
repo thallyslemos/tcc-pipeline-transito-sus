@@ -86,15 +86,15 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Evolucao mensal")).toBeInTheDocument();
+      expect(screen.getByText(/Total de óbitos por competência mensal do óbito/)).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Evolucao anual")).toBeInTheDocument();
-    expect(screen.getByText("Obitos por Tipo de Veiculo")).toBeInTheDocument();
-    expect(screen.getByText("Obitos por Faixa Etaria")).toBeInTheDocument();
-    expect(screen.getByText("Distribuicao por Sexo")).toBeInTheDocument();
+    expect(screen.getByText(/Total de óbitos por ano/)).toBeInTheDocument();
+    expect(screen.getByText(/Óbitos por tipo de vítima/)).toBeInTheDocument();
+    expect(screen.getByText(/Óbitos por faixa etária/)).toBeInTheDocument();
+    expect(screen.getByText(/Óbitos por sexo/)).toBeInTheDocument();
     expect(screen.getByText("Ignorado")).toBeInTheDocument();
-    expect(screen.getByText("Top 10 Municipios - Obitos")).toBeInTheDocument();
+    expect(screen.getByText(/Os 10 municípios com maior número absoluto/)).toBeInTheDocument();
   });
 
   it("selecionar 'Todos' no filtro Ano nao e reescrito de volta para o ultimo ano", async () => {

@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { AlertTriangle } from "lucide-react";
 
-import ChartCard from "@/components/charts/ChartCard";
+import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
 import FilterBar from "@/components/filters/FilterBar";
 import {
@@ -267,10 +267,7 @@ export default function PreliminaresPage() {
             />
           </div>
 
-          <ChartCard
-            title="Padrao mensal — consolidado (2024) x preliminar"
-            subtitle="Trecho preliminar em linha tracejada; series desenhadas lado a lado por mes-do-ano, nunca somadas"
-          >
+          <GraficoMoldura medidaId="padrao_mensal_consolidado_x_preliminar">
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -307,13 +304,10 @@ export default function PreliminaresPage() {
                 />
               </LineChart>
             </ResponsiveContainer>
-          </ChartCard>
+          </GraficoMoldura>
 
           {completude && (
-            <ChartCard
-              title="Completude por mes"
-              subtitle="obitos_preliminares(mes) / media(obitos_consolidados do mesmo mes nos ate 3 anos anteriores) — sinal, nao correcao"
-            >
+            <GraficoMoldura medidaId="completude_por_mes">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -352,10 +346,7 @@ export default function PreliminaresPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[10px]" style={{ color: "var(--fg-muted)" }}>
-                {completude.notas_metodologicas}
-              </p>
-            </ChartCard>
+            </GraficoMoldura>
           )}
 
           <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
