@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ArcLayer } from "@deck.gl/layers";
+import { ArcLayer, TextLayer } from "@deck.gl/layers";
 import { useTheme } from "@/components/ThemeProvider";
-import { buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
+import { buildEndpointFeatures, polygonCentroid, pontoEAnguloNoArco } from "@/lib/fluxoArc";
 import { MAP_NEUTRAL_COLOR, mapChoroplethGradientCss, mapChoroplethRgb } from "@/lib/mapGradient";
 import { formatPercentual } from "@/lib/format";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
@@ -207,7 +207,19 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
 
     const { arcs, endpoints } = buildFlowData(geoData, arestas, codigoAlvo, direcao);
     const arcPalette = dark ? ARC_COLOR_DARK : ARC_COLOR_LIGHT;
-    const maxArcObitos = Math.max(...arcs.map((a) => a.obitos), 1);
+
+    // Auditoria S6/design/DESIGN_SYSTEM.md §8.1: cada arco ganha um
+    // triangulo em --flow-destino a t=0,82 apontando pro destino. No modo
+    // "destinos dos residentes" o sentido do FLUXO inverte (arestas.target
+    // vira o municipio alvo, nao mais o "outro"), entao a seta tem que
+    // apontar pra fora do alvo, no mesmo t — inverte-se o par usado pra
+    // calcular o angulo, sem inverter o arco em si (que ja segue
+    // source/target corretos, ver buildFlowData acima).
+    const setas = arcs.map((arco) => {
+      const [de, para] = direcao === "origens" ? [arco.source, arco.target] : [arco.target, arco.source];
+      const { posicao, anguloGraus } = pontoEAnguloNoArco(de, para, 0.82);
+      return { posicao, anguloGraus, obitos: arco.obitos };
+    });
 
     deckOverlay.current?.setProps({
       layers: [
@@ -221,10 +233,37 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
           getTargetPosition: (d) => d.target,
           getSourceColor: [...arcPalette.source, 210],
           getTargetColor: [...arcPalette.target, 230],
-          getWidth: (d) => 1.5 + 7.5 * (d.obitos / maxArcObitos),
-          getHeight: (d) => 0.5 + 0.7 * (d.obitos / maxArcObitos),
+          // Largura por raiz do volume (largura linear apaga os fluxos
+          // pequenos, que sao justamente os que revelam o alcance da
+          // rede). Altura FIXA e rasa: a altura existe so pra desembaracar
+          // arcos sobrepostos no plano, nao pra efeito tridimensional — um
+          // arco alto rouba a leitura da geografia e sugere que o fluxo
+          // "sobe", o que nao significa nada (era 0,5-1,2 antes, escalado
+          // por obitos; a auditoria S6 pediu 0,15 fixo).
+          getWidth: (d) => Math.sqrt(d.obitos),
+          getHeight: 0.15,
+          getTilt: 0,
           widthMinPixels: 1.5,
-          widthMaxPixels: 9,
+          widthMaxPixels: 12,
+          opacity: 0.55,
+          parameters: { depthCompare: "always" },
+        }),
+        new TextLayer<{ posicao: [number, number]; anguloGraus: number; obitos: number }>({
+          id: "fluxo-setas",
+          data: setas,
+          // O atlas de fonte do TextLayer so gera os caracteres do
+          // characterSet default (basicamente ASCII) — sem declarar "▲"
+          // aqui, o deck.gl loga "Missing character" e nao desenha nada,
+          // silenciosamente (bug real, so aparece no console, nao quebra a
+          // pagina).
+          characterSet: ["▲"],
+          getPosition: (d) => d.posicao,
+          getText: () => "▲",
+          getSize: 13,
+          getAngle: (d) => -d.anguloGraus,
+          getColor: [...arcPalette.target, 235],
+          billboard: true,
+          parameters: { depthCompare: "always" },
         }),
       ],
       getTooltip: ({ object }: { object?: ArcDatum }) => {
