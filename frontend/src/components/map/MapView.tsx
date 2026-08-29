@@ -6,9 +6,21 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { fetchSimGeo } from "@/lib/api";
 import { useTheme } from "@/components/ThemeProvider";
 import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
-import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
+import { MAP_NEUTRAL_COLOR, mapChoroplethClasse, mapChoroplethRgb } from "@/lib/mapGradient";
 import type { MapPoint } from "@/lib/types";
 import MapLegend, { type MapScaleMode } from "@/components/map/MapLegend";
+import ClassLegend from "@/components/ui/ClassLegend";
+
+/**
+ * design/DESIGN_SYSTEM.md §8: cor de "relative" (taxa/100mil) vem de classes
+ * FIXAS, nao do min/max do recorte — o mesmo municipio nao pode mudar de cor
+ * so porque o filtro mudou. "total" e "vehicle_rate" nao tem quintis
+ * validados ainda; continuam na escala relativa antiga (limitacao
+ * documentada, nao descuido).
+ */
+function corPorValor(escala: MapScaleMode, value: number, ratio: number, dark: boolean): string {
+  return escala === "relative" ? mapChoroplethClasse(value, dark) : mapChoroplethRgb(ratio, dark);
+}
 
 interface Props {
   data: MapPoint[];
@@ -50,7 +62,7 @@ function circles(data: MapPoint[], escala: MapScaleMode, dark: boolean, min: num
       const value = valueOf(point, escala);
       const valid = value != null && (escala === "total" ? value >= 0 : value > 0);
       const ratio = valid ? Math.max(0, Math.min(1, (value! - min) / span)) : 0;
-      const color = valid ? mapChoroplethRgb(ratio, dark) : MAP_NEUTRAL_COLOR;
+      const color = valid ? corPorValor(escala, value!, ratio, dark) : MAP_NEUTRAL_COLOR;
       return { type: "Feature", geometry: { type: "Point", coordinates: [point.lon!, point.lat!] }, properties: { ...point, color, radius: 7 + ratio * 25 } };
     }),
   };
@@ -103,7 +115,7 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
     ["polygons", "points"].forEach((id) => { if (instance.getSource(id)) instance.removeSource(id); });
     const span = visual.max - visual.min || 1;
     if (mode === "polygons" && geoData) {
-      const enriched = { ...geoData, features: geoData.features.map((feature) => { const props = (feature.properties ?? {}) as Record<string, unknown>; const value = valueOf(props, escala); const valid = value != null && (escala === "total" ? value >= 0 : value > 0); const ratio = valid ? Math.max(0, Math.min(1, (value! - visual.min) / span)) : 0; return { ...feature, properties: { ...props, fillColor: valid ? mapChoroplethRgb(ratio, dark) : MAP_NEUTRAL_COLOR } }; }) };
+      const enriched = { ...geoData, features: geoData.features.map((feature) => { const props = (feature.properties ?? {}) as Record<string, unknown>; const value = valueOf(props, escala); const valid = value != null && (escala === "total" ? value >= 0 : value > 0); const ratio = valid ? Math.max(0, Math.min(1, (value! - visual.min) / span)) : 0; return { ...feature, properties: { ...props, fillColor: valid ? corPorValor(escala, value!, ratio, dark) : MAP_NEUTRAL_COLOR } }; }) };
       instance.addSource("polygons", { type: "geojson", data: enriched });
       instance.addLayer({ id: "poly-fill", type: "fill", source: "polygons", paint: { "fill-color": ["get", "fillColor"], "fill-opacity": 0.9 } });
       instance.on("mousemove", "poly-fill", (event) => { const feature = event.features?.[0]; if (!feature) return; popup.current?.setLngLat(event.lngLat).setHTML(popupHtml(feature.properties as Record<string, unknown>)).addTo(instance); });
@@ -126,5 +138,5 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
 
   useEffect(() => { addLayers(); }, [addLayers]);
   const hasPolygons = geoData?.features?.some((feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""));
-  return <div className="relative h-full w-full"><div ref={container} className="h-full w-full" />{hasPolygons && <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}><button type="button" onClick={() => setMode("polygons")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "polygons" ? "var(--primary)" : "var(--bg-card)", color: mode === "polygons" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Poligonos</button><button type="button" onClick={() => setMode("circles")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "circles" ? "var(--primary)" : "var(--bg-card)", color: mode === "circles" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Circulos</button></div>}<div className="absolute bottom-3 left-3 z-10"><MapLegend escala={escala} minV={visual.min} maxV={visual.max} relativeCount={visual.count} /></div></div>;
+  return <div className="relative h-full w-full"><div ref={container} className="h-full w-full" />{hasPolygons && <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}><button type="button" onClick={() => setMode("polygons")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "polygons" ? "var(--primary)" : "var(--bg-card)", color: mode === "polygons" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Poligonos</button><button type="button" onClick={() => setMode("circles")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "circles" ? "var(--primary)" : "var(--bg-card)", color: mode === "circles" ? "var(--primary-fg)" : "var(--fg-secondary)" }}>Circulos</button></div>}<div className="absolute bottom-3 left-3 z-10">{escala === "relative" ? <ClassLegend isDark={dark} /> : <MapLegend escala={escala} minV={visual.min} maxV={visual.max} relativeCount={visual.count} />}</div></div>;
 }

@@ -37,3 +37,11 @@ export function mapChoroplethGradientCss(isDark: boolean): string {
 }
 
 export const MAP_NEUTRAL_COLOR = "hsl(220, 12%, 55%)";
+
+/**
+ * design/DESIGN_SYSTEM.md §8 — classes fixas (nao relativas ao recorte),
+ * so pra taxa por 100 mil ("relative"). Ver src/lib/theme/mapaClasses.ts.
+ * Mantida ao lado de mapChoroplethRgb (nao a substitui): "total" e
+ * "vehicle_rate" continuam usando a escala relativa antiga.
+ */
+export { corClasseFixa as mapChoroplethClasse, rampaClasses as mapChoroplethRampaClasses } from "./theme/mapaClasses";
