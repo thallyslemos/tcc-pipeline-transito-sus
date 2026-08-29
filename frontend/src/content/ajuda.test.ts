@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { glossario } from "./glossario";
+import { ajuda } from "./ajuda";
 
 const MAX_PALAVRAS = 45;
-const BLOCOS = ["oQueE", "comoSeLe", "cuidado"] as const;
+const BLOCOS = ["oQueMostra", "comoLer", "oQueNaoPermiteConcluir"] as const;
 
 function contarPalavras(texto: string): number {
   return texto.trim().split(/\s+/).filter(Boolean).length;
 }
 
-describe("glossario", () => {
+describe("ajuda", () => {
   it("tem pelo menos um termo cadastrado", () => {
-    expect(Object.keys(glossario).length).toBeGreaterThan(0);
+    expect(Object.keys(ajuda).length).toBeGreaterThan(0);
   });
 
-  for (const [termo, entry] of Object.entries(glossario)) {
+  for (const [termo, entry] of Object.entries(ajuda)) {
     describe(termo, () => {
       it("tem titulo nao vazio", () => {
         expect(entry.titulo.trim().length).toBeGreaterThan(0);

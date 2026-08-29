@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import InfoTip from "@/components/InfoTip";
 import { cn } from "@/lib/utils";
-import type { TermoGlossario } from "@/content/glossario";
+import type { TermoAjuda } from "@/content/ajuda";
 
 type Semantic = "deaths" | "health" | "success";
 
@@ -17,7 +17,7 @@ interface Props {
   trend?: { value: number; label?: string };
   sparkData?: number[];
   /** Termo do glossario para o icone de ajuda (ⓘ) no canto superior direito. */
-  infoTermo?: TermoGlossario;
+  infoTermo?: TermoAjuda;
 }
 
 const tokens: Record<Semantic, { color: string; softVar: string; glowVar: string; sparkColor: string }> = {

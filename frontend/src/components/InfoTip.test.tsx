@@ -9,14 +9,19 @@ describe("InfoTip", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("abre ao clicar e mostra os tres blocos na ordem O que e / Como se le / Cuidado", () => {
+  it("abre ao clicar e mostra os tres blocos na ordem O que mostra / Como ler / Nao permite concluir", () => {
     render(<InfoTip termo="taxa_100mil" />);
     fireEvent.click(screen.getByRole("button", { name: /ajuda/i }));
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     const labels = Array.from(dialog.querySelectorAll("dt")).map((el) => el.textContent);
-    expect(labels).toEqual(["O que é", "Como se lê", "Cuidado"]);
+    expect(labels).toEqual(["O que mostra", "Como ler", "Não permite concluir"]);
+  });
+
+  it("variante colchete renderiza o gatilho como [?] em vez do icone", () => {
+    render(<InfoTip termo="taxa_100mil" variante="colchete" />);
+    expect(screen.getByRole("button", { name: /ajuda/i })).toHaveTextContent("[?]");
   });
 
   it("fecha com Esc e devolve o foco ao botao-gatilho, sem foco preso", () => {
