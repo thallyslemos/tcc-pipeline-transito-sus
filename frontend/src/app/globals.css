@@ -31,6 +31,14 @@ body * {
 }
 
 /* MapLibre popup theming */
+/* O canvas do deck.gl (MapboxOverlay, ver FluxoMapView.tsx) nao declara
+   z-index nenhum, mas e inserido no DOM depois do popup — sem um z-index
+   explicito aqui o popup ficava por baixo dos arcos 3D no mapa de fluxos
+   (nao aparecia atras do MAPA, atras dos ARCOS). Qualquer z-index positivo
+   já vence um irmao com z-index:auto, entao nao precisa ser um numero alto. */
+.maplibregl-popup {
+  z-index: 5;
+}
 .maplibregl-popup-content {
   background-color: var(--surface) !important;
   border: 1px solid var(--border) !important;
