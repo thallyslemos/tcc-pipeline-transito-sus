@@ -32,3 +32,11 @@ export function formatTaxa10k(value: number): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+/** Percentual com uma casa decimal (design/DESIGN_SYSTEM.md §2: "percentual com uma casa"). */
+export function formatPercentual(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
