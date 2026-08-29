@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -20,6 +21,7 @@ import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import Lede from "@/components/ui/Lede";
 import KpiStat from "@/components/ui/KpiStat";
 import RankedBar from "@/components/ui/RankedBar";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -30,6 +32,7 @@ import {
 } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
@@ -74,8 +77,34 @@ function ThemedTooltip(props: Record<string, unknown>) {
 }
 
 
+// useSearchParams() faz o Next.js exigir um boundary de Suspense na
+// pre-renderizacao estatica (senao o build falha com "should be wrapped in
+// a suspense boundary") — o componente de verdade fica em DashboardContent.
 export default function DashboardPage() {
-  const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          Carregando dados do SIM...
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  // Le a URL SO na montagem (estado inicial do useState roda uma unica vez).
+  // Depois disso o fluxo e so estado -> URL (useEffect abaixo) — nunca o
+  // contrario, pra nao criar um loop de sincronizacao entre os dois.
+  const [filters, setFilters] = useState<FilterValues>(() => ({
+    dimensao: "ocorrencia",
+    ...lerRecorteDaUrl(searchParamsIniciais),
+  }));
   const [data, setData] = useState<SimSummary | null>(null);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [anos, setAnos] = useState<number[]>([]);
@@ -98,11 +127,22 @@ export default function DashboardPage() {
         setTipos(vehicleTypes.tipos);
         if (!anoInicializado.current && years.anos.length) {
           anoInicializado.current = true;
-          setFilters((current) => ({ ...current, ano: years.anos.at(-1) }));
+          // So auto-seleciona se o ano nao veio de lugar nenhum ainda (nem da
+          // URL na carga inicial, nem de uma escolha do usuario) — um link de
+          // recorte compartilhado com ?ano=2020 nao pode virar 2024 sozinho.
+          setFilters((current) => (current.ano == null ? { ...current, ano: years.anos.at(-1) } : current));
         }
       })
       .catch(() => setError("Nao foi possivel carregar os filtros do SIM."));
   }, [filters.dimensao]);
+
+  // design/DESIGN_SYSTEM.md §5.6 — "link do recorte": a URL sempre reflete o
+  // filtro atual, sem reload de pagina. So-escrita (nunca le a URL de volta
+  // depois da montagem, ver useState acima) — evita loop de sincronizacao.
+  useEffect(() => {
+    const query = serializarRecorte(filters).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [filters, pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,6 +192,19 @@ export default function DashboardPage() {
       if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
       return next;
     });
+  };
+
+  const chipsRecorte = useMemo(() => {
+    const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
+    if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
+    if (filters.regiao) chips.push({ rotulo: "Região", valor: filters.regiao });
+    chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
+    if (filters.tipo_veiculo) chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
+    return chips;
+  }, [filters]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
   };
 
   const topMunicipios = useMemo(() => municipios.slice(0, 10), [municipios]);
@@ -237,6 +290,8 @@ export default function DashboardPage() {
           onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
+
+      <BarraDeRecorte chips={chipsRecorte} n={data.total_obitos} aoClicarLink={copiarLinkDoRecorte} />
 
       <Lede rotulo="Panorama do recorte" leitura={leituraPainel} />
 
