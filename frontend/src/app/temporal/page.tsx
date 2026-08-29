@@ -356,8 +356,10 @@ function TemporalContent() {
                   dataKey="competencia"
                   tick={{ fontSize: 9, fill: "var(--chart-axis)" }}
                   interval={serieChartData.length > 24 ? Math.floor(serieChartData.length / 24) : 0}
+                  axisLine={{ stroke: "var(--hairline)" }}
+                  tickLine={false}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
                 <ThemedTooltip
                   formatter={(value: number) => [formatNumber(value), "Obitos"]}
                 />
@@ -379,8 +381,8 @@ function TemporalContent() {
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={diaSemanaChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
                 <ThemedTooltip
                   formatter={(value: number) => [
                     value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }),

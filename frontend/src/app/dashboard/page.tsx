@@ -407,9 +407,8 @@ function DashboardContent() {
               <XAxis
                 dataKey="competencia"
                 tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
-                interval="preserveStartEnd"
-              />
-              <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+                interval="preserveStartEnd" axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
               <Area
                 type="monotone"
@@ -448,8 +447,8 @@ function DashboardContent() {
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={data.obitos_por_ano}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+                <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
                 <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
                 <Line type="monotone" dataKey="total" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </LineChart>
@@ -477,13 +476,12 @@ function DashboardContent() {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
               <YAxis
                 dataKey="faixa_etaria"
                 type="category"
                 tick={{ fontSize: 11, fill: "var(--chart-axis)" }}
-                width={45}
-              />
+                width={45} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
               {/* Auditoria M1: faixa etaria nao e classe de risco — usar
                   --risk-2 aqui gastava a semantica da rampa (ela so
@@ -513,13 +511,12 @@ function DashboardContent() {
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topMunicipios} layout="vertical" margin={{ left: 20, right: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
               <YAxis
                 type="category"
                 dataKey="municipio"
                 width={110}
-                tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
-              />
+                tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
               <Bar dataKey="obitos" fill="var(--risk-5)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>

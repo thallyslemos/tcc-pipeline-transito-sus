@@ -354,8 +354,8 @@ function PreliminaresContent() {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
+                <XAxis dataKey="mes" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
                 <ThemedTooltip
                   formatter={(value: number, name: string) => [
                     value == null ? "N/D" : formatNumber(Number(value)),

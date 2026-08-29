@@ -14,6 +14,25 @@ import PopulacaoBadge from "@/components/PopulacaoBadge";
 import { taxaInstavel } from "@/content/qualidade";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
+// Auditoria M8: <Tooltip/> nativo sem tema cai nos defaults do Recharts
+// (fundo branco fixo, texto preto rgb(0,0,0)) — quebra o tema escuro.
+function ThemedTooltip(props: Record<string, unknown>) {
+  return (
+    <Tooltip
+      {...props}
+      contentStyle={{
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        color: "var(--ink)",
+        boxShadow: "var(--shadow-pop)",
+      }}
+      itemStyle={{ color: "var(--ink)" }}
+      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
+    />
+  );
+}
+
 // useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
 // do App Router (ver dashboard/page.tsx).
 export default function MunicipioPage() {
@@ -147,9 +166,9 @@ function MunicipioContent() {
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={detail.serie_mensal}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
-                <Tooltip formatter={(value) => [formatNumber(Number(value)), "Obitos"]} />
+                <XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
                 <Line type="monotone" dataKey="obitos" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>

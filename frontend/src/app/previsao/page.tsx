@@ -8,6 +8,25 @@ import { gerarLeitura } from "@/lib/leitura";
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import type { FilterValues, SimMunicipio, SimMunicipioDetail } from "@/lib/types";
 
+// Auditoria M8: <Tooltip/> nativo sem tema cai nos defaults do Recharts
+// (fundo branco fixo, texto preto rgb(0,0,0)) — quebra o tema escuro.
+function ThemedTooltip(props: Record<string, unknown>) {
+  return (
+    <Tooltip
+      {...props}
+      contentStyle={{
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        color: "var(--ink)",
+        boxShadow: "var(--shadow-pop)",
+      }}
+      itemStyle={{ color: "var(--ink)" }}
+      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
+    />
+  );
+}
+
 export default function PrevisaoPage() {
   const [dimensao, setDimensao] = useState<FilterValues["dimensao"]>("ocorrencia");
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
@@ -31,5 +50,5 @@ export default function PrevisaoPage() {
     });
   }, [data]);
 
-  return <div className="space-y-5"><div><h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Tendencias SIM</h1><p className="text-xs" style={{ color: "var(--ink-2)" }}>Serie observada para exploracao; previsoes serao habilitadas apos validacao metodologica.</p></div><div className="flex flex-wrap gap-2"><select aria-label="Dimensao" value={dimensao} onChange={(event) => setDimensao(event.target.value as FilterValues["dimensao"])} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}><option value="ocorrencia">Ocorrencia</option><option value="residencia">Residencia</option></select><select aria-label="Municipio" value={cod} onChange={(event) => setCod(event.target.value)} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}>{municipios.map((row) => <option key={row.cod_mun_ibge} value={row.cod_mun_ibge}>{row.municipio} ({row.uf})</option>)}</select></div>{data && <GraficoMoldura medidaId="serie_mensal_obitos" leitura={leituraSerie} proveniencia={`${data.municipio} · ${data.dimensao}`}><ResponsiveContainer width="100%" height={320}><LineChart data={data.serie_mensal}><CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" /><XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} /><YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} /><Tooltip formatter={(value) => [formatNumber(Number(value)), "Obitos"]} /><Line dataKey="obitos" type="monotone" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></GraficoMoldura>}</div>;
+  return <div className="space-y-5"><div><h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Tendencias SIM</h1><p className="text-xs" style={{ color: "var(--ink-2)" }}>Serie observada para exploracao; previsoes serao habilitadas apos validacao metodologica.</p></div><div className="flex flex-wrap gap-2"><select aria-label="Dimensao" value={dimensao} onChange={(event) => setDimensao(event.target.value as FilterValues["dimensao"])} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}><option value="ocorrencia">Ocorrencia</option><option value="residencia">Residencia</option></select><select aria-label="Municipio" value={cod} onChange={(event) => setCod(event.target.value)} className="rounded-lg px-3 py-2 text-sm" style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}>{municipios.map((row) => <option key={row.cod_mun_ibge} value={row.cod_mun_ibge}>{row.municipio} ({row.uf})</option>)}</select></div>{data && <GraficoMoldura medidaId="serie_mensal_obitos" leitura={leituraSerie} proveniencia={`${data.municipio} · ${data.dimensao}`}><ResponsiveContainer width="100%" height={320}><LineChart data={data.serie_mensal}><CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" /><XAxis dataKey="competencia" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} /><YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} /><ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} /><Line dataKey="obitos" type="monotone" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer></GraficoMoldura>}</div>;
 }
