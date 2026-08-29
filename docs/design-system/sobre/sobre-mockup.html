@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sobre o projeto · V01–V89</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+--font-sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+--font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+--canvas:#FAFAF9;--surface:#FFFFFF;--sunken:#F4F4F2;--border:#E4E4E0;--hairline:#C9C9C3;
+--ink:#22262B;--ink-2:#5B6169;--ink-3:#838A92;
+--brand:#2F5C93;--brand-ink:#22456E;--brand-soft:#E7EDF5;--focus:#5B8FCE;
+--risk-5:#9E3E24;--risk-2:#F6D0AE;--attention:#B57A2E;--attention-ink:#744C00;
+--flow-origin:#4F86B3;--ok:#1D6746;
+--radius:6px;--radius-sm:4px;--shadow-pop:0 8px 24px -8px rgba(34,38,43,.18);
+}
+[data-theme="dark"]{
+--canvas:#16181B;--surface:#1D2024;--sunken:#22262B;--border:#2E3238;--hairline:#3D424A;
+--ink:#EDEDEA;--ink-2:#A9AEB4;--ink-3:#7C838B;
+--brand:#7FA8DA;--brand-ink:#A8C4E6;--brand-soft:rgba(127,168,218,.14);--focus:#9CC0E8;
+--risk-5:#E08C5E;--risk-2:#5A3A26;--attention:#D9A75E;--attention-ink:#D9A75E;
+--flow-origin:#6A9ECA;--ok:#74B592;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font-family:var(--font-sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.lbl{font-family:var(--font-mono);font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin:0}
+p{margin:0}
+h1{font-size:34px;font-weight:600;letter-spacing:-.025em;line-height:1.15;margin:10px 0 0;max-width:20ch}
+h2{font-size:22px;font-weight:600;letter-spacing:-.012em;margin:0 0 6px}
+h3{font-size:16px;font-weight:600;margin:0 0 6px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px}
+.muted{color:var(--ink-2);font-size:14.5px}
+.small{font-size:13px;color:var(--ink-2);line-height:1.55}
+code{font-family:var(--font-mono);font-size:12.5px;background:var(--sunken);padding:1px 5px;border-radius:3px}
+.needs{background:var(--attention);color:#fff;font-family:var(--font-mono);font-size:9.5px;font-weight:600;
+  padding:1px 6px;border-radius:99px;letter-spacing:.06em;vertical-align:2px;white-space:nowrap}
+[data-theme="dark"] .needs{color:#16181B}
+
+/* casca da aplicação */
+.app{display:flex;min-height:100vh}
+aside{width:238px;flex:none;background:var(--surface);border-right:1px solid var(--border);
+  padding:16px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brandbox{display:flex;gap:10px;align-items:center;padding:0 18px 16px;border-bottom:1px solid var(--border)}
+.brandmark{width:32px;height:32px;flex:none;border-radius:5px;background:var(--ink);color:var(--canvas);
+  font-family:var(--font-mono);font-size:9.5px;font-weight:600;display:flex;align-items:center;justify-content:center}
+nav{flex:1;padding:10px;overflow-y:auto}
+nav .grp{margin:16px 0 5px;padding:0 10px}
+nav a{display:block;padding:7px 10px;margin-bottom:1px;border-radius:0 4px 4px 0;border-left:2px solid transparent;
+  font-size:13.5px;color:var(--ink-2);text-decoration:none}
+nav a:hover{background:var(--sunken);color:var(--ink)}
+nav a.on{background:var(--brand-soft);color:var(--brand-ink);border-left-color:var(--brand);font-weight:600}
+.footnav{padding:12px 18px;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:9px;
+  line-height:1.7;color:var(--ink-3)}
+main{flex:1;min-width:0;padding:34px 40px 72px;max-width:1180px}
+.tglrow{display:flex;justify-content:flex-end;margin-bottom:-14px}
+button.tgl{border:1px solid var(--border);background:var(--surface);color:var(--brand);border-radius:var(--radius-sm);
+  padding:5px 11px;font-family:var(--font-mono);font-size:11px;cursor:pointer}
+:where(a,button):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+section{margin-top:44px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:20px}
+.grid5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media(max-width:980px){.grid3,.grid2,.grid5{grid-template-columns:1fr}aside{display:none}main{padding:24px}}
+
+/* lede editorial */
+.lede{border-left:3px solid var(--brand);padding:2px 0 2px 20px;max-width:80ch}
+.lede p{font-size:19px;line-height:1.55}
+
+/* linha do tempo */
+.tl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:18px}
+.tl .step{padding:0 18px 0 0;position:relative}
+.tl .dot{width:11px;height:11px;border-radius:50%;background:var(--surface);border:2px solid var(--brand);margin-bottom:14px;position:relative;z-index:2}
+.tl .step.now .dot{background:var(--brand);}
+.tl .line{position:absolute;top:4.5px;left:11px;right:0;height:1px;background:var(--border)}
+.tl .step:last-child .line{display:none}
+
+/* competências */
+.skill{border:1px solid var(--border);border-radius:var(--radius);padding:16px;background:var(--surface)}
+.tag{display:inline-block;border:1px solid var(--border);background:var(--sunken);border-radius:99px;
+  padding:2px 9px;font-size:11.5px;color:var(--ink-2);margin:3px 3px 0 0}
+
+/* autor */
+.avatar{width:96px;height:96px;border-radius:50%;background:var(--sunken);border:1px dashed var(--hairline);
+  display:flex;align-items:center;justify-content:center;flex:none}
+.linkbtn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);background:var(--surface);
+  border-radius:var(--radius-sm);padding:6px 12px;font-size:13px;color:var(--brand);text-decoration:none;margin:6px 6px 0 0}
+.linkbtn:hover{border-color:var(--brand)}
+footer.prov{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);
+  font-family:var(--font-mono);font-size:9.5px;color:var(--ink-3);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside>
+    <div class="brandbox">
+      <div class="brandmark">SUS</div>
+      <div style="line-height:1.2">
+        <p style="font-weight:600;font-size:14px">Trânsito no SUS</p>
+        <p style="font-size:10.5px;color:var(--ink-3)">Pipeline Analítico</p>
+      </div>
+    </div>
+    <nav>
+      <p class="lbl grp">Panorama</p>
+      <a href="#">Visão geral</a><a href="#">Séries no tempo</a><a href="#">Tendências</a>
+      <p class="lbl grp">Território</p>
+      <a href="#">Municípios</a><a href="#">Ranking municipal</a><a href="#">Mapa</a><a href="#">Fluxos entre municípios</a>
+      <p class="lbl grp">Método</p>
+      <a href="#">Qualidade e preliminares</a><a href="#">Dados e metadados</a><a href="#">Exploração em linguagem natural</a>
+      <a href="#" class="on">Sobre o projeto</a>
+    </nav>
+    <div class="footnav">CID-10 V01–V89 · SIM/DATASUS<br>IBGE 6579 · SENATRAN dez.</div>
+  </aside>
+
+  <main>
+    <div class="tglrow">
+      <button class="tgl" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">alternar tema</button>
+    </div>
+
+    <!-- ============ CABEÇALHO ============ -->
+    <header>
+      <p class="lbl">Sobre o projeto</p>
+      <h1>Um trabalho na interseção de duas trajetórias</h1>
+      <div class="lede" style="margin-top:20px">
+        <p>Este sistema nasceu do encontro entre duas coisas que eu já fazia separadamente: construir software e pipelines de dados para <strong>trânsito e cidades inteligentes</strong>, e arquitetar aplicações de <strong>análise de dados de saúde pública</strong>. A mortalidade viária registrada no SUS é, literalmente, o ponto onde esses dois assuntos se encontram.</p>
+      </div>
+      <p class="small" style="margin-top:14px;max-width:80ch">Esta é a única página do sistema com texto editorial: aqui quem escreve é o autor, e não o motor de leitura. Todas as demais telas exibem apenas frases geradas a partir do recorte, sempre identificando a regra que as produziu.</p>
+    </header>
+
+    <!-- ============ AS TRÊS ORIGENS ============ -->
+    <section>
+      <p class="lbl">01 · De onde veio</p>
+      <h2>Três origens, um problema</h2>
+      <p class="muted" style="max-width:78ch;margin-bottom:18px">Nenhuma das três, sozinha, teria produzido este trabalho.</p>
+      <div class="grid3">
+        <div class="card">
+          <p class="lbl" style="color:var(--flow-origin)">Origem 01 · o domínio</p>
+          <h3 style="margin-top:8px">Tivic — do P&amp;D à gerência de produtos</h3>
+          <p class="small">Comecei no setor de pesquisa e desenvolvimento e cheguei à gerência de um time de produtos, construindo aplicações web e pipelines de dados no contexto de <strong>cidades inteligentes e trânsito</strong>.</p>
+          <p class="small" style="margin-top:12px;padding-top:12px;border-top:1px dotted var(--border)"><strong style="color:var(--ink)">O que isso aportou:</strong> familiaridade com o dado de trânsito e com o que ele esconde; a prática de construir pipeline que aguenta dado público real; e a passagem de quem executa para quem decide o que vale construir.</p>
+        </div>
+        <div class="card">
+          <p class="lbl" style="color:var(--flow-origin)">Origem 02 · o método</p>
+          <h3 style="margin-top:8px">CEPEDI — residência e a arquitetura do SASI</h3>
+          <p class="small">Na residência tecnológica, arquitetei a aplicação <strong>SASI</strong> e conduzi o direcionamento técnico do time em um projeto de <strong>análise de dados de saúde pública</strong>.</p>
+          <p class="small" style="margin-top:12px;padding-top:12px;border-top:1px dotted var(--border)"><strong style="color:var(--ink)">O que isso aportou:</strong> a arquitetura em camadas que este sistema usa; o vocabulário dos sistemas de informação em saúde do SUS; e a experiência de orientar tecnicamente outras pessoas, que é o que transforma decisão em padrão.</p>
+        </div>
+        <div class="card">
+          <p class="lbl" style="color:var(--risk-5)">Origem 03 · a inquietação</p>
+          <h3 style="margin-top:8px">Usar o que sei, onde eu vivo</h3>
+          <p class="small">A Bahia tem o dado público e não tem a análise. Os microdados do SIM estão disponíveis há anos, e o que existe sobre eles são painéis anuais e estaduais — que não respondem onde, quando e com quem.</p>
+          <p class="small" style="margin-top:12px;padding-top:12px;border-top:1px dotted var(--border)"><strong style="color:var(--ink)">O que isso aportou:</strong> a decisão de não fazer mais um dashboard. Construir um instrumento que admite o que não sabe, mostra o denominador e devolve um recorte citável.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TRAJETÓRIA ============ -->
+    <section>
+      <p class="lbl">02 · Trajetória</p>
+      <h2>O caminho até aqui</h2>
+      <div class="tl">
+        <div class="step">
+          <div class="line"></div><div class="dot"></div>
+          <p class="mono" style="font-size:11px;color:var(--ink-3)">TIVIC · P&amp;D <span class="needs">período</span></p>
+          <p style="font-weight:600;font-size:14.5px;margin-top:5px">Pesquisa e desenvolvimento</p>
+          <p class="small" style="margin-top:4px;padding-right:14px">Software web e primeiros pipelines de dados aplicados a mobilidade urbana.</p>
+        </div>
+        <div class="step">
+          <div class="line"></div><div class="dot"></div>
+          <p class="mono" style="font-size:11px;color:var(--ink-3)">TIVIC · PRODUTOS <span class="needs">período</span></p>
+          <p style="font-weight:600;font-size:14.5px;margin-top:5px">Gerência de time de produtos</p>
+          <p class="small" style="margin-top:4px;padding-right:14px">Da entrega técnica à decisão de produto, no contexto de cidades inteligentes e trânsito.</p>
+        </div>
+        <div class="step">
+          <div class="line"></div><div class="dot"></div>
+          <p class="mono" style="font-size:11px;color:var(--ink-3)">CEPEDI · RESIDÊNCIA <span class="needs">período</span></p>
+          <p style="font-weight:600;font-size:14.5px;margin-top:5px">Arquitetura do SASI</p>
+          <p class="small" style="margin-top:4px;padding-right:14px">Definição da arquitetura e direcionamento técnico do time em análise de dados de saúde pública.</p>
+        </div>
+        <div class="step now">
+          <div class="dot"></div>
+          <p class="mono" style="font-size:11px;color:var(--brand)">IFBA · TCC II · 2026</p>
+          <p style="font-weight:600;font-size:14.5px;margin-top:5px">Este sistema</p>
+          <p class="small" style="margin-top:4px;padding-right:14px">Bacharelado em Sistemas de Informação, IFBA Vitória da Conquista. Onde as duas trajetórias convergem.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ARQUITETURA ============ -->
+    <section>
+      <p class="lbl">03 · Como funciona</p>
+      <h2>O caminho do dado, em uma vista</h2>
+      <p class="muted" style="max-width:80ch;margin-bottom:16px">Visão abstrata: três fontes públicas entram, passam por quatro camadas de tratamento e saem como recorte citável. O catálogo versionado acompanha cada etapa — é ele que torna o resultado reproduzível.</p>
+      <div class="card" style="padding:26px 22px">
+        <svg viewBox="0 0 1080 300" style="width:100%;height:auto" role="img" aria-label="Fluxo de dados: fontes públicas, ingestão, camadas Bronze, Silver e Gold, API e interface, com catálogo de proveniência acompanhando todas as etapas">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--hairline)"/>
+            </marker>
+            <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--brand)"/>
+            </marker>
+          </defs>
+
+          <!-- fontes -->
+          <text x="18" y="26" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink-3)" letter-spacing="1.3">FONTES PÚBLICAS</text>
+          <g>
+            <rect x="18" y="42" width="150" height="42" rx="5" fill="var(--surface)" stroke="var(--flow-origin)" stroke-width="1.4"/>
+            <text x="34" y="61" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">SIM / DATASUS</text>
+            <text x="34" y="76" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">microdados de óbito</text>
+
+            <rect x="18" y="96" width="150" height="42" rx="5" fill="var(--surface)" stroke="var(--flow-origin)" stroke-width="1.4"/>
+            <text x="34" y="115" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">IBGE</text>
+            <text x="34" y="130" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">população e malhas</text>
+
+            <rect x="18" y="150" width="150" height="42" rx="5" fill="var(--surface)" stroke="var(--flow-origin)" stroke-width="1.4"/>
+            <text x="34" y="169" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">SENATRAN</text>
+            <text x="34" y="184" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">frota por município</text>
+          </g>
+
+          <!-- conectores fontes -> bronze -->
+          <path d="M168 63 C196 63 196 117 214 117" fill="none" stroke="var(--hairline)" stroke-width="1.3"/>
+          <path d="M168 117 L214 117" fill="none" stroke="var(--hairline)" stroke-width="1.3"/>
+          <path d="M168 171 C196 171 196 117 214 117" fill="none" stroke="var(--hairline)" stroke-width="1.3"/>
+          <path d="M214 117 L246 117" fill="none" stroke="var(--hairline)" stroke-width="1.3" marker-end="url(#ah)"/>
+
+          <!-- camadas -->
+          <text x="256" y="26" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink-3)" letter-spacing="1.3">CAMADAS</text>
+          <g>
+            <rect x="256" y="88" width="152" height="58" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1.2"/>
+            <circle cx="274" cy="106" r="5" fill="var(--risk-1)" stroke="var(--hairline)" stroke-width=".8"/>
+            <text x="288" y="110" font-family="var(--font-mono)" font-size="11.5" font-weight="600" fill="var(--ink)" letter-spacing="1">BRONZE</text>
+            <text x="272" y="130" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">arquivo original,</text>
+            <text x="272" y="142" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">preservado sem alteração</text>
+
+            <rect x="428" y="88" width="152" height="58" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1.2"/>
+            <circle cx="446" cy="106" r="5" fill="var(--risk-2)" stroke="var(--hairline)" stroke-width=".8"/>
+            <text x="460" y="110" font-family="var(--font-mono)" font-size="11.5" font-weight="600" fill="var(--ink)" letter-spacing="1">SILVER</text>
+            <text x="444" y="130" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">uma linha por óbito,</text>
+            <text x="444" y="142" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">tipado e com QA aplicado</text>
+
+            <rect x="600" y="88" width="152" height="58" rx="5" fill="var(--surface)" stroke="var(--border)" stroke-width="1.2"/>
+            <circle cx="618" cy="106" r="5" fill="var(--risk-5)" stroke="var(--hairline)" stroke-width=".8"/>
+            <text x="632" y="110" font-family="var(--font-mono)" font-size="11.5" font-weight="600" fill="var(--ink)" letter-spacing="1">GOLD</text>
+            <text x="616" y="130" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">agregados por município,</text>
+            <text x="616" y="142" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">mês e modal</text>
+          </g>
+          <path d="M408 117 L426 117" fill="none" stroke="var(--hairline)" stroke-width="1.3" marker-end="url(#ah)"/>
+          <path d="M580 117 L598 117" fill="none" stroke="var(--hairline)" stroke-width="1.3" marker-end="url(#ah)"/>
+          <path d="M752 117 L796 117" fill="none" stroke="var(--hairline)" stroke-width="1.6" marker-end="url(#ah)"/>
+
+          <!-- entrega -->
+          <text x="800" y="26" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink-3)" letter-spacing="1.3">ENTREGA</text>
+          <rect x="800" y="60" width="262" height="114" rx="5" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1.3"/>
+          <text x="818" y="83" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">API + interface analítica</text>
+          <text x="818" y="103" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">— taxa com denominador à vista</text>
+          <text x="818" y="120" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">— leitura gerada, com a regra nomeada</text>
+          <text x="818" y="137" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">— guardas contra recorte enganoso</text>
+          <text x="818" y="154" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">— figura e recorte citáveis por URL</text>
+
+          <!-- catalogo / proveniencia -->
+          <rect x="256" y="216" width="496" height="46" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="1.3" stroke-dasharray="5 4"/>
+          <text x="272" y="237" font-family="var(--font-sans)" font-size="12.5" font-weight="600" fill="var(--ink)">Catálogo versionado</text>
+          <text x="272" y="252" font-family="var(--font-sans)" font-size="10.5" fill="var(--ink-2)">SHA-256 · contagem de linhas · data de extração · status de validação</text>
+          <path d="M332 216 L332 148" fill="none" stroke="var(--brand)" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#ahb)"/>
+          <path d="M504 216 L504 148" fill="none" stroke="var(--brand)" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#ahb)"/>
+          <path d="M676 216 L676 148" fill="none" stroke="var(--brand)" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#ahb)"/>
+          <path d="M752 239 L900 239 L900 176" fill="none" stroke="var(--brand)" stroke-width="1.1" stroke-dasharray="4 3" marker-end="url(#ahb)"/>
+        </svg>
+      </div>
+      <div class="grid5" style="margin-top:14px">
+        <div class="skill"><p class="lbl">Cobertura</p><p class="mono" style="font-size:21px;font-weight:600;margin-top:5px" id="k1">20.410.620</p><p class="small">linhas na camada Silver — Brasil inteiro</p></div>
+        <div class="skill"><p class="lbl">Catálogo</p><p class="mono" style="font-size:21px;font-weight:600;margin-top:5px" id="k2">10</p><p class="small">datasets versionados e validados</p></div>
+        <div class="skill"><p class="lbl">Período</p><p class="mono" style="font-size:21px;font-weight:600;margin-top:5px" id="k3">2010–2024</p><p class="small">série consolidada do SIM</p></div>
+        <div class="skill"><p class="lbl">Recorte</p><p class="mono" style="font-size:21px;font-weight:600;margin-top:5px" id="k4">V01–V89</p><p class="small">acidentes de transporte terrestre</p></div>
+        <div class="skill"><p class="lbl">Validação</p><p class="mono" style="font-size:21px;font-weight:600;margin-top:5px;color:var(--ok)" id="k5">99,958%</p><p class="small">concordância com a base da ONSV</p></div>
+      </div>
+    </section>
+
+    <!-- ============ AUTOR ============ -->
+    <section>
+      <p class="lbl">04 · Autor</p>
+      <h2>Quem construiu</h2>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card">
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div class="avatar"><span class="mono" style="font-size:9px;color:var(--ink-3);text-align:center;line-height:1.4">foto<br>96×96</span></div>
+            <div>
+              <h3 style="font-size:20px;margin-bottom:2px">Thallys Viana Lemos</h3>
+              <p class="mono" style="font-size:11.5px;color:var(--ink-3)">Analista de desenvolvimento de sistemas <span class="needs">confirmar cargo</span></p>
+              <p class="small" style="margin-top:12px">Desenvolvedor e arquiteto de aplicações de dados. Trabalha com software web e pipelines analíticos em contextos de cidades inteligentes, trânsito e saúde pública, transitando entre a decisão técnica e a condução de time.</p>
+              <div style="margin-top:14px">
+                <a class="linkbtn" href="#">LinkedIn <span class="needs">URL</span></a>
+                <a class="linkbtn" href="#">GitHub <span class="needs">URL</span></a>
+                <a class="linkbtn" href="#">Lattes <span class="needs">opcional</span></a>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:20px;padding-top:18px;border-top:1px solid var(--border)">
+            <p class="lbl">Formação</p>
+            <div style="display:flex;gap:12px;margin-top:10px">
+              <div style="flex:1">
+                <p style="font-weight:600;font-size:14px">Bacharelado em Sistemas de Informação</p>
+                <p class="small">IFBA — Campus Vitória da Conquista · conclusão em 2026</p>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:12px">
+              <div style="flex:1">
+                <p style="font-weight:600;font-size:14px">Residência tecnológica <span class="needs">nome do programa</span></p>
+                <p class="small">CEPEDI · arquitetura da aplicação SASI e direcionamento técnico de equipe</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="background:var(--sunken)">
+          <p class="lbl">Onde as duas trajetórias se encontram</p>
+          <p style="font-size:15.5px;line-height:1.6;margin-top:12px">Um trabalho sobre <strong>mortalidade no trânsito</strong> registrada no <strong>sistema de saúde</strong> não é uma escolha aleatória de tema. É o único assunto em que os dois lados da minha experiência profissional respondem à mesma pergunta.</p>
+          <p class="small" style="margin-top:14px">O lado de trânsito trouxe o domínio e a suspeita de que o dado agregado esconde o fenômeno. O lado de saúde pública trouxe a arquitetura, o vocabulário do SUS e o rigor de proveniência. O resultado é um sistema que nenhuma das duas experiências, isolada, teria produzido.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMPETÊNCIAS ============ -->
+    <section>
+      <p class="lbl">05 · Competências aplicadas neste trabalho</p>
+      <h2>O que foi preciso saber</h2>
+      <p class="muted" style="max-width:80ch;margin-bottom:16px">Cada bloco abaixo corresponde a decisões concretas tomadas neste sistema — não a uma lista de tecnologias.</p>
+      <div class="grid3">
+        <div class="skill">
+          <h3>Engenharia de dados</h3>
+          <p class="small">Ingestão de dado público bruto, arquitetura em camadas, formatos colunares, testes de reconciliação e controle de qualidade por registro.</p>
+          <div style="margin-top:10px"><span class="tag">ETL</span><span class="tag">arquitetura medalhão</span><span class="tag">Parquet</span><span class="tag">DuckDB</span><span class="tag">proveniência</span></div>
+        </div>
+        <div class="skill">
+          <h3>Desenvolvimento web</h3>
+          <p class="small">Aplicação analítica de página única, API de consulta com recorte parametrizado e estado de filtro refletido na URL.</p>
+          <div style="margin-top:10px"><span class="tag">Next.js</span><span class="tag">TypeScript</span><span class="tag">FastAPI</span><span class="tag">design system</span></div>
+        </div>
+        <div class="skill">
+          <h3>Arquitetura de software</h3>
+          <p class="small">Modelagem das dimensões de ocorrência e residência, contratos entre camadas e separação entre cor de dado e cor de interface.</p>
+          <div style="margin-top:10px"><span class="tag">modelagem</span><span class="tag">contratos</span><span class="tag">versionamento</span></div>
+        </div>
+        <div class="skill">
+          <h3>Análise e estatística</h3>
+          <p class="small">Regressão log-linear para variação percentual anual, testes de aderência, análise de sazonalidade e tratamento do problema de área pequena.</p>
+          <div style="margin-top:10px"><span class="tag">APC</span><span class="tag">qui-quadrado</span><span class="tag">séries temporais</span><span class="tag">epidemiologia descritiva</span></div>
+        </div>
+        <div class="skill">
+          <h3>Produto e liderança técnica</h3>
+          <p class="small">Definição de escopo, priorização do que entrega leitura em vez de acabamento, e condução técnica de equipe na residência.</p>
+          <div style="margin-top:10px"><span class="tag">priorização</span><span class="tag">direcionamento técnico</span><span class="tag">mentoria</span></div>
+        </div>
+        <div class="skill">
+          <h3>Domínio</h3>
+          <p class="small">Segurança viária, sistemas de informação em saúde do SUS e mobilidade urbana — o repertório que permite saber qual número é suspeito.</p>
+          <div style="margin-top:10px"><span class="tag">segurança viária</span><span class="tag">SIM / DATASUS</span><span class="tag">cidades inteligentes</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CRÉDITOS ============ -->
+    <section>
+      <p class="lbl">06 · Créditos e transparência</p>
+      <h2>Como citar e o que usar</h2>
+      <div class="grid2" style="margin-top:16px">
+        <div class="card">
+          <p class="lbl">Trabalho acadêmico</p>
+          <p class="small" style="margin-top:10px">LEMOS, Thallys Viana. <em>Mortalidade por acidentes de transporte terrestre na Bahia: análise espaço-temporal de quinze anos de microdados do SIM/DATASUS com pipeline reprodutível de dados abertos</em>. Trabalho de Conclusão de Curso — Bacharelado em Sistemas de Informação, Instituto Federal da Bahia, Campus Vitória da Conquista, 2026. Orientador: Prof. Andrique Figueiredo Amorim.</p>
+          <p class="small" style="margin-top:14px;padding-top:12px;border-top:1px dotted var(--border)"><strong style="color:var(--ink)">Ao citar uma figura</strong>, use o link do recorte que a produziu, não a captura de tela. Toda tela do sistema oferece esse link.</p>
+        </div>
+        <div class="card">
+          <p class="lbl">Fontes e licenças</p>
+          <p class="small" style="margin-top:10px">Os dados são públicos e permanecem de seus produtores: Ministério da Saúde (SIM/DATASUS), IBGE e SENATRAN/RENAVAM. O sistema não redistribui microdado identificado — apenas agregados municipais.</p>
+          <p class="small" style="margin-top:10px">A validação externa usa o pacote <code>roadtrafficdeaths</code>, do Observatório Nacional de Segurança Viária.</p>
+          <p class="small" style="margin-top:10px"><span class="needs">definir</span> licença do código e das figuras.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="prov">
+      Sobre o projeto · texto editorial, escrito pelo autor · não gerado pelo motor de leitura<br>
+      Sistema V01–V89 · versão do catálogo <span id="ver">—</span> · última extração <span id="ext">—</span><br>
+      IFBA — Campus Vitória da Conquista · 2026
+    </footer>
+  </main>
+</div>
+</body>
+</html>
