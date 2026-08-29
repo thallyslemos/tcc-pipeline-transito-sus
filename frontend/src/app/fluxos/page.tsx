@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, ChevronDown, GitBranch, MapPin, Users } from "lucide-react";
-import KpiCard from "@/components/charts/KpiCard";
+import { ChevronDown, GitBranch } from "lucide-react";
+import KpiStat from "@/components/ui/KpiStat";
 import {
   fetchSimAnos,
   fetchSimFluxos,
@@ -289,33 +289,25 @@ export default function FluxosPage() {
       {/* KPIs */}
       {fluxo && !loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard
-            title="Total de obitos"
-            value={formatNumber(fluxo.total_obitos)}
-            subtitle={`${fluxo.municipio_alvo.municipio} · ${ano ?? "todos os anos"}`}
-            icon={<GitBranch className="h-5 w-5" />}
-            semantic="deaths"
+          <KpiStat
+            rotulo="Total de obitos"
+            valor={formatNumber(fluxo.total_obitos)}
+            denominador={`${fluxo.municipio_alvo.municipio} · ${ano ?? "todos os anos"}`}
           />
-          <KpiCard
-            title="Proprio municipio"
-            value={formatNumber(fluxo.obitos_proprio_municipio)}
-            subtitle={`${pct(fluxo.total_ambos_encontrados > 0 ? fluxo.obitos_proprio_municipio / fluxo.total_ambos_encontrados : 0)} do total com geo. encontrada`}
-            icon={<MapPin className="h-5 w-5" />}
-            semantic="health"
+          <KpiStat
+            rotulo="Proprio municipio"
+            valor={formatNumber(fluxo.obitos_proprio_municipio)}
+            denominador={`${pct(fluxo.total_ambos_encontrados > 0 ? fluxo.obitos_proprio_municipio / fluxo.total_ambos_encontrados : 0)} do total com geo. encontrada`}
           />
-          <KpiCard
-            title="Outros municipios"
-            value={formatNumber(fluxo.obitos_fora)}
-            subtitle={`${pct(fluxo.proporcao_fora)} dos obitos com geo. encontrada`}
-            icon={<ArrowLeftRight className="h-5 w-5" />}
-            semantic="deaths"
+          <KpiStat
+            rotulo="Outros municipios"
+            valor={formatNumber(fluxo.obitos_fora)}
+            denominador={`${pct(fluxo.proporcao_fora)} dos obitos com geo. encontrada`}
           />
-          <KpiCard
-            title="Municipios conectados"
-            value={formatNumber(fluxo.municipios_conectados)}
-            subtitle="Com pelo menos 1 obito encontrado"
-            icon={<Users className="h-5 w-5" />}
-            semantic="success"
+          <KpiStat
+            rotulo="Municipios conectados"
+            valor={formatNumber(fluxo.municipios_conectados)}
+            denominador="Com pelo menos 1 obito encontrado"
           />
         </div>
       )}

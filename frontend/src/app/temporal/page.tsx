@@ -12,10 +12,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, CalendarDays, Scale, TrendingUp } from "lucide-react";
-
 import ChartCard from "@/components/charts/ChartCard";
-import KpiCard from "@/components/charts/KpiCard";
+import KpiStat from "@/components/ui/KpiStat";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -248,39 +246,31 @@ export default function TemporalPage() {
         <>
           {/* KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard
-              title="Media mensal"
-              value={serieMensal.resumo.media_mensal != null ? formatNumber(Math.round(serieMensal.resumo.media_mensal)) : "-"}
-              subtitle={`${serieMensal.resumo.meses_com_obito} meses com registro`}
-              icon={<TrendingUp className="h-5 w-5" />}
-              semantic="deaths"
+            <KpiStat
+              rotulo="Media mensal"
+              valor={serieMensal.resumo.media_mensal != null ? formatNumber(Math.round(serieMensal.resumo.media_mensal)) : "-"}
+              denominador={`${serieMensal.resumo.meses_com_obito} meses com registro`}
             />
-            <KpiCard
-              title="Mes de pico"
-              value={serieMensal.resumo.mes_pico ?? "-"}
-              subtitle={`${pct(serieMensal.resumo.share_mes_pico)} do total no mes de pico`}
-              icon={<CalendarDays className="h-5 w-5" />}
-              semantic="health"
+            <KpiStat
+              rotulo="Mes de pico"
+              valor={serieMensal.resumo.mes_pico ?? "-"}
+              denominador={`${pct(serieMensal.resumo.share_mes_pico)} do total no mes de pico`}
             />
-            <KpiCard
-              title="Razao fim de semana / dia util"
-              value={diaSemana.razao_fim_semana != null ? diaSemana.razao_fim_semana.toFixed(2) : "-"}
-              subtitle={`${pct(diaSemana.fim_de_semana.proporcao_observada)} dos obitos no fim de semana`}
-              icon={<Scale className="h-5 w-5" />}
-              semantic="success"
+            <KpiStat
+              rotulo="Razao fim de semana / dia util"
+              valor={diaSemana.razao_fim_semana != null ? diaSemana.razao_fim_semana.toFixed(2) : "-"}
+              denominador={`${pct(diaSemana.fim_de_semana.proporcao_observada)} dos obitos no fim de semana`}
             />
-            <KpiCard
-              title="Qui-quadrado (dia da semana)"
-              value={diaSemana.qui_quadrado.p_valor != null ? `p=${diaSemana.qui_quadrado.p_valor.toFixed(4)}` : "-"}
-              subtitle={
+            <KpiStat
+              rotulo="Qui-quadrado (dia da semana)"
+              valor={diaSemana.qui_quadrado.p_valor != null ? `p=${diaSemana.qui_quadrado.p_valor.toFixed(4)}` : "-"}
+              denominador={
                 diaSemana.qui_quadrado.significativo_005 === null
                   ? "sem dados suficientes"
                   : diaSemana.qui_quadrado.significativo_005
                     ? "significativo (p<0,05)"
                     : "nao significativo (p>=0,05)"
               }
-              icon={<AlertTriangle className="h-5 w-5" />}
-              semantic={diaSemana.qui_quadrado.significativo_005 ? "deaths" : "success"}
             />
           </div>
 

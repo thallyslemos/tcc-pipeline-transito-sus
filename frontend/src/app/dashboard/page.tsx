@@ -17,10 +17,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, Building2, Database, MapPinned } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
-import KpiCard from "@/components/charts/KpiCard";
+import KpiStat from "@/components/ui/KpiStat";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -153,10 +153,6 @@ export default function DashboardPage() {
   };
 
   const topMunicipios = useMemo(() => municipios.slice(0, 10), [municipios]);
-  const sparkObitos = useMemo(
-    () => (data?.obitos_por_mes ?? []).map((row) => row.total),
-    [data?.obitos_por_mes],
-  );
   const veiculoLegend = useMemo(
     () =>
       (data?.obitos_por_tipo_veiculo ?? []).map((row, index) => ({
@@ -235,29 +231,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          title="Obitos ATT"
-          value={formatNumber(data.total_obitos)}
-          subtitle={data.dimensao}
-          icon={<AlertTriangle className="h-4 w-4" />}
-          semantic="deaths"
-          sparkData={sparkObitos}
-        />
-        <KpiCard
-          title="Municipios"
-          value={formatNumber(data.municipios)}
-          subtitle="com registro"
-          icon={<Building2 className="h-4 w-4" />}
-          semantic="success"
-        />
-        <KpiCard title="Fonte" value="SIM" subtitle="DATASUS" icon={<Database className="h-4 w-4" />} semantic="health" />
-        <KpiCard
-          title="Geografia"
-          value={data.dimensao}
-          subtitle="papel analitico"
-          icon={<MapPinned className="h-4 w-4" />}
-          semantic="success"
-        />
+        <KpiStat rotulo="Obitos ATT" valor={formatNumber(data.total_obitos)} denominador={data.dimensao} />
+        <KpiStat rotulo="Municipios" valor={formatNumber(data.municipios)} denominador="com registro" />
+        <KpiStat rotulo="Fonte" valor="SIM" denominador="DATASUS" />
+        <KpiStat rotulo="Geografia" valor={data.dimensao} denominador="papel analitico" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

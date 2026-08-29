@@ -11,10 +11,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AlertTriangle, Building2, Gauge } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 import ChartCard from "@/components/charts/ChartCard";
-import KpiCard from "@/components/charts/KpiCard";
+import KpiStat from "@/components/ui/KpiStat";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -250,26 +250,20 @@ export default function PreliminaresPage() {
       {summary && !loading && !indisponivel && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <KpiCard
-              title="Obitos preliminares ⚠"
-              value={formatNumber(summary.total_obitos)}
-              subtitle={`${ano} · ${uf ?? "Brasil"} · dado preliminar, sujeito a revisao`}
-              icon={<AlertTriangle className="h-5 w-5" />}
-              semantic="deaths"
+            <KpiStat
+              rotulo="Obitos preliminares ⚠"
+              valor={formatNumber(summary.total_obitos)}
+              denominador={`${ano} · ${uf ?? "Brasil"} · dado preliminar, sujeito a revisao`}
             />
-            <KpiCard
-              title="Municipios com registro"
-              value={formatNumber(summary.municipios)}
-              subtitle="preliminar, sujeito a revisao"
-              icon={<Building2 className="h-5 w-5" />}
-              semantic="success"
+            <KpiStat
+              rotulo="Municipios com registro"
+              valor={formatNumber(summary.municipios)}
+              denominador="preliminar, sujeito a revisao"
             />
-            <KpiCard
-              title="Completude media estimada"
-              value={pct(summary.aviso_preliminar.completude_estimada)}
-              subtitle="sinal de maturidade, nao fator de correcao"
-              icon={<Gauge className="h-5 w-5" />}
-              semantic="health"
+            <KpiStat
+              rotulo="Completude media estimada"
+              valor={pct(summary.aviso_preliminar.completude_estimada)}
+              denominador="sinal de maturidade, nao fator de correcao"
             />
           </div>
 

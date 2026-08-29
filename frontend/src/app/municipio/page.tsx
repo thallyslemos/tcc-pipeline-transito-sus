@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Gauge, MapPinned, Users } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ChartCard from "@/components/charts/ChartCard";
-import KpiCard from "@/components/charts/KpiCard";
+import KpiStat from "@/components/ui/KpiStat";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa10k } from "@/lib/format";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
@@ -62,24 +61,22 @@ export default function MunicipioPage() {
       {!loading && detail && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <KpiCard title="Obitos" value={formatNumber(detail.total_obitos)} subtitle={`${detail.municipio} - ${detail.uf}`} icon={<AlertTriangle className="h-4 w-4" />} semantic="deaths" />
-            <KpiCard
-              title="Taxa / 100 mil"
-              value={detail.taxa_obitos_100mil == null ? "N/D" : detail.taxa_obitos_100mil.toFixed(1)}
-              subtitle={
+            <KpiStat rotulo="Obitos" valor={formatNumber(detail.total_obitos)} denominador={`${detail.municipio} - ${detail.uf}`} />
+            <KpiStat
+              rotulo="Taxa / 100 mil"
+              valor={detail.taxa_obitos_100mil == null ? "N/D" : detail.taxa_obitos_100mil.toFixed(1)}
+              denominador={
                 detail.populacao_origem === "estimada"
                   ? `Populacao estimada (${detail.populacao_ano_referencia}, defasagem ${detail.populacao_defasagem_anos} ${detail.populacao_defasagem_anos === 1 ? "ano" : "anos"})`
                   : detail.populacao_origem === "exata"
                     ? "Populacao do mesmo ano"
                     : "Denominador indisponivel"
               }
-              icon={<Gauge className="h-4 w-4" />}
-              semantic="health"
-              infoTermo="taxa_100mil"
+              termoAjuda="taxa_100mil"
             />
-            <KpiCard title="Frota SENATRAN" value={detail.frota_total == null ? "N/D" : formatNumber(detail.frota_total)} subtitle={detail.frota_status === "disponivel" ? "Estoque dez./mesmo ano" : "Denominador indisponivel"} icon={<Users className="h-4 w-4" />} semantic="success" />
-            <KpiCard title="Taxa / 10 mil veic." value={detail.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(detail.taxa_obitos_10mil_veiculos)} subtitle={detail.frota_status === "disponivel" ? "Obitos ATT / frota" : "Sem frota pareada"} icon={<Gauge className="h-4 w-4" />} semantic="health" />
-            <KpiCard title="Dimensao" value={detail.dimensao} subtitle="Papel geografico" icon={<MapPinned className="h-4 w-4" />} semantic="success" />
+            <KpiStat rotulo="Frota SENATRAN" valor={detail.frota_total == null ? "N/D" : formatNumber(detail.frota_total)} denominador={detail.frota_status === "disponivel" ? "Estoque dez./mesmo ano" : "Denominador indisponivel"} />
+            <KpiStat rotulo="Taxa / 10 mil veic." valor={detail.taxa_obitos_10mil_veiculos == null ? "N/D" : formatTaxa10k(detail.taxa_obitos_10mil_veiculos)} denominador={detail.frota_status === "disponivel" ? "Obitos ATT / frota" : "Sem frota pareada"} termoAjuda="taxa_10mil_veiculos" />
+            <KpiStat rotulo="Dimensao" valor={detail.dimensao} denominador="Papel geografico" termoAjuda="dimensao_ocorrencia_residencia" />
           </div>
           <ChartCard title="Serie mensal" subtitle="Obitos ATT no periodo selecionado">
             <ResponsiveContainer width="100%" height={280}>
