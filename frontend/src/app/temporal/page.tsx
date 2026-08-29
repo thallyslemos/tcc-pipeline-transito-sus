@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -15,6 +16,7 @@ import {
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import Lede from "@/components/ui/Lede";
 import KpiStat from "@/components/ui/KpiStat";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
@@ -26,17 +28,12 @@ import {
 } from "@/lib/api";
 import { formatNumber, formatPValor, formatPercentual } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
-import type { SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import type { FilterValues, SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
-interface TemporalFilterState {
-  dimensao: "ocorrencia" | "residencia";
-  uf?: string;
-  regiao?: string;
-  ano?: number;
-  tipo_veiculo?: string;
-}
+type TemporalFilterState = FilterValues & { dimensao: "ocorrencia" | "residencia" };
 
 // design/DESIGN_SYSTEM.md §2: "percentual com uma casa", sempre pt-BR
 // (virgula) — auditoria A2, .toFixed() sozinho gera separador em ponto.
@@ -74,8 +71,33 @@ const CLASSE_COLOR: Record<string, string> = {
   difuso: "var(--ok)",
 };
 
+// Auditoria M5: /temporal era uma das duas telas (com /fluxos) que
+// ignoravam uf/ano da URL e nao mostravam chips/N=/link do recorte — todas
+// as outras 5 telas filtraveis ja tinham esse padrao desde a Fase 8.
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function TemporalPage() {
-  const [filters, setFilters] = useState<TemporalFilterState>({ dimensao: "ocorrencia" });
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <TemporalContent />
+    </Suspense>
+  );
+}
+
+function TemporalContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const [filters, setFilters] = useState<TemporalFilterState>(() => ({
+    dimensao: "ocorrencia",
+    ...lerRecorteDaUrl(searchParamsIniciais),
+  }));
   const [anos, setAnos] = useState<number[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
@@ -85,6 +107,17 @@ export default function TemporalPage() {
   const [outliers, setOutliers] = useState<SimOutliers | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx pro motivo: URL nunca
+  // e relida apos a montagem, so escrita, pra evitar loop de sincronizacao).
+  useEffect(() => {
+    const query = serializarRecorte(filters).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [filters, pathname, router]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
 
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((r) => setAnos(r.anos));
@@ -249,6 +282,18 @@ export default function TemporalPage() {
           onReset={() => setFilters({ dimensao: filters.dimensao })}
         />
       </div>
+
+      <BarraDeRecorte
+        chips={[
+          { rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" },
+          ...(filters.uf ? [{ rotulo: "UF", valor: filters.uf }] : []),
+          ...(filters.regiao ? [{ rotulo: "Região", valor: filters.regiao }] : []),
+          { rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "2010-2024" },
+          ...(filters.tipo_veiculo ? [{ rotulo: "Veículo", valor: filters.tipo_veiculo }] : []),
+        ]}
+        n={serieMensal?.resumo.total_obitos ?? 0}
+        aoClicarLink={copiarLinkDoRecorte}
+      />
 
       {loading && (
         <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>

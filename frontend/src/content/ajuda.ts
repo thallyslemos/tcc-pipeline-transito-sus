@@ -96,6 +96,48 @@ export const ajuda = {
       "Sem denominador do mesmo município e ano, a taxa não é calculada e aparece como N/D.",
     oQueNaoPermiteConcluir: "Quando o dado vier de ano diferente, o valor é aproximado e vem marcado.",
   },
+  // Auditoria M6: painel nao tinha nenhum botao [?] — so /temporal tinha.
+  serie_mensal_obitos: {
+    titulo: "Série mensal de óbitos",
+    oQueMostra: "Total de óbitos por mês de óbito (competência), contagem absoluta.",
+    comoLer: "O mês de maior contagem é destacado na cor de risco; os demais ficam em cor neutra.",
+    oQueNaoPermiteConcluir:
+      "Contagem absoluta não corrige por população nem por número de dias do mês — não compare municípios de tamanho diferente por aqui.",
+  },
+  evolucao_anual_obitos: {
+    titulo: "Evolução anual de óbitos",
+    oQueMostra: "Total de óbitos por ano, contagem absoluta.",
+    comoLer: "Subida ou queda entre anos reflete volume, não necessariamente risco — população também muda.",
+    oQueNaoPermiteConcluir:
+      "Sem correção por crescimento populacional: um aumento de óbitos pode coincidir com um aumento igual de habitantes, sem mudança real de risco.",
+  },
+  obitos_por_tipo_veiculo: {
+    titulo: "Óbitos por tipo de vítima",
+    oQueMostra: "Contagem de óbitos por modal envolvido (motociclista, pedestre, automóvel, ciclista, outros), conforme categoria da CID-10.",
+    comoLer: "Compara o peso relativo de cada modal no recorte filtrado.",
+    oQueNaoPermiteConcluir:
+      "\"Outros\"/\"não especificado\" concentram parcela relevante — não é uma categoria residual desprezível.",
+  },
+  obitos_por_faixa_etaria: {
+    titulo: "Óbitos por faixa etária",
+    oQueMostra: "Contagem de óbitos por faixa etária de 10 anos.",
+    comoLer: "Faixas com mais óbitos absolutos não são necessariamente as de maior risco por habitante.",
+    oQueNaoPermiteConcluir:
+      "Sem denominador populacional por faixa etária, não dá pra calcular taxa — só comparar volume dentro do recorte.",
+  },
+  distribuicao_por_sexo: {
+    titulo: "Óbitos por sexo",
+    oQueMostra: "Contagem de óbitos por sexo registrado no SIM.",
+    comoLer: "Sexo ignorado é mantido como categoria própria, nunca reclassificado.",
+    oQueNaoPermiteConcluir: "Contagem absoluta, não taxa — não corrige por população de cada sexo no recorte.",
+  },
+  ranking_municipios_obitos: {
+    titulo: "Ranking por número absoluto de óbitos",
+    oQueMostra: "Os 10 municípios com maior contagem bruta de óbitos no recorte filtrado.",
+    comoLer: "Ordenado por contagem, não por taxa.",
+    oQueNaoPermiteConcluir:
+      "Um município grande pode liderar aqui e não liderar por taxa por 100 mil — ver a tela de Ranking pra comparação por taxa.",
+  },
 } as const satisfies Record<string, AjudaEntry>;
 
 export type TermoAjuda = keyof typeof ajuda;

@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import InfoTip from "@/components/InfoTip";
 import type { TermoAjuda } from "@/content/ajuda";
 import { medidas, type MedidaId } from "@/content/medidas";
 import { metodo } from "@/content/metodo";
 import type { Leitura } from "@/lib/leitura";
+import { exportarPng } from "@/lib/exportar/rasterizar";
 
 interface Props {
   medidaId: MedidaId;
@@ -16,6 +17,15 @@ interface Props {
   proveniencia?: string;
   /** Alimenta o botao [?] (variante="colchete" do InfoTip); omitido quando nao ha termo de ajuda cadastrado ainda. */
   termoAjuda?: TermoAjuda;
+  /**
+   * Nome do arquivo PNG (ja resolvido com o recorte da pagina via
+   * nomeArquivoExportacao). Presente = mostra o botao "Exportar PNG" que
+   * rasteriza a MOLDURA INTEIRA (titulo, nota, grafico, leitura,
+   * proveniencia — §11: "uma figura exportada sem moldura nao e citavel").
+   * Auditoria M7: antes cada pagina cuidava do proprio ref/botao a mao, so
+   * 1 grafico do painel tinha exportacao; agora e um prop da moldura.
+   */
+  nomeArquivoPng?: string;
   className?: string;
 }
 
@@ -33,10 +43,25 @@ export default function GraficoMoldura({
   leitura,
   proveniencia,
   termoAjuda,
+  nomeArquivoPng,
   className,
 }: Props) {
+  const molduraRef = useRef<HTMLDivElement>(null);
+  const [exportando, setExportando] = useState(false);
+
+  const aoExportar = async () => {
+    if (!molduraRef.current || !nomeArquivoPng || exportando) return;
+    setExportando(true);
+    try {
+      await exportarPng(molduraRef.current, nomeArquivoPng);
+    } finally {
+      setExportando(false);
+    }
+  };
+
   return (
     <div
+      ref={molduraRef}
       className={`rounded-md p-4 ${className ?? ""}`}
       style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
     >
@@ -44,7 +69,20 @@ export default function GraficoMoldura({
         <h3 className="text-[16px] font-semibold" style={{ color: "var(--ink)" }}>
           {medidas[medidaId]}
         </h3>
-        {termoAjuda && <InfoTip termo={termoAjuda} variante="colchete" />}
+        <div className="flex shrink-0 items-center gap-2">
+          {nomeArquivoPng && (
+            <button
+              type="button"
+              onClick={aoExportar}
+              disabled={exportando}
+              className="text-[11px] underline disabled:opacity-50"
+              style={{ color: "var(--brand)" }}
+            >
+              {exportando ? "Exportando..." : "Exportar PNG"}
+            </button>
+          )}
+          {termoAjuda && <InfoTip termo={termoAjuda} variante="colchete" />}
+        </div>
       </div>
       <p className="mb-3 text-[13px]" style={{ color: "var(--ink-2)" }}>
         {metodo[medidaId]}

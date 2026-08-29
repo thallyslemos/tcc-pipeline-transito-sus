@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, GitBranch } from "lucide-react";
 import KpiStat from "@/components/ui/KpiStat";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import {
   fetchSimAnos,
   fetchSimFluxos,
@@ -13,6 +15,7 @@ import {
 } from "@/lib/api";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import { formatNumber, formatPercentual } from "@/lib/format";
+import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import type { SimFluxo, SimMunicipio } from "@/lib/types";
 
 const FluxoMapView = dynamic(() => import("@/components/map/FluxoMapView"), { ssr: false });
@@ -32,8 +35,19 @@ function MunicipioCombobox({
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SimMunicipio[]>([]);
   const [searching, setSearching] = useState(false);
+  // Auditoria M9: selecionar so funcionava por clique/onMouseDown — ArrowDown
+  // + Enter nao selecionava nada, barreira de acessibilidade real.
+  const [destacado, setDestacado] = useState(-1);
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selecionar = (m: SimMunicipio) => {
+    onChange(m);
+    setSearch(`${m.municipio} - ${m.uf}`);
+    setOpen(false);
+    setResults([]);
+    setDestacado(-1);
+  };
 
   useEffect(() => {
     if (value) setSearch(`${value.municipio} - ${value.uf}`);
@@ -81,33 +95,54 @@ function MunicipioCombobox({
             const term = e.target.value;
             setSearch(term);
             setOpen(true);
+            setDestacado(-1);
             if (!term) { onChange(null); setResults([]); return; }
             doSearch(term);
           }}
+          onKeyDown={(e) => {
+            if (!open || results.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setDestacado((i) => (i + 1) % results.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setDestacado((i) => (i <= 0 ? results.length - 1 : i - 1));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              if (destacado >= 0 && destacado < results.length) selecionar(results[destacado]);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="fluxos-municipio-listbox"
+          aria-activedescendant={destacado >= 0 ? `fluxos-municipio-opt-${destacado}` : undefined}
         />
         <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4" style={{ color: "var(--ink-2)" }} />
       </div>
       {open && (results.length > 0 || searching) && (
         <ul
+          id="fluxos-municipio-listbox"
+          role="listbox"
           className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-lg py-1 shadow-lg"
           style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
         >
           {searching && results.length === 0 && (
             <li className="px-3 py-2 text-sm" style={{ color: "var(--ink-2)" }}>Buscando...</li>
           )}
-          {results.map((m) => (
+          {results.map((m, i) => (
             <li
               key={m.cod_mun_ibge}
+              id={`fluxos-municipio-opt-${i}`}
+              role="option"
+              aria-selected={i === destacado}
               className="cursor-pointer px-3 py-2 text-sm transition-colors"
-              style={{ color: "var(--ink)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--brand-soft)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              style={{ color: "var(--ink)", backgroundColor: i === destacado ? "var(--brand-soft)" : "transparent" }}
+              onMouseEnter={() => setDestacado(i)}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onChange(m);
-                setSearch(`${m.municipio} - ${m.uf}`);
-                setOpen(false);
-                setResults([]);
+                selecionar(m);
               }}
             >
               <span className="font-medium">{m.municipio}</span>
@@ -122,10 +157,35 @@ function MunicipioCombobox({
   );
 }
 
+// Auditoria M5: /fluxos era uma das duas telas (com /temporal) sem URL sync
+// nem BarraDeRecorte — cada interacao (municipio, ano, veiculo) ficava so
+// no estado local, sem link do recorte reproduzivel. useSearchParams()
+// exige boundary de Suspense na pre-renderizacao estatica (ver dashboard).
 export default function FluxosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <FluxosContent />
+    </Suspense>
+  );
+}
+
+function FluxosContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParamsIniciais = useSearchParams();
+  const recorteUrl = lerRecorteDaUrl(searchParamsIniciais);
+
+  // "direcao" fica de fora do link do recorte (mesmo criterio de "escala"
+  // em mapa/page.tsx): e um toggle de visualizacao, nao um filtro do dado.
   const [direcao, setDirecao] = useState<"origens" | "destinos">("origens");
-  const [ano, setAno] = useState<number | undefined>(undefined);
-  const [tipoVeiculo, setTipoVeiculo] = useState<string | undefined>(undefined);
+  const [ano, setAno] = useState<number | undefined>(() => recorteUrl.ano);
+  const [tipoVeiculo, setTipoVeiculo] = useState<string | undefined>(() => recorteUrl.tipo_veiculo);
   const [municipioSelecionado, setMunicipioSelecionado] = useState<SimMunicipio | null>(null);
 
   const [anos, setAnos] = useState<number[]>([]);
@@ -136,13 +196,42 @@ export default function FluxosPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // So auto-seleciona o ultimo ano na carga inicial, e so se a URL nao ja
+  // tiver definido um (mesmo guard usado em dashboard/mapa pro filtro Ano).
   useEffect(() => {
     fetchSimAnos("ocorrencia").then((r) => {
       setAnos(r.anos);
-      setAno(r.anos.at(-1));
+      setAno((atual) => atual ?? r.anos.at(-1));
     });
     fetchSimTipos("ocorrencia").then((r) => setTipos(r.tipos));
   }, []);
+
+  // Hidrata o municipio selecionado a partir do codigo na URL — so na
+  // montagem (a combobox guarda o objeto SimMunicipio inteiro, nao so o
+  // codigo, entao precisa de uma busca pra reconstruir o nome/UF exibidos).
+  useEffect(() => {
+    const codigo = recorteUrl.municipio;
+    if (!codigo) return;
+    fetchSimMunicipios({ dimensao: "ocorrencia", municipio: codigo }, 1, 10).then((r) => {
+      const encontrado = r.municipios.find((m) => m.cod_mun_ibge.slice(0, 6) === codigo.slice(0, 6));
+      if (encontrado) setMunicipioSelecionado(encontrado);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Estado -> URL, so-escrita (ver dashboard/page.tsx pro motivo).
+  useEffect(() => {
+    const query = serializarRecorte({
+      ano,
+      tipo_veiculo: tipoVeiculo,
+      municipio: municipioSelecionado?.cod_mun_ibge,
+    }).toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [ano, tipoVeiculo, municipioSelecionado, pathname, router]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
 
   useEffect(() => {
     if (!municipioSelecionado) return;
@@ -253,6 +342,17 @@ export default function FluxosPage() {
           </select>
         </div>
       </div>
+
+      <BarraDeRecorte
+        chips={[
+          ...(municipioSelecionado ? [{ rotulo: "Município alvo", valor: `${municipioSelecionado.municipio} - ${municipioSelecionado.uf}` }] : []),
+          { rotulo: "Direção", valor: direcao === "origens" ? "Origens das vitimas" : "Destinos dos residentes" },
+          { rotulo: "Ano", valor: ano ? String(ano) : "Todos" },
+          ...(tipoVeiculo ? [{ rotulo: "Veículo", valor: tipoVeiculo }] : []),
+        ]}
+        n={fluxo?.total_obitos ?? 0}
+        aoClicarLink={copiarLinkDoRecorte}
+      />
 
       {/* Direcao description */}
       {municipioSelecionado && (

@@ -176,7 +176,13 @@ function RankingContent() {
                   <td className="px-4 py-2" style={{ color: "var(--ink-2)" }}>{row.uf}</td>
                   <td className="px-4 py-2 text-right">{row.populacao == null ? "N/D" : formatNumber(row.populacao)}</td>
                   <td className="px-4 py-2 text-right">{row.frota_total == null ? "N/D" : formatNumber(row.frota_total)}</td>
-                  <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--risk-5)" }}>{formatNumber(row.obitos)}</td>
+                  {/* Auditoria M2: a cor de uma celula deve vir do valor que
+                      ELA mostra. Obitos e contagem bruta, nao e classificado
+                      por classe de risco (quem e classificado e a taxa, na
+                      proxima coluna) — --risk-5 fixo aqui emprestava uma
+                      semantica de classificacao que nao existe pra essa
+                      coluna. */}
+                  <td className="px-4 py-2 text-right font-mono" style={{ color: "var(--ink)" }}>{formatNumber(row.obitos)}</td>
                   <td className="px-4 py-2 text-right font-mono">
                     <span className="inline-flex items-center gap-1">
                       {row.taxa_obitos_100mil == null ? "N/D" : formatTaxa100k(row.taxa_obitos_100mil)}

@@ -127,18 +127,21 @@ describe("FluxosPage", () => {
   it("renderiza os botoes de direcao", async () => {
     render(<FluxosPage />);
     await waitFor(() => {
-      expect(screen.getByText("Origens das vitimas")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Origens das vitimas" })).toBeInTheDocument();
     });
-    expect(screen.getByText("Destinos dos residentes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Destinos dos residentes" })).toBeInTheDocument();
   });
 
   it("alterna entre direcao origens e destinos", async () => {
     render(<FluxosPage />);
     await waitFor(() => {
-      expect(screen.getByText("Destinos dos residentes")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Destinos dos residentes" })).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByText("Destinos dos residentes"));
-    expect(screen.getByText("Destinos dos residentes")).toBeInTheDocument();
+    // Auditoria M5: a BarraDeRecorte agora espelha a direcao ativa num chip
+    // — "Destinos dos residentes" aparece 2x (botao + chip), entao o botao
+    // precisa ser identificado por role, nao so pelo texto.
+    fireEvent.click(screen.getByRole("button", { name: "Destinos dos residentes" }));
+    expect(screen.getByRole("button", { name: "Destinos dos residentes" })).toBeInTheDocument();
   });
 
   it("exibe KPIs e tabela apos selecionar municipio", async () => {

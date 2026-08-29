@@ -34,7 +34,6 @@ import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@
 import { gerarLeitura } from "@/lib/leitura";
 import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
 import { baixarCsv } from "@/lib/exportar/csv";
-import { exportarPng } from "@/lib/exportar/rasterizar";
 import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
 
@@ -252,23 +251,20 @@ function DashboardContent() {
     );
   };
 
-  // PNG @2x do grafico "Evolucao anual", com a moldura (titulo/nota/
-  // proveniencia) rasterizada junto — demonstra a capacidade do §11;
-  // GraficoMoldura nao ganhou um botao de exportar proprio nesta fase
-  // (manteria o contrato do componente estavel), entao o gatilho fica
-  // aqui, ao lado do grafico.
-  const evolucaoAnualRef = useRef<HTMLDivElement>(null);
-  const exportarEvolucaoAnualPng = () => {
-    if (evolucaoAnualRef.current) {
-      exportarPng(
-        evolucaoAnualRef.current,
-        nomeArquivoExportacao(
-          { uf: filters.uf, regiao: filters.regiao, anoInicio: filters.ano, dimensao: filters.dimensao, medida: "evolucaoanual" },
-          "png"
-        )
-      );
-    }
-  };
+  // Auditoria M7: exportacao PNG so existia num grafico do painel, com
+  // ref/botao montados a mao. GraficoMoldura agora tem exportacao embutida
+  // (prop nomeArquivoPng) — so precisa do nome do arquivo por medida.
+  const nomeArquivoPng = (medida: string) =>
+    nomeArquivoExportacao(
+      { uf: filters.uf, regiao: filters.regiao, anoInicio: filters.ano, dimensao: filters.dimensao, medida },
+      "png"
+    );
+
+  // Auditoria M6: nenhum grafico do painel citava proveniencia — so
+  // /temporal tinha isso.
+  const proveniencia = `SIM/DATASUS · dimensão ${filters.dimensao}${filters.uf ? ` · UF ${filters.uf}` : ""}${
+    filters.ano ? ` · ano ${filters.ano}` : " · 2010-2024"
+  }`;
 
   const topMunicipios = useMemo(() => municipios.slice(0, 10), [municipios]);
   const itensVeiculo = useMemo(
@@ -393,7 +389,12 @@ function DashboardContent() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <GraficoMoldura medidaId="serie_mensal_obitos">
+        <GraficoMoldura
+          medidaId="serie_mensal_obitos"
+          termoAjuda="serie_mensal_obitos"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("seriemensal")}
+        >
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={data.obitos_por_mes}>
               <defs>
@@ -422,42 +423,57 @@ function DashboardContent() {
           </ResponsiveContainer>
         </GraficoMoldura>
 
-        <div>
-          <div className="mb-1 flex justify-end">
-            <button
-              type="button"
-              onClick={exportarEvolucaoAnualPng}
-              className="text-[11px] underline"
-              style={{ color: "var(--brand)" }}
-            >
-              Exportar PNG
-            </button>
-          </div>
-          {/* ref no wrapper (nao dentro de GraficoMoldura): a moldura inteira
-              — titulo, nota de metodo e leitura — vai junto na captura
-              (§11: "uma figura exportada sem moldura nao e citavel"). */}
-          <div ref={evolucaoAnualRef}>
-            <GraficoMoldura medidaId="evolucao_anual_obitos" leitura={leituraPainel}>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={data.obitos_por_ano}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                  <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
-                  <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-                  <Line type="monotone" dataKey="total" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </GraficoMoldura>
-          </div>
-        </div>
+        {/* Auditoria M3: leituraPainel ja aparece no <Lede> do topo da
+            pagina — repeti-la aqui duplicava a mesma frase (regra R2) duas
+            vezes na mesma tela. Auditoria M7: exportacao agora embutida na
+            moldura (nomeArquivoPng), sem ref/botao manual por fora. */}
+        <GraficoMoldura
+          medidaId="evolucao_anual_obitos"
+          termoAjuda="evolucao_anual_obitos"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("evolucaoanual")}
+        >
+          {/* Auditoria M4: com um unico ano no filtro, "evolucao anual"
+              vira 1 ponto so — nao e uma serie, e um numero disfarcado
+              de grafico. Suprime e explica em vez de desenhar uma linha
+              sem sentido (mesmo espirito das guardas do motor de
+              leitura, mas aqui e sobre a FORMA do grafico, nao sobre a
+              frase gerada). */}
+          {data.obitos_por_ano.length < 2 ? (
+            <p className="p-4 text-sm" style={{ color: "var(--ink-2)" }}>
+              Suprimido: o recorte tem só {data.obitos_por_ano.length} ano — não há série pra mostrar
+              evolução. Remova o filtro de ano pra ver a série completa.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={data.obitos_por_ano}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                <XAxis dataKey="ano" tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+                <YAxis tick={{ fontSize: 11, fill: "var(--chart-axis)" }} />
+                <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
+                <Line type="monotone" dataKey="total" stroke="var(--risk-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </GraficoMoldura>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <GraficoMoldura medidaId="obitos_por_tipo_veiculo">
+        <GraficoMoldura
+          medidaId="obitos_por_tipo_veiculo"
+          termoAjuda="obitos_por_tipo_veiculo"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("tipoveiculo")}
+        >
           <RankedBar itens={itensVeiculo} corPorItem={corCategoriaVeiculo} />
         </GraficoMoldura>
 
-        <GraficoMoldura medidaId="obitos_por_faixa_etaria">
+        <GraficoMoldura
+          medidaId="obitos_por_faixa_etaria"
+          termoAjuda="obitos_por_faixa_etaria"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("faixaetaria")}
+        >
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.obitos_por_faixa_etaria} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
@@ -469,18 +485,31 @@ function DashboardContent() {
                 width={45}
               />
               <ThemedTooltip formatter={(value: number) => [formatNumber(Number(value)), "Obitos"]} />
-              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--risk-2)" isAnimationActive={false} />
+              {/* Auditoria M1: faixa etaria nao e classe de risco — usar
+                  --risk-2 aqui gastava a semantica da rampa (ela so
+                  significa algo quando classifica taxa por 100 mil). */}
+              <Bar dataKey="total" radius={[0, 4, 4, 0]} fill="var(--hairline)" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </GraficoMoldura>
 
-        <GraficoMoldura medidaId="distribuicao_por_sexo">
+        <GraficoMoldura
+          medidaId="distribuicao_por_sexo"
+          termoAjuda="distribuicao_por_sexo"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("sexo")}
+        >
           <RankedBar itens={itensSexo} />
         </GraficoMoldura>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <GraficoMoldura medidaId="ranking_municipios_obitos">
+        <GraficoMoldura
+          medidaId="ranking_municipios_obitos"
+          termoAjuda="ranking_municipios_obitos"
+          proveniencia={proveniencia}
+          nomeArquivoPng={nomeArquivoPng("rankingmunicipios")}
+        >
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={topMunicipios} layout="vertical" margin={{ left: 20, right: 10 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
