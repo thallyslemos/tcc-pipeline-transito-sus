@@ -15,11 +15,10 @@ import type {
   SimSerieMensal,
   SimSummary,
 } from "./types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getApiUrl } from "./apiUrl";
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(`${getApiUrl()}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
 }
@@ -210,12 +209,14 @@ interface PrelimFilters {
   dimensao?: "ocorrencia" | "residencia";
   uf?: string;
   ano?: number;
+  municipio?: string;
 }
 
 function prelimQuery(filters: PrelimFilters = {}): string {
   const params = new URLSearchParams({ dimensao: filters.dimensao ?? "ocorrencia" });
   if (filters.uf) params.set("uf", filters.uf);
   if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.municipio) params.set("municipio", filters.municipio);
   return `?${params.toString()}`;
 }
 
@@ -234,6 +235,7 @@ export const fetchSimPrelimMunicipios = (
   });
   if (filters.uf) params.set("uf", filters.uf);
   if (filters.ano) params.set("ano", String(filters.ano));
+  if (filters.municipio) params.set("municipio", filters.municipio);
   return get<SimPrelimMunicipios>(`/api/sim/prelim/municipios?${params}`);
 };
 

@@ -307,6 +307,31 @@ def test_prelim_summary_reflete_dados_sinteticos(client, prelim_gold_real):
 
 
 @pytest.mark.requires_data
+def test_prelim_summary_filtra_por_municipio(client, prelim_gold_real):
+    response = client.get(
+        "/api/sim/prelim/summary",
+        params={"dimensao": "ocorrencia", "uf": "BA", "ano": 2025, "municipio": "2927408"},
+    )
+    assert response.status_code == 200
+    assert response.json()["total_obitos"] == 2
+
+    vazio = client.get(
+        "/api/sim/prelim/summary",
+        params={"dimensao": "ocorrencia", "uf": "BA", "ano": 2025, "municipio": "1100015"},
+    )
+    assert vazio.status_code == 200
+    assert vazio.json()["total_obitos"] == 0
+
+
+def test_prelim_municipio_invalido_retorna_422(client):
+    response = client.get(
+        "/api/sim/prelim/summary",
+        params={"dimensao": "ocorrencia", "municipio": "12"},
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.requires_data
 def test_prelim_completude_nao_quebra_com_meses_sem_dado_preliminar(client, prelim_gold_real):
     """Regressao: o mart preliminar sintetico so tem janeiro/2025; o mart
     consolidado real de BA tem dado em todos os meses de varios anos. O FULL

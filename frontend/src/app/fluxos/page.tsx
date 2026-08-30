@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, GitBranch } from "lucide-react";
 import KpiStat from "@/components/ui/KpiStat";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
@@ -15,7 +14,7 @@ import {
 } from "@/lib/api";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import { formatNumber, formatPercentual } from "@/lib/format";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import type { SimFluxo, SimMunicipio } from "@/lib/types";
 
 const FluxoMapView = dynamic(() => import("@/components/map/FluxoMapView"), { ssr: false });
@@ -176,16 +175,11 @@ export default function FluxosPage() {
 }
 
 function FluxosContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  const recorteUrl = lerRecorteDaUrl(searchParamsIniciais);
+  const { recorte, patchRecorte } = useRecorte();
+  const ano = recorte.ano;
+  const tipoVeiculo = recorte.tipo_veiculo;
 
-  // "direcao" fica de fora do link do recorte (mesmo criterio de "escala"
-  // em mapa/page.tsx): e um toggle de visualizacao, nao um filtro do dado.
   const [direcao, setDirecao] = useState<"origens" | "destinos">("origens");
-  const [ano, setAno] = useState<number | undefined>(() => recorteUrl.ano);
-  const [tipoVeiculo, setTipoVeiculo] = useState<string | undefined>(() => recorteUrl.tipo_veiculo);
   const [municipioSelecionado, setMunicipioSelecionado] = useState<SimMunicipio | null>(null);
 
   const [anos, setAnos] = useState<number[]>([]);
@@ -201,33 +195,19 @@ function FluxosContent() {
   useEffect(() => {
     fetchSimAnos("ocorrencia").then((r) => {
       setAnos(r.anos);
-      setAno((atual) => atual ?? r.anos.at(-1));
+      if (recorte.ano == null && r.anos.length) patchRecorte({ ano: r.anos.at(-1) });
     });
     fetchSimTipos("ocorrencia").then((r) => setTipos(r.tipos));
-  }, []);
+  }, [patchRecorte, recorte.ano]);
 
-  // Hidrata o municipio selecionado a partir do codigo na URL — so na
-  // montagem (a combobox guarda o objeto SimMunicipio inteiro, nao so o
-  // codigo, entao precisa de uma busca pra reconstruir o nome/UF exibidos).
   useEffect(() => {
-    const codigo = recorteUrl.municipio;
+    const codigo = recorte.municipio;
     if (!codigo) return;
     fetchSimMunicipios({ dimensao: "ocorrencia", municipio: codigo }, 1, 10).then((r) => {
       const encontrado = r.municipios.find((m) => m.cod_mun_ibge.slice(0, 6) === codigo.slice(0, 6));
       if (encontrado) setMunicipioSelecionado(encontrado);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Estado -> URL, so-escrita (ver dashboard/page.tsx pro motivo).
-  useEffect(() => {
-    const query = serializarRecorte({
-      ano,
-      tipo_veiculo: tipoVeiculo,
-      municipio: municipioSelecionado?.cod_mun_ibge,
-    }).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [ano, tipoVeiculo, municipioSelecionado, pathname, router]);
+  }, [recorte.municipio]);
 
   const copiarLinkDoRecorte = () => {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
@@ -272,7 +252,10 @@ function FluxosContent() {
       >
         <MunicipioCombobox
           value={municipioSelecionado}
-          onChange={setMunicipioSelecionado}
+          onChange={(m) => {
+            setMunicipioSelecionado(m);
+            patchRecorte({ municipio: m?.cod_mun_ibge });
+          }}
         />
 
         {/* Direcao */}
@@ -313,7 +296,7 @@ function FluxosContent() {
           </label>
           <select
             value={ano ?? ""}
-            onChange={(e) => setAno(e.target.value ? Number(e.target.value) : undefined)}
+            onChange={(e) => patchRecorte({ ano: e.target.value ? Number(e.target.value) : undefined })}
             className="h-9 min-w-[110px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
             style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink)" }}
           >
@@ -331,7 +314,7 @@ function FluxosContent() {
           </label>
           <select
             value={tipoVeiculo ?? ""}
-            onChange={(e) => setTipoVeiculo(e.target.value || undefined)}
+            onChange={(e) => patchRecorte({ tipo_veiculo: e.target.value || undefined })}
             className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
             style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink)" }}
           >

@@ -1,0 +1,56 @@
+# Serving local/staging com PostgreSQL (ADR-002).
+# NAO e o caminho de producao v1.0 — para VPS use docker-compose.prod.yml (DuckDB).
+#
+# 1. docker compose -f docker-compose.serving.yml up -d postgres
+# 2. export DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus
+# 3. uv run python db/run_migrations.py
+# 4. uv run python -m data-pipeline.run --load-postgres
+# 5. docker compose -f docker-compose.serving.yml up --build api web
+#
+# Dashboard: http://localhost:3000
+# API:       http://localhost:8000
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: transito
+      POSTGRES_PASSWORD: transito
+      POSTGRES_DB: transito_sus
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transito -d transito_sus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: production
+      USE_POSTGRES: "true"
+      DATABASE_URL: postgresql://transito:transito@postgres:5432/transito_sus
+      POSTGRES_SCHEMA: public
+      CORS_ORIGINS: http://localhost:3000
+      LOG_LEVEL: INFO
+    volumes:
+      - ./data/ibge_malhas_municipios.geojson:/app/data/ibge_malhas_municipios.geojson:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      API_URL: http://localhost:8000
+    depends_on:
+      - api

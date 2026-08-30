@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
 import FilterBar from "@/components/filters/FilterBar";
@@ -10,7 +9,7 @@ import Lede from "@/components/ui/Lede";
 import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import SeloQualidade from "@/components/ui/SeloQualidade";
 import { taxaInstavel } from "@/content/qualidade";
@@ -37,13 +36,7 @@ export default function RankingPage() {
 }
 
 function RankingContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  const [filters, setFilters] = useState<FilterValues>(() => ({
-    dimensao: "ocorrencia",
-    ...lerRecorteDaUrl(searchParamsIniciais),
-  }));
+  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [rows, setRows] = useState<SimMunicipio[]>([]);
   const [total, setTotal] = useState(0);
@@ -63,16 +56,10 @@ function RankingContent() {
       setAnos(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setFilters((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
+        setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
-  }, [filters.dimensao]);
-
-  // Estado -> URL, so-escrita (ver dashboard/page.tsx).
-  useEffect(() => {
-    const query = serializarRecorte(filters).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [filters, pathname, router]);
+  }, [filters.dimensao, setRecorte]);
 
   useEffect(() => {
     setLoading(true);
@@ -111,13 +98,9 @@ function RankingContent() {
 
   const handleChange = (key: string, value: string) => {
     setPage(1);
-    setFilters((current) => {
-      const next = { ...current };
-      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
-      if (key === "ano") next.ano = value ? Number(value) : undefined;
-      if (key === "uf") next.uf = value || undefined;
-      return next;
-    });
+    if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+    if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+    if (key === "uf") patchRecorte({ uf: value || undefined });
   };
 
   const chipsRecorte = useMemo(() => {
@@ -155,7 +138,7 @@ function RankingContent() {
             Comparacao municipal com denominador explicito - {total} municipios
           </p>
         </div>
-        <FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={handleChange} onReset={() => { setPage(1); setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) }); }} />
+        <FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={handleChange} onReset={() => { setPage(1); setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) }); }} />
       </div>
 
       <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />

@@ -14,7 +14,8 @@ from fastapi import APIRouter, HTTPException, Query
 from scipy import stats
 
 from ..database import get_connection
-from .sim_only import _mart_path, _municipio_labels, _silver_source, _source, _text, _where_clauses
+from ..sql_dialect import expr_competencia_yyyy_mm
+from .sim_only import _municipio_labels, _silver_source, _source_for_role, _text, _where_clauses
 from .utils import REGIOES
 
 router = APIRouter(prefix="/api/sim/temporal", tags=["SIM-temporal"])
@@ -123,11 +124,15 @@ async def serie_mensal(
 
     Grao mes, servido diretamente dos marts Gold (nao exige reprocessamento).
     """
-    path = _mart_path(dimensao)
     con = get_connection()
-    source = _source(path)
+    source = _source_for_role(dimensao)
     clauses = _where_clauses(
-        ano=ano, ano_inicio=ano_inicio, ano_fim=ano_fim, uf=uf, regiao=regiao, tipo_veiculo=tipo_veiculo
+        ano=ano,
+        ano_inicio=ano_inicio,
+        ano_fim=ano_fim,
+        uf=uf,
+        regiao=regiao,
+        tipo_veiculo=tipo_veiculo,
     )
     if cod_mun_ibge:
         code = "".join(c for c in cod_mun_ibge if c.isdigit())[:6]
@@ -138,7 +143,7 @@ async def serie_mensal(
 
     rows = con.sql(
         f"""
-        SELECT strftime(CAST(competencia AS DATE), '%Y-%m') AS competencia,
+        SELECT {expr_competencia_yyyy_mm("competencia")} AS competencia,
                SUM(total_obitos) AS obitos
         FROM {source} WHERE {where}
         GROUP BY 1 ORDER BY 1
@@ -449,7 +454,9 @@ async def outliers(
                 continue
             populacao_por_mun.setdefault(str(c), []).append((int(a), int(p)))
 
-    def _populacao_com_fallback(cod_mun: str, ano_alvo: int) -> tuple[int | None, str | None, int | None, int | None]:
+    def _populacao_com_fallback(
+        cod_mun: str, ano_alvo: int
+    ) -> tuple[int | None, str | None, int | None, int | None]:
         candidatos = populacao_por_mun.get(cod_mun)
         if not candidatos:
             return None, None, None, None
@@ -464,7 +471,16 @@ async def outliers(
         return pop_ref, "estimada", ano_ref, abs(ano_ref - ano_alvo)
 
     municipios = []
-    for cod_mun, municipio, uf_val, ano_val, obitos_ano, obitos_mes_pico, meses_com_obito, obitos_dia_pico in rows:
+    for (
+        cod_mun,
+        municipio,
+        uf_val,
+        ano_val,
+        obitos_ano,
+        obitos_mes_pico,
+        meses_com_obito,
+        obitos_dia_pico,
+    ) in rows:
         obitos_ano = int(obitos_ano)
         share_mes_pico = (obitos_mes_pico / obitos_ano) if obitos_ano else 0.0
         share_dia_pico = (obitos_dia_pico / obitos_ano) if obitos_ano else 0.0

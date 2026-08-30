@@ -1,16 +1,15 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import ThemedTooltip from "@/components/charts/ThemedTooltip";
 import { AlertTriangle } from "lucide-react";
 
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
@@ -19,6 +18,7 @@ import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import FilterBar from "@/components/filters/FilterBar";
 import {
   fetchSimAnos,
+  fetchSimMunicipio,
   fetchSimMunicipios,
   fetchSimPrelimCompletude,
   fetchSimPrelimMunicipios,
@@ -26,7 +26,7 @@ import {
   fetchSimSummary,
 } from "@/lib/api";
 import { formatNumber, formatPercentual } from "@/lib/format";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import type {
   SimPrelimCompletude,
   SimPrelimMunicipio,
@@ -34,6 +34,21 @@ import type {
 } from "@/lib/types";
 
 const PRELIM_ANOS = [2025, 2026];
+const ANO_CONSOLIDADO_REF = 2024;
+
+/** Serie mensal consolidada no mesmo recorte (UF ou municipio) para comparacao justa. */
+async function fetchConsolidadoPorMes(
+  dimensao: "ocorrencia" | "residencia",
+  uf: string | undefined,
+  municipio: string | undefined
+): Promise<{ competencia: string; total: number }[]> {
+  if (municipio) {
+    const detail = await fetchSimMunicipio(municipio, ANO_CONSOLIDADO_REF, dimensao);
+    return detail.serie_mensal.map((p) => ({ competencia: p.competencia, total: p.obitos }));
+  }
+  const summary = await fetchSimSummary({ dimensao, uf, ano: ANO_CONSOLIDADO_REF });
+  return summary.obitos_por_mes;
+}
 
 // design/DESIGN_SYSTEM.md §2: "percentual com uma casa", pt-BR (virgula) —
 // auditoria A2.
@@ -44,22 +59,6 @@ function pct(value: number | null | undefined): string {
 
 // design/DESIGN_SYSTEM.md §9: legenda sempre em DOM, nunca <Legend/> nativo
 // do Recharts (auditoria B3/M6 — este grafico ainda usava o nativo).
-function ThemedTooltip(props: Record<string, unknown>) {
-  return (
-    <Tooltip
-      {...props}
-      contentStyle={{
-        backgroundColor: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        color: "var(--ink)",
-        boxShadow: "var(--shadow-pop)",
-      }}
-      itemStyle={{ color: "var(--ink)" }}
-      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
-    />
-  );
-}
 
 function LegendaLinha({ cor, tracejado, rotulo }: { cor: string; tracejado?: boolean; rotulo: string }) {
   return (
@@ -116,20 +115,13 @@ export default function PreliminaresPage() {
 }
 
 function PreliminaresContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  const recorteUrl = lerRecorteDaUrl(searchParamsIniciais);
-  const [dimensao, setDimensao] = useState<"ocorrencia" | "residencia">(() => recorteUrl.dimensao ?? "ocorrencia");
-  const [uf, setUf] = useState<string | undefined>(() => recorteUrl.uf);
-  const [ano, setAno] = useState<number>(() => recorteUrl.ano ?? PRELIM_ANOS[0]);
+  const { recorte, patchRecorte } = useRecorte(undefined, { preliminares: true });
+  const dimensao = recorte.dimensao ?? "ocorrencia";
+  const uf = recorte.uf;
+  const ano = recorte.ano ?? PRELIM_ANOS[0];
+  const municipio = recorte.municipio;
   const [ufs, setUfs] = useState<string[]>([]);
-
-  // Estado -> URL, so-escrita (ver dashboard/page.tsx).
-  useEffect(() => {
-    const query = serializarRecorte({ dimensao, uf, ano }).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [dimensao, uf, ano, pathname, router]);
+  const [municipiosOpcoes, setMunicipiosOpcoes] = useState<SimPrelimMunicipio[]>([]);
 
   const copiarLinkDoRecorte = () => {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
@@ -143,15 +135,12 @@ function PreliminaresContent() {
   const [erro, setErro] = useState<string | null>(null);
   const [indisponivel, setIndisponivel] = useState(false);
 
-  const ufsInicializado = useRef(false);
   useEffect(() => {
     fetchSimMunicipios({ dimensao }, 1, 200).then((r) => {
-      if (!ufsInicializado.current) {
-        ufsInicializado.current = true;
-      }
       setUfs([...new Set(r.municipios.map((m) => m.uf))].sort());
     });
-  }, [dimensao]);
+    fetchSimPrelimMunicipios({ dimensao, uf, ano }, 1, 200).then((r) => setMunicipiosOpcoes(r.municipios));
+  }, [dimensao, uf, ano, municipio]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,20 +149,17 @@ function PreliminaresContent() {
     setIndisponivel(false);
 
     Promise.all([
-      fetchSimPrelimSummary({ dimensao, uf, ano }),
-      fetchSimPrelimMunicipios({ dimensao, uf, ano }, 1, 50),
-      fetchSimPrelimCompletude({ dimensao, uf, ano }),
-      // Consolidado usado SOMENTE para desenhar o trecho solido do grafico
-      // combinado (nunca para comparar/agregar com o preliminar). O ultimo
-      // ano consolidado (2024) e o ponto de referencia visual do "antes".
-      fetchSimSummary({ dimensao, uf, ano: 2024 }),
+      fetchSimPrelimSummary({ dimensao, uf, ano, municipio }),
+      fetchSimPrelimMunicipios({ dimensao, uf, ano, municipio }, 1, 50),
+      fetchSimPrelimCompletude({ dimensao, uf, ano, municipio }),
+      fetchConsolidadoPorMes(dimensao, uf, municipio),
     ])
       .then(([s, m, c, consolidado]) => {
         if (cancelled) return;
         setSummary(s);
         setMunicipios(m.municipios);
         setCompletude(c);
-        setConsolidadoPorMes(consolidado.obitos_por_mes);
+        setConsolidadoPorMes(consolidado);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -190,7 +176,7 @@ function PreliminaresContent() {
     return () => {
       cancelled = true;
     };
-  }, [dimensao, uf, ano]);
+  }, [dimensao, uf, ano, municipio]);
 
   // Grafico combinado: consolidado (2024, linha solida) + preliminar (linha
   // tracejada) no mesmo eixo de mes-do-ano, para mostrar o padrao sazonal
@@ -214,12 +200,29 @@ function PreliminaresContent() {
     }));
   }, [consolidadoPorMes, summary]);
 
+  const nomeMunicipio =
+    municipiosOpcoes.find((m) => m.cod_mun_ibge === municipio)?.municipio ??
+    municipios.find((m) => m.cod_mun_ibge === municipio)?.municipio;
+
+  const rotuloConsolidado = municipio
+    ? `Consolidado ${ANO_CONSOLIDADO_REF}${nomeMunicipio ? ` · ${nomeMunicipio}` : ""}`
+    : `Consolidado ${ANO_CONSOLIDADO_REF}${uf ? ` · ${uf}` : ""}`;
+
   const filterDefs = [
     {
       key: "uf",
       label: "UF",
       options: ufs.map((v) => ({ value: v, label: v })),
       placeholder: "Todas",
+    },
+    {
+      key: "municipio",
+      label: "Municipio",
+      options: municipiosOpcoes.map((m) => ({
+        value: m.cod_mun_ibge,
+        label: `${m.municipio} (${m.uf})`,
+      })),
+      placeholder: "Todos",
     },
     {
       key: "ano",
@@ -275,11 +278,12 @@ function PreliminaresContent() {
       >
         <FilterBar
           filters={filterDefs}
-          values={{ uf: uf ?? "", ano: String(ano), dimensao }}
+          values={{ uf: uf ?? "", municipio: municipio ?? "", ano: String(ano), dimensao }}
           onChange={(key, value) => {
-            if (key === "uf") setUf(value || undefined);
-            if (key === "ano") setAno(value ? Number(value) : PRELIM_ANOS[0]);
-            if (key === "dimensao") setDimensao(value === "residencia" ? "residencia" : "ocorrencia");
+            if (key === "uf") patchRecorte({ uf: value || undefined, municipio: undefined });
+            if (key === "municipio") patchRecorte({ municipio: value || undefined });
+            if (key === "ano") patchRecorte({ ano: value ? Number(value) : PRELIM_ANOS[0] });
+            if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
           }}
         />
       </div>
@@ -288,6 +292,9 @@ function PreliminaresContent() {
         chips={[
           { rotulo: "Dimensão", valor: dimensao === "residencia" ? "Residência" : "Ocorrência" },
           ...(uf ? [{ rotulo: "UF", valor: uf }] : []),
+          ...(municipio
+            ? [{ rotulo: "Município", valor: municipiosOpcoes.find((m) => m.cod_mun_ibge === municipio)?.municipio ?? municipio }]
+            : []),
           { rotulo: "Ano", valor: String(ano) },
         ]}
         n={summary?.total_obitos ?? 0}
@@ -346,7 +353,7 @@ function PreliminaresContent() {
             medidaId="padrao_mensal_consolidado_x_preliminar"
             legenda={
               <div className="flex flex-wrap gap-4 text-xs">
-                <LegendaLinha cor="var(--risk-5)" rotulo="Consolidado 2024" />
+                <LegendaLinha cor="var(--risk-5)" rotulo={rotuloConsolidado} />
                 <LegendaLinha cor="var(--attention)" tracejado rotulo={`Preliminar ${ano} · cobertura parcial`} />
               </div>
             }
@@ -359,7 +366,7 @@ function PreliminaresContent() {
                 <ThemedTooltip
                   formatter={(value: number, name: string) => [
                     value == null ? "N/D" : formatNumber(Number(value)),
-                    name === "consolidado_2024" ? "Consolidado 2024" : `Preliminar ${ano} · cobertura parcial`,
+                    name === "consolidado_2024" ? rotuloConsolidado : `Preliminar ${ano} · cobertura parcial`,
                   ]}
                   labelFormatter={(mes: number) => `Mes ${mes}`}
                 />

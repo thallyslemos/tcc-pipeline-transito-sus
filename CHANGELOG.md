@@ -6,30 +6,33 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 segue [SemVer](https://semver.org/lang/pt-BR/).
 ## [Nao lancado]
 
-### Adicionado
-- Add Bahia fleet and flow evidence protocol
-- Add SIM temporal endpoints (serie-mensal, dia-semana, outliers)
-- Add multi-stage Dockerfiles for backend and frontend
+## [1.0.0] - 2026-08-30
 
+### Adicionado
+- Pagina Sobre o projeto (`/sobre`) com diagrama de fluxo e metadados SIM
+- Filtros de recorte persistentes entre paginas (URL + sessionStorage)
+- `ThemedTooltip` unificado e token `--chart-cursor` nos graficos
+- Filtro por municipio na pagina Preliminares (backend + frontend)
+- `docker-compose.prod.yml` para VPS com DuckDB embedded (Parquet read-only)
+- Runtime config da API no frontend (`/runtime-config`, `API_URL` em Docker)
+- Script `scripts/list_deploy_artifacts.py` e guia `docs/DEPLOY_ARTEFATOS.md`
+- Endpoints temporais SIM (serie-mensal, dia-semana, outliers)
+- Dockerfiles multi-stage para API e frontend; workflow release GHCR
+- Protocolo de evidencia Bahia (frota e fluxos)
 
 ### Corrigido
-- Replace 2D flow arcs with 3D deck.gl ArcLayer on fluxos map
-
+- Hover dos graficos Recharts alinhado ao tema claro/escuro
+- Comparacao preliminar vs consolidado por municipio (nao agregado UF)
+- Arcos 3D deck.gl no mapa de fluxos
+- Build Docker: `.dockerignore` permite `docs/metadata` na imagem API
 
 ### Documentacao
-- Restaurar corpus de escrita do artigo na develop
-- Update Bahia evidence and manuscript scope
-- Record serving contract validation
-- Mark historical EDA state and errata
-
+- `docs/DEPLOY_VPS.md` reescrito para deploy v1.0 DuckDB passo a passo
+- Entrada TimesFM vs consolidado em `docs/BACKLOG_TAREFAS.md`
 
 ### Manutencao
-- Remover binário DuckDB e artefatos locais do repositório
-- Sync lockfile metadata
-
-
-### Performance
-- Resolve torch a partir do indice CPU-only
+- Removidos artefatos de debug (`debug_sobre.spec.ts`, benchmark temporario)
+- `outputs/` adicionado ao `.gitignore`
 
 ## [0.2.0-sim-evidence] - 2026-08-06
 

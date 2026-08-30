@@ -2,12 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import FilterBar from "@/components/filters/FilterBar";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
@@ -31,13 +30,7 @@ export default function MapaPage() {
 }
 
 function MapaContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  const [filters, setFilters] = useState<FilterValues>(() => ({
-    dimensao: "ocorrencia",
-    ...lerRecorteDaUrl(searchParamsIniciais),
-  }));
+  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
@@ -57,18 +50,11 @@ function MapaContent() {
       setAnos(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setFilters((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
+        setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
-  }, [filters.dimensao]);
+  }, [filters.dimensao, setRecorte]);
 
-  // Estado -> URL, so-escrita (ver dashboard/page.tsx). Nao inclui `escala`
-  // (nao faz parte de FilterValues/recorte.ts) — o link do recorte reproduz
-  // o filtro, nao cada toggle de UI.
-  useEffect(() => {
-    const query = serializarRecorte(filters).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [filters, pathname, router]);
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
@@ -78,15 +64,11 @@ function MapaContent() {
     fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
   }, [filters]);
   const change = (key: string, value: string) => {
-    setFilters((current) => {
-      const next = { ...current };
-      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
-      if (key === "ano") next.ano = value ? Number(value) : undefined;
-      if (key === "uf") next.uf = value || undefined;
-      if (key === "regiao") next.regiao = value || undefined;
-      if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
-      return next;
-    });
+    if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+    if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+    if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
+    if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
+    if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
   };
   const total = data.reduce((sum, row) => sum + row.valor, 0);
   const vehicleRateAvailable = data.some((row) => row.taxa_obitos_10mil_veiculos != null);
@@ -127,7 +109,7 @@ function MapaContent() {
           filters={filterDefs}
           values={filters as Record<string, string>}
           onChange={change}
-          onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
+          onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
       <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />

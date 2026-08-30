@@ -127,6 +127,8 @@
   --chart-grid: #EDEDEA;
   --chart-axis: #5B6169;
   --chart-ref:  #C9C9C3;
+  /* Trilho de hover Recharts (cursor): discreto, distinto de --hairline/--risk-2 */
+  --chart-cursor: color-mix(in srgb, var(--ink) 6%, transparent);
 
   /* ---- geometria ------------------------------------------------------- */
   --radius:      6px;
@@ -177,6 +179,7 @@
               rgba(217,167,94,0.20) 0 5px, transparent 5px 10px);
 
   --chart-grid: #2A2D31;  --chart-axis: #A9AEB4;  --chart-ref: #3D424A;
+  --chart-cursor: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 /* =============================================================================

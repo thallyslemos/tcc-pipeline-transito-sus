@@ -51,6 +51,30 @@ _CUSTOS_COLS = [
     "lon",
 ]
 
+_SIM_MART_COLS = [
+    "tipo_local",
+    "cod_mun_ibge",
+    "cod_mun_ibge_6",
+    "municipio",
+    "uf",
+    "geografia_status",
+    "competencia",
+    "ano",
+    "mes",
+    "tipo_veiculo",
+    "faixa_etaria",
+    "sexo",
+    "sexo_desc",
+    "total_obitos",
+    "registros_unicos",
+    "populacao_estimada",
+    "populacao_status",
+    "taxa_obitos_100mil",
+    "frota_total",
+    "frota_status",
+    "taxa_obitos_10mil_veiculos",
+]
+
 
 def _df_for_insert(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, ...]]:
     """Garante colunas na ordem esperada e converte tipos para psycopg.
@@ -75,7 +99,7 @@ def _df_for_insert(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, ...]
             values = sub[col].values
             mask = np.isnan(values) | np.isinf(values)
             sub[col] = pd.Series(np.where(mask, None, values), index=sub.index)
-        elif dtype == "int64":
+        elif pd.api.types.is_integer_dtype(dtype):
             values = sub[col].values
             mask = pd.isna(sub[col])
             sub[col] = pd.Series(np.where(mask, None, values), index=sub.index)
@@ -87,19 +111,32 @@ def _truncate_facts(cur: Any, schema: str) -> None:
     schema_id = sql.Identifier(schema)
     cur.execute(
         sql.SQL(
-            "TRUNCATE TABLE {}.gold_obitos_ocorrencia, {}.gold_obitos_residencia, "
+            "TRUNCATE TABLE {}.gold_sim_obitos_ocorrencia, {}.gold_sim_obitos_residencia, "
+            "{}.gold_obitos_ocorrencia, {}.gold_obitos_residencia, "
             "{}.gold_custos, {}.dim_ibge_municipio, {}.dim_ibge_populacao"
-        ).format(schema_id, schema_id, schema_id, schema_id, schema_id)
+        ).format(
+            schema_id,
+            schema_id,
+            schema_id,
+            schema_id,
+            schema_id,
+            schema_id,
+            schema_id,
+        )
     )
 
 
-_ALLOWED_TABLES = frozenset({
-    "gold_obitos_ocorrencia",
-    "gold_obitos_residencia",
-    "gold_custos",
-    "dim_ibge_municipio",
-    "dim_ibge_populacao",
-})
+_ALLOWED_TABLES = frozenset(
+    {
+        "gold_sim_obitos_ocorrencia",
+        "gold_sim_obitos_residencia",
+        "gold_obitos_ocorrencia",
+        "gold_obitos_residencia",
+        "gold_custos",
+        "dim_ibge_municipio",
+        "dim_ibge_populacao",
+    }
+)
 
 
 def _insert_batch(cur: Any, schema: str, table: str, columns: list[str], rows: list[tuple]) -> None:
@@ -127,13 +164,19 @@ def load_gold_to_postgres(
         msg = "Defina DATABASE_URL ou settings.database_url"
         raise ValueError(msg)
 
-    schema = schema or os.environ.get("POSTGRES_SCHEMA") or getattr(
-        settings, "postgres_schema", "public"
+    schema = (
+        schema
+        or os.environ.get("POSTGRES_SCHEMA")
+        or getattr(settings, "postgres_schema", "public")
     )
     gold_dir = gold_dir or settings.resolve(settings.gold_dir)
     data_dir = data_dir or settings.resolve(settings.data_dir)
 
     paths = {
+        "gold_sim_obitos_ocorrencia": gold_dir
+        / "sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet",
+        "gold_sim_obitos_residencia": gold_dir
+        / "sim_v1_obitos_municipio_mes_residencia_v2.parquet",
         "gold_obitos_ocorrencia": gold_dir / "obitos_ocorrencia_municipio_mes.parquet",
         "gold_obitos_residencia": gold_dir / "obitos_residencia_municipio_mes.parquet",
         "gold_custos": gold_dir / "custos_municipio_mes.parquet",
@@ -149,6 +192,22 @@ def load_gold_to_postgres(
         with conn.cursor() as cur:
             cur.execute(sql.SQL("SET search_path TO {}, public").format(sql.Identifier(schema)))
             _truncate_facts(cur, schema)
+
+            if paths["gold_sim_obitos_ocorrencia"].exists():
+                df = pd.read_parquet(paths["gold_sim_obitos_ocorrencia"])
+                rows = _df_for_insert(df, _SIM_MART_COLS)
+                _insert_batch(cur, schema, "gold_sim_obitos_ocorrencia", _SIM_MART_COLS, rows)
+                logger.info("postgres_load_sim_ocorrencia", linhas=len(rows))
+            else:
+                logger.warning("postgres_load_skip", tabela="gold_sim_obitos_ocorrencia")
+
+            if paths["gold_sim_obitos_residencia"].exists():
+                df = pd.read_parquet(paths["gold_sim_obitos_residencia"])
+                rows = _df_for_insert(df, _SIM_MART_COLS)
+                _insert_batch(cur, schema, "gold_sim_obitos_residencia", _SIM_MART_COLS, rows)
+                logger.info("postgres_load_sim_residencia", linhas=len(rows))
+            else:
+                logger.warning("postgres_load_skip", tabela="gold_sim_obitos_residencia")
 
             if paths["gold_obitos_ocorrencia"].exists():
                 df = pd.read_parquet(paths["gold_obitos_ocorrencia"])

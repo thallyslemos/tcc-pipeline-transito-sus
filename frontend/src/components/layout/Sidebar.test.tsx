@@ -10,7 +10,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('Municípios')).toBeInTheDocument();
     expect(screen.getByText('Mapa')).toBeInTheDocument();
     expect(screen.getByText('Tendências')).toBeInTheDocument();
-    expect(screen.getByText('Exploração em linguagem natural')).toBeInTheDocument();
+    expect(screen.queryByText('Exploração em linguagem natural')).not.toBeInTheDocument();
   });
 
   it('agrupa a navegacao em Panorama/Territorio/Metodo, sem mudar nenhuma rota', () => {

@@ -54,6 +54,8 @@ COPY --from=builder --chown=app:app /app/db /app/db
 COPY --from=builder --chown=app:app /app/mcp-server /app/mcp-server
 COPY --from=builder --chown=app:app /app/data-pipeline /app/data-pipeline
 COPY --chown=app:app pyproject.toml ./
+COPY --chown=app:app docs/metadata ./docs/metadata
+RUN mkdir -p /app/data && chown app:app /app/data
 
 USER app
 EXPOSE 8000

@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -7,23 +8,18 @@ import {
   Building2,
   Map,
   Sparkles,
-  MessageCircle,
   Database,
   Sun,
   Moon,
   GitBranch,
   CalendarClock,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { hrefComRecorte } from "@/lib/url/recorte";
+import { useRecorteParaNavegacao } from "@/lib/url/useRecorte";
 
-/**
- * design/DESIGN_SYSTEM.md §10 — so renomeia e reagrupa rotulos; NENHUM href
- * muda (evita quebrar links e capturas ja inseridas no artigo do TCC).
- * Rotulos sem correspondencia explicita no documento (Municipios, Mapa,
- * Dados e metadados) ficam como ja estavam, no grupo mais proximo do
- * exemplo do §10.
- */
 const NAV_GRUPOS = [
   {
     grupo: "Panorama",
@@ -42,14 +38,14 @@ const NAV_GRUPOS = [
       { href: "/fluxos", label: "Fluxos entre municípios", icon: GitBranch },
     ],
   },
-  {
-    grupo: "Método",
-    itens: [
-      { href: "/preliminares", label: "Qualidade e preliminares", icon: AlertTriangle },
-      { href: "/dados", label: "Dados e metadados", icon: Database },
-      { href: "/chat", label: "Exploração em linguagem natural", icon: MessageCircle },
-    ],
-  },
+    {
+      grupo: "Método",
+      itens: [
+        { href: "/preliminares", label: "Qualidade e preliminares", icon: AlertTriangle },
+        { href: "/dados", label: "Dados e metadados", icon: Database },
+        { href: "/sobre", label: "Sobre o projeto", icon: Info },
+      ],
+    },
 ];
 
 interface Props {
@@ -57,8 +53,45 @@ interface Props {
   onClose: () => void;
 }
 
-export default function Sidebar({ open, onClose }: Props) {
+function SidebarNav({ onClose }: { onClose: () => void }) {
   const path = usePathname();
+  const recorte = useRecorteParaNavegacao();
+
+  return (
+    <nav className="flex-1 space-y-4 px-3 py-4">
+      {NAV_GRUPOS.map(({ grupo, itens }) => (
+        <div key={grupo} className="space-y-1">
+          <p
+            className="num px-3 text-[10px] font-semibold uppercase"
+            style={{ color: "var(--ink-3)", letterSpacing: "0.12em" }}
+          >
+            {grupo}
+          </p>
+          {itens.map(({ href, label, icon: Icon }) => {
+            const active = path.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={hrefComRecorte(href, recorte)}
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: active ? "var(--brand-soft)" : "transparent",
+                  color: active ? "var(--brand)" : "var(--ink-2)",
+                }}
+              >
+                <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.8} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+export default function Sidebar({ open, onClose }: Props) {
   const { theme, toggle } = useTheme();
 
   return (
@@ -80,13 +113,14 @@ export default function Sidebar({ open, onClose }: Props) {
           borderRight: "1px solid var(--border)",
         }}
       >
-        {/* Logo */}
         <div
           className="flex h-16 items-center gap-2.5 px-5"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
-            style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}>
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
+            style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}
+          >
             SUS
           </div>
           <div className="leading-tight">
@@ -99,39 +133,10 @@ export default function Sidebar({ open, onClose }: Props) {
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-4 px-3 py-4">
-          {NAV_GRUPOS.map(({ grupo, itens }) => (
-            <div key={grupo} className="space-y-1">
-              <p
-                className="num px-3 text-[10px] font-semibold uppercase"
-                style={{ color: "var(--ink-3)", letterSpacing: "0.12em" }}
-              >
-                {grupo}
-              </p>
-              {itens.map(({ href, label, icon: Icon }) => {
-                const active = path.startsWith(href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={onClose}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
-                    style={{
-                      backgroundColor: active ? "var(--brand-soft)" : "transparent",
-                      color: active ? "var(--brand)" : "var(--ink-2)",
-                    }}
-                  >
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.8} />
-                    {label}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <Suspense fallback={<nav className="flex-1 px-3 py-4" />}>
+          <SidebarNav onClose={onClose} />
+        </Suspense>
 
-        {/* Theme toggle + footer */}
         <div className="px-3 pb-2">
           <button
             onClick={toggle}
@@ -153,10 +158,6 @@ export default function Sidebar({ open, onClose }: Props) {
           <p className="text-[10px]" style={{ color: "var(--ink-2)" }}>
             IFBA — DATASUS (SIM)
           </p>
-          {/* design/DESIGN_SYSTEM.md §10 — proveniencia global fixa do
-              rodape. "extração" e "sha" ficam de fora: nenhum dos dois esta
-              disponivel em runtime hoje (pendencia de dado, nao de UI —
-              documentado no plano de implementacao desta fase). */}
           <p className="num mt-1 text-[10px]" style={{ color: "var(--ink-3)" }}>
             CID-10 V01–V89 · SIM/DATASUS · IBGE 6579 · SENATRAN dez.
           </p>

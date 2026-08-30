@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerRecorteDaUrl, serializarRecorte } from "./recorte";
+import { hrefComRecorte, lerRecorteDaUrl, serializarRecorte, serializarRecorteNucleo } from "./recorte";
 
 describe("serializarRecorte", () => {
   it("inclui so os campos definidos e nao-vazios", () => {
@@ -48,5 +48,23 @@ describe("lerRecorteDaUrl", () => {
     };
     const params = serializarRecorte(original);
     expect(lerRecorteDaUrl(params)).toEqual(original);
+  });
+});
+
+describe("hrefComRecorte", () => {
+  it("preserva nucleo dimensao/uf/ano/municipio na navegacao", () => {
+    const href = hrefComRecorte("/mapa", { dimensao: "ocorrencia", uf: "BA", ano: 2024, municipio: "2927408" });
+    expect(href).toBe("/mapa?dimensao=ocorrencia&uf=BA&ano=2024&municipio=2927408");
+  });
+
+  it("nao anexa query em rotas institucionais", () => {
+    expect(hrefComRecorte("/sobre", { uf: "BA", ano: 2024 })).toBe("/sobre");
+  });
+
+  it("serializarRecorteNucleo omite regiao e tipo_veiculo", () => {
+    const params = serializarRecorteNucleo({ dimensao: "ocorrencia", uf: "BA", regiao: "Nordeste", tipo_veiculo: "Moto" });
+    expect(params.get("uf")).toBe("BA");
+    expect(params.has("regiao")).toBe(false);
+    expect(params.has("tipo_veiculo")).toBe(false);
   });
 });

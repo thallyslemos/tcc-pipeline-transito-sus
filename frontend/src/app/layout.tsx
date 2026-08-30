@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import ThemeProvider from "@/components/ThemeProvider";
 import AppShell from "@/components/layout/AppShell";
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${plexSans.variable} ${plexMono.variable} antialiased`}>
+        <Script src="/runtime-config" strategy="beforeInteractive" />
         <ThemeProvider>
           <AppShell>{children}</AppShell>
         </ThemeProvider>

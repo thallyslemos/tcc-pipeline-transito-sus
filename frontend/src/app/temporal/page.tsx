@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Bar,
   BarChart,
@@ -9,10 +8,10 @@ import {
   Cell,
   ReferenceLine,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import ThemedTooltip from "@/components/charts/ThemedTooltip";
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import Lede from "@/components/ui/Lede";
 import KpiStat from "@/components/ui/KpiStat";
@@ -28,35 +27,16 @@ import {
 } from "@/lib/api";
 import { formatNumber, formatPValor, formatPercentual } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import type { FilterValues, SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
 
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
-
-type TemporalFilterState = FilterValues & { dimensao: "ocorrencia" | "residencia" };
 
 // design/DESIGN_SYSTEM.md §2: "percentual com uma casa", sempre pt-BR
 // (virgula) — auditoria A2, .toFixed() sozinho gera separador em ponto.
 function pct(value: number | null | undefined): string {
   if (value == null) return "-";
   return `${formatPercentual(value * 100)}%`;
-}
-
-function ThemedTooltip(props: Record<string, unknown>) {
-  return (
-    <Tooltip
-      {...props}
-      contentStyle={{
-        backgroundColor: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        color: "var(--ink)",
-        boxShadow: "var(--shadow-pop)",
-      }}
-      itemStyle={{ color: "var(--ink)" }}
-      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
-    />
-  );
 }
 
 const CLASSE_LABEL: Record<string, string> = {
@@ -91,13 +71,7 @@ export default function TemporalPage() {
 }
 
 function TemporalContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  const [filters, setFilters] = useState<TemporalFilterState>(() => ({
-    dimensao: "ocorrencia",
-    ...lerRecorteDaUrl(searchParamsIniciais),
-  }));
+  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
@@ -108,13 +82,7 @@ function TemporalContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado -> URL, so-escrita (ver dashboard/page.tsx pro motivo: URL nunca
-  // e relida apos a montagem, so escrita, pra evitar loop de sincronizacao).
-  useEffect(() => {
-    const query = serializarRecorte(filters).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [filters, pathname, router]);
-
+  // Estado -> URL via useRecorte (ver dashboard/page.tsx).
   const copiarLinkDoRecorte = () => {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
   };
@@ -232,7 +200,7 @@ function TemporalContent() {
               <button
                 key={dim}
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, dimensao: dim }))}
+                onClick={() => patchRecorte({ dimensao: dim })}
                 className="px-3 py-2 text-xs font-medium capitalize transition-colors"
                 style={{
                   backgroundColor: filters.dimensao === dim ? "var(--brand)" : "var(--surface)",
@@ -273,13 +241,13 @@ function TemporalContent() {
             ano: filters.ano ? String(filters.ano) : "",
             tipo_veiculo: filters.tipo_veiculo ?? "",
           }}
-          onChange={(key, value) =>
-            setFilters((f) => ({
-              ...f,
-              [key]: key === "ano" ? (value ? Number(value) : undefined) : value || undefined,
-            }))
-          }
-          onReset={() => setFilters({ dimensao: filters.dimensao })}
+          onChange={(key, value) => {
+            if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+            else if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
+            else if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
+            else if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
+          }}
+          onReset={() => setRecorte({ dimensao: filters.dimensao ?? "ocorrencia" })}
         />
       </div>
 

@@ -45,7 +45,7 @@ export default function RankedBar({ itens, corPorItem, enfase = "lider" }: Props
             <span className="w-28 shrink-0 truncate text-[12px]" style={{ color: "var(--ink-2)" }}>
               {item.nome}
             </span>
-            <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-sm" style={{ backgroundColor: "var(--sunken)" }}>
+            <div className="h-3 min-w-0 flex-1 overflow-hidden rounded-sm" style={{ backgroundColor: "var(--surface)" }}>
               <div className="h-full" style={{ width: `${pct}%`, backgroundColor: cor }} />
             </div>
             <span className="num w-12 shrink-0 text-right text-[12px]" style={{ color: "var(--ink-2)" }}>

@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..config import settings
 from ..database import get_connection
+from ..sql_dialect import analytics_uses_postgres, expr_competencia_yyyy_mm, expr_null_double
 from .utils import REGIOES, _has_view
 
 router = APIRouter(prefix="/api/sim", tags=["SIM-only"])
@@ -25,7 +26,7 @@ _SILVER_CONTRACT = "data/silver/sim_v2_nacional_2010_2024_contract_v2.parquet"
 
 def _silver_source() -> str:
     """Fonte da Silver contratual v2 para consultas de fluxos residencia-ocorrencia."""
-    if settings.use_postgres and settings.database_url:
+    if analytics_uses_postgres():
         raise HTTPException(
             status_code=503,
             detail="A Silver SIM v2 (fluxos/temporal por dia) requer o backend DuckDB nesta fase",
@@ -57,13 +58,31 @@ def _mart_path(role: Role) -> Path:
     return path
 
 
-def _source(path: Path) -> str:
-    if settings.use_postgres and settings.database_url:
-        raise HTTPException(
-            status_code=503,
-            detail="O contrato SIM-only local requer o backend DuckDB nesta fase",
-        )
+_PG_MART_VIEWS: dict[str, str] = {
+    "ocorrencia": "v_sim_obitos_ocorrencia",
+    "residencia": "v_sim_obitos_residencia",
+}
+
+
+def _parquet_source(path: Path) -> str:
     return f"read_parquet('{str(path).replace(chr(39), chr(39) * 2)}')"
+
+
+def _source(path: Path) -> str:
+    """Fonte DuckDB (Parquet). Em Postgres use ``_source_for_role``."""
+    return _parquet_source(path)
+
+
+def _source_for_role(role: Role) -> str:
+    """Mart SIM-only: view PostgreSQL em produção, Parquet local no DuckDB."""
+    if analytics_uses_postgres():
+        try:
+            return _PG_MART_VIEWS[role]
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=422, detail="dimensao deve ser ocorrencia ou residencia"
+            ) from exc
+    return _parquet_source(_mart_path(role))
 
 
 _MUNICIPIO_LABELS: dict[str, dict[str, str]] | None = None
@@ -213,9 +232,8 @@ async def populacao_cobertura(
     IBGE) versus estimada (fallback para o ano IBGE mais proximo) versus
     indisponivel (municipio sem nenhuma populacao no artefato local).
     """
-    path = _mart_path(_role(dimensao))
     con = get_connection()
-    source = _source(path)
+    source = _source_for_role(_role(dimensao))
     clauses = _where_clauses(uf=uf, regiao=regiao, require_geografia=True)
     where = " AND ".join(clauses)
 
@@ -253,9 +271,15 @@ async def populacao_cobertura(
         SELECT
             COUNT(*) AS total,
             SUM(CASE WHEN pop_exata > 0 THEN 1 ELSE 0 END) AS exata,
-            SUM(CASE WHEN (pop_exata IS NULL OR pop_exata <= 0) AND pop_fallback > 0 THEN 1 ELSE 0 END) AS estimada,
-            SUM(CASE WHEN (pop_exata IS NULL OR pop_exata <= 0)
-                      AND (pop_fallback IS NULL OR pop_fallback <= 0) THEN 1 ELSE 0 END) AS indisponivel
+            SUM(
+                CASE WHEN (pop_exata IS NULL OR pop_exata <= 0) AND pop_fallback > 0
+                     THEN 1 ELSE 0 END
+            ) AS estimada,
+            SUM(
+                CASE WHEN (pop_exata IS NULL OR pop_exata <= 0)
+                      AND (pop_fallback IS NULL OR pop_fallback <= 0)
+                     THEN 1 ELSE 0 END
+            ) AS indisponivel
         FROM avaliado
         """
     ).fetchone()
@@ -280,20 +304,20 @@ async def populacao_cobertura(
 
 @router.get("/anos")
 async def anos(dimensao: Role = Query("ocorrencia")) -> dict:
-    path = _mart_path(_role(dimensao))
     con = get_connection()
-    rows = con.sql(f"SELECT DISTINCT ano FROM {_source(path)} ORDER BY ano").fetchall()
+    rows = con.sql(
+        f"SELECT DISTINCT ano FROM {_source_for_role(_role(dimensao))} ORDER BY ano"
+    ).fetchall()
     return {"dimensao": dimensao, "anos": [int(row[0]) for row in rows]}
 
 
 @router.get("/tipos-veiculo")
 async def tipos_veiculo(dimensao: Role = Query("ocorrencia")) -> dict:
-    path = _mart_path(_role(dimensao))
     con = get_connection()
     rows = con.sql(
         f"""
         SELECT DISTINCT tipo_veiculo
-        FROM {_source(path)}
+        FROM {_source_for_role(_role(dimensao))}
         WHERE tipo_veiculo IS NOT NULL
         ORDER BY 1
         """
@@ -309,10 +333,9 @@ async def summary(
     regiao: str | None = Query(None),
     tipo_veiculo: str | None = Query(None, max_length=80),
 ) -> dict:
-    path = _mart_path(_role(dimensao))
     con = get_connection()
     where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=regiao, tipo_veiculo=tipo_veiculo))
-    source = _source(path)
+    source = _source_for_role(_role(dimensao))
     total, municipios, inicio, fim = con.sql(
         f"""
         SELECT COALESCE(SUM(total_obitos), 0),
@@ -330,7 +353,7 @@ async def summary(
     ).fetchall()
     by_month = con.sql(
         f"""
-        SELECT strftime(CAST(competencia AS DATE), '%Y-%m') AS competencia,
+        SELECT {expr_competencia_yyyy_mm("competencia")} AS competencia,
                SUM(total_obitos) AS total
         FROM {source} WHERE {where}
         GROUP BY competencia ORDER BY competencia
@@ -385,13 +408,10 @@ async def summary(
         ).fetchone()
         pct = (100.0 * with_fleet / total_mun) if total_mun else 0.0
         frota_label = (
-            f"{pct:.1f}% dos municipios com frota SENATRAN no recorte "
-            f"(estoque de dezembro/{ano})"
+            f"{pct:.1f}% dos municipios com frota SENATRAN no recorte (estoque de dezembro/{ano})"
         )
     else:
-        frota_label = (
-            "informe ano para parear frota SENATRAN de dezembro do mesmo exercicio"
-        )
+        frota_label = "informe ano para parear frota SENATRAN de dezembro do mesmo exercicio"
     return {
         "fonte": "SIM",
         "dimensao": dimensao,
@@ -404,16 +424,13 @@ async def summary(
             for competencia, total_mes in by_month
         ],
         "obitos_por_tipo_veiculo": [
-            {"tipo_veiculo": str(tipo), "total": int(total_tipo)}
-            for tipo, total_tipo in by_vehicle
+            {"tipo_veiculo": str(tipo), "total": int(total_tipo)} for tipo, total_tipo in by_vehicle
         ],
         "obitos_por_faixa_etaria": [
-            {"faixa_etaria": str(faixa), "total": int(total_faixa)}
-            for faixa, total_faixa in by_age
+            {"faixa_etaria": str(faixa), "total": int(total_faixa)} for faixa, total_faixa in by_age
         ],
         "obitos_por_sexo": [
-            {"sexo": str(sexo), "total": int(total_sexo)}
-            for sexo, total_sexo in by_sex
+            {"sexo": str(sexo), "total": int(total_sexo)} for sexo, total_sexo in by_sex
         ],
         "denominadores": {
             "populacao": "disponivel somente quando o municipio/ano existe no IBGE",
@@ -433,9 +450,8 @@ async def municipios(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> dict:
-    path = _mart_path(_role(dimensao))
     con = get_connection()
-    source = _source(path)
+    source = _source_for_role(_role(dimensao))
     clauses = _where_clauses(
         ano=ano,
         uf=uf,
@@ -466,14 +482,14 @@ async def municipios(
         pop_origem_expr = "CAST(NULL AS VARCHAR)"
         pop_ano_ref_expr = "CAST(NULL AS INTEGER)"
         pop_defasagem_expr = "CAST(NULL AS INTEGER)"
-        rate_expr = "CAST(NULL AS DOUBLE)"
+        rate_expr = expr_null_double()
         status_expr = "'indisponivel'"
     fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
     fleet_rate_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN "
         "SUM(total_obitos) * 10000.0 / MAX(frota_total) ELSE NULL END"
         if ano is not None
-        else "CAST(NULL AS DOUBLE)"
+        else expr_null_double()
     )
     fleet_status_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN 'disponivel' ELSE 'indisponivel' END"
@@ -488,7 +504,7 @@ async def municipios(
             FROM {source}
             WHERE {where}
             GROUP BY cod_mun_ibge_6
-        )
+        ) AS _page_count
         """
     ).fetchone()[0]
     rows = (
@@ -545,9 +561,8 @@ async def municipio(
     code = "".join(char for char in cod_mun_ibge if char.isdigit())[:6]
     if len(code) != 6:
         raise HTTPException(status_code=422, detail="codigo IBGE deve ter seis ou sete digitos")
-    path = _mart_path(_role(dimensao))
     con = get_connection()
-    source = _source(path)
+    source = _source_for_role(_role(dimensao))
     where = f"cod_mun_ibge_6 = '{code}'"
     if ano is not None:
         where += f" AND ano = {ano}"
@@ -571,14 +586,14 @@ async def municipio(
         pop_origem_expr = "CAST(NULL AS VARCHAR)"
         pop_ano_ref_expr = "CAST(NULL AS INTEGER)"
         pop_defasagem_expr = "CAST(NULL AS INTEGER)"
-        rate_expr = "CAST(NULL AS DOUBLE)"
+        rate_expr = expr_null_double()
         status_expr = "'indisponivel'"
     fleet_expr = "MAX(frota_total)" if ano is not None else "CAST(NULL AS BIGINT)"
     fleet_rate_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN "
         "SUM(total_obitos) * 10000.0 / MAX(frota_total) ELSE NULL END"
         if ano is not None
-        else "CAST(NULL AS DOUBLE)"
+        else expr_null_double()
     )
     fleet_status_expr = (
         "CASE WHEN MAX(frota_total) > 0 THEN 'disponivel' ELSE 'indisponivel' END"
@@ -636,7 +651,8 @@ def _load_geojson() -> dict | None:
     global _GEOJSON_CACHE
     if _GEOJSON_CACHE is not None:
         return _GEOJSON_CACHE
-    path = settings.resolve("data/ibge_malhas_municipios.geojson")
+    raw = Path(settings.geojson_path)
+    path = raw if raw.is_absolute() else settings.resolve(settings.geojson_path)
     if not path.exists():
         return None
     _GEOJSON_CACHE = json.loads(path.read_text(encoding="utf-8"))
@@ -655,7 +671,6 @@ async def geo(
     malhas = _load_geojson()
     if malhas is None:
         raise HTTPException(status_code=503, detail="malha municipal IBGE indisponivel")
-    path = _mart_path(_role(dimensao))
     con = get_connection()
     where = " AND ".join(
         _where_clauses(
@@ -666,14 +681,14 @@ async def geo(
             require_geografia=True,
         )
     )
-    source = _source(path)
+    source = _source_for_role(_role(dimensao))
     if ano is None:
         population = "CAST(NULL AS BIGINT)"
         pop_origem = "CAST(NULL AS VARCHAR)"
         pop_ano_ref = "CAST(NULL AS INTEGER)"
         pop_defasagem = "CAST(NULL AS INTEGER)"
-        rate = "CAST(NULL AS DOUBLE)"
-        vehicle_rate = "CAST(NULL AS DOUBLE)"
+        rate = expr_null_double()
+        vehicle_rate = expr_null_double()
         fleet_status = "'indisponivel'"
     else:
         pop = _populacao_fallback_exprs("cod_mun_ibge_6", ano, con)
@@ -766,6 +781,7 @@ async def geo(
 # ---------------------------------------------------------------------------
 # Fluxos residencia-ocorrencia
 # ---------------------------------------------------------------------------
+
 
 def _fluxos_edges(
     con,
@@ -935,9 +951,7 @@ async def fluxos_geo(
 
         edge = edges_by_code.get(cod6)
         label = labels.get(cod6, {})
-        feature_uf = str(
-            (edge or {}).get("uf") or label.get("uf") or ""
-        )
+        feature_uf = str((edge or {}).get("uf") or label.get("uf") or "")
 
         in_flow = cod6 in flow_codes
         in_target_uf = feature_uf == target_uf

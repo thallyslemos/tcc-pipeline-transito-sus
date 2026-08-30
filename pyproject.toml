@@ -1,6 +1,6 @@
 [project]
 name = "pipeline-acidentes-transito-sus"
-version = "0.1.0"
+version = "1.0.0"
 description = "Pipeline analítico de acidentes de trânsito no SUS — TCC em Sistemas de Informação"
 readme = "README.md"
 requires-python = ">=3.12"

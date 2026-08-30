@@ -109,10 +109,10 @@ async function typeAndSelect(searchText: string, municipioName: string) {
   fireEvent.change(input, { target: { value: searchText } });
   // waitFor aguarda ate 1500ms: suficiente para o debounce de 300ms + render
   await waitFor(
-    () => expect(screen.getByText(municipioName)).toBeInTheDocument(),
+    () => expect(screen.getAllByText(municipioName).length).toBeGreaterThan(0),
     { timeout: 1500 }
   );
-  fireEvent.mouseDown(screen.getByText(municipioName));
+  fireEvent.mouseDown(screen.getAllByText(municipioName)[0]);
 }
 
 describe("FluxosPage", () => {

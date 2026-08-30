@@ -19,6 +19,9 @@ export const grid = {
   stroke: "var(--chart-grid)",
 };
 
+/** Trilho de hover Recharts — token --chart-cursor, distinto do preenchimento da barra. */
+export const cursor = { fill: "var(--chart-cursor)" };
+
 export const axisX = {
   tickLine: false,
   dy: 6,

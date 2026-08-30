@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -11,10 +10,10 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import ThemedTooltip from "@/components/charts/ThemedTooltip";
 import { AlertTriangle } from "lucide-react";
 
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
@@ -32,7 +31,7 @@ import {
 } from "@/lib/api";
 import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
-import { lerRecorteDaUrl, serializarRecorte } from "@/lib/url/recorte";
+import { useRecorte } from "@/lib/url/useRecorte";
 import { baixarCsv } from "@/lib/exportar/csv";
 import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
@@ -61,24 +60,6 @@ function corCategoriaVeiculo(tipoVeiculo: string): string {
   }
 }
 
-function ThemedTooltip(props: Record<string, unknown>) {
-  return (
-    <Tooltip
-      {...props}
-      contentStyle={{
-        backgroundColor: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        color: "var(--ink)",
-        boxShadow: "var(--shadow-pop)",
-      }}
-      itemStyle={{ color: "var(--ink)" }}
-      labelStyle={{ color: "var(--ink)", fontWeight: 600 }}
-    />
-  );
-}
-
-
 // useSearchParams() faz o Next.js exigir um boundary de Suspense na
 // pre-renderizacao estatica (senao o build falha com "should be wrapped in
 // a suspense boundary") — o componente de verdade fica em DashboardContent.
@@ -97,16 +78,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParamsIniciais = useSearchParams();
-  // Le a URL SO na montagem (estado inicial do useState roda uma unica vez).
-  // Depois disso o fluxo e so estado -> URL (useEffect abaixo) — nunca o
-  // contrario, pra nao criar um loop de sincronizacao entre os dois.
-  const [filters, setFilters] = useState<FilterValues>(() => ({
-    dimensao: "ocorrencia",
-    ...lerRecorteDaUrl(searchParamsIniciais),
-  }));
+  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
   const [data, setData] = useState<SimSummary | null>(null);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [anos, setAnos] = useState<number[]>([]);
@@ -132,19 +104,11 @@ function DashboardContent() {
           // So auto-seleciona se o ano nao veio de lugar nenhum ainda (nem da
           // URL na carga inicial, nem de uma escolha do usuario) — um link de
           // recorte compartilhado com ?ano=2020 nao pode virar 2024 sozinho.
-          setFilters((current) => (current.ano == null ? { ...current, ano: years.anos.at(-1) } : current));
+          setRecorte((current) => (current.ano == null ? { ...current, ano: years.anos.at(-1) } : current));
         }
       })
       .catch(() => setError("Nao foi possivel carregar os filtros do SIM."));
-  }, [filters.dimensao]);
-
-  // design/DESIGN_SYSTEM.md §5.6 — "link do recorte": a URL sempre reflete o
-  // filtro atual, sem reload de pagina. So-escrita (nunca le a URL de volta
-  // depois da montagem, ver useState acima) — evita loop de sincronizacao.
-  useEffect(() => {
-    const query = serializarRecorte(filters).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [filters, pathname, router]);
+  }, [filters.dimensao, setRecorte]);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,21 +143,11 @@ function DashboardContent() {
   }, [filters.dimensao, filters.uf, filters.regiao]);
 
   const handleChange = (key: string, value: string) => {
-    setFilters((current) => {
-      const next = { ...current };
-      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
-      if (key === "ano") next.ano = value ? Number(value) : undefined;
-      if (key === "uf") {
-        next.uf = value || undefined;
-        next.regiao = undefined;
-      }
-      if (key === "regiao") {
-        next.regiao = value || undefined;
-        next.uf = undefined;
-      }
-      if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
-      return next;
-    });
+    if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+    if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+    if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
+    if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
+    if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
   };
 
   // Auditoria A1: o painel nao tinha nenhum KPI de taxa, so contagem e
@@ -346,7 +300,7 @@ function DashboardContent() {
           filters={filterDefs}
           values={filters as Record<string, string>}
           onChange={handleChange}
-          onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
+          onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
 
