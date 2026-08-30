@@ -32,6 +32,9 @@ frontend/out/
 frontend/.env*.local
 frontend/tsconfig.tsbuildinfo
 
+# Lockfile acidental na raiz confunde Turbopack (busca tailwindcss fora de frontend/)
+/package-lock.json
+
 # Binários locais (CLI DuckDB etc.)
 duckdb_cli*.zip
 
@@ -47,3 +50,4 @@ frontend/.playwright-browsers/
 # Análises locais (fora do produto)
 data/analysis/
 data/quality/
+outputs/

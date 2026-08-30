@@ -190,3 +190,18 @@
     2.  Criar infraestrutura de mocks para Next.js navigation e hooks de tema.
     3.  Implementar testes para componentes críticos (ex: Sidebar).
 -   **(Status: Concluído)** Vitest configurado e testes básicos implementados para o componente Sidebar.
+
+---
+
+## Iteração 7 — TimesFM: projeção vs consolidado vs preliminar
+
+### Tarefa 7.1: Integrar TimesFM na página Tendências
+
+- **Contexto**: O backend já expõe `/api/predict/obitos` (TimesFM em `backend/services/forecaster.py`), mas a UI `/previsao` ("Tendências") mostra apenas a série observada — sem projeção.
+- **Objetivo**: Sobrepor no mesmo gráfico (ou via toggle) três curvas: previsão TimesFM, série consolidada e curva preliminar, para avaliar subnotificação e calibrar completude.
+- **Pré-requisitos**:
+  1. Série temporal mínima por município (já disponível via `/api/sim/municipio/{cod}`).
+  2. Decisão de UX: aba separada vs toggle de camadas no gráfico.
+  3. Testes de contrato para `/api/predict/*` e componente `ForecastChart.tsx` (hoje órfão).
+  4. Comparar previsão retroativa com dados consolidados e, quando aplicável, com preliminares do mesmo recorte.
+- **(Status: ⏳ Pendente — backlog; não bloqueia entrega SIM-only atual)**

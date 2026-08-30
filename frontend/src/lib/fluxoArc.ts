@@ -86,6 +86,37 @@ export function buildArcPoints(
   return points;
 }
 
+/**
+ * design/DESIGN_SYSTEM.md §8.1 — posicao e angulo (graus, sentido horario,
+ * 0 = "apontando pra cima"/norte) de uma seta de sentido sobre o arco, em
+ * t ∈ (0,1). Reusa buildArcPoints (a mesma curva ja usada pro teste da
+ * bezier) como aproximacao 2D da curva 3D que o deck.gl desenha de
+ * verdade — suficiente pra posicionar um icone, nao pra medir distancia.
+ *
+ * t=0,82 por padrao (nao 1,0): numa tela de "origens", todos os arcos
+ * convergem no mesmo municipio, e setas no ponto final empilhariam umas
+ * sobre as outras num borrao — a 82% do caminho elas ainda estao abertas
+ * em leque, cada uma legivel.
+ */
+export function pontoEAnguloNoArco(
+  from: LngLat,
+  to: LngLat,
+  t = 0.82,
+): { posicao: LngLat; anguloGraus: number } {
+  const segments = 100;
+  const pontos = buildArcPoints(from, to, segments, 0);
+  const indice = Math.min(segments - 1, Math.max(0, Math.round(t * segments)));
+  const atual = pontos[indice];
+  const proximo = pontos[Math.min(segments, indice + 1)];
+  const dx = proximo[0] - atual[0];
+  const dy = proximo[1] - atual[1];
+  // atan2(dx, dy): angulo a partir do norte (eixo Y), sentido horario —
+  // convencao de rotacao de icone de mapa, nao a convencao matematica
+  // padrao (a partir do eixo X, anti-horaria).
+  const anguloGraus = (Math.atan2(dx, dy) * 180) / Math.PI;
+  return { posicao: atual, anguloGraus };
+}
+
 export function buildEndpointFeatures(
   origin: LngLat,
   destinations: LngLat[],

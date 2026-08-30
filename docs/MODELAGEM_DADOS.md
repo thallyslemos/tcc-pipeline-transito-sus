@@ -12,8 +12,10 @@ in-memory (`backend/database.py` em modo DuckDB).
 
 | Artefato | Conteúdo |
 |----------|----------|
-| `obitos_ocorrencia_municipio_mes.parquet` | Óbitos por local de ocorrência |
-| `obitos_residencia_municipio_mes.parquet` | Óbitos por residência |
+| `sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet` | Mart SIM-only (ocorrência) — dashboard `/api/sim/*` |
+| `sim_v1_obitos_municipio_mes_residencia_v2.parquet` | Mart SIM-only (residência) |
+| `obitos_ocorrencia_municipio_mes.parquet` | Óbitos por local de ocorrência (legado dashboard) |
+| `obitos_residencia_municipio_mes.parquet` | Óbitos por residência (legado dashboard) |
 | `custos_municipio_mes.parquet` | Custos SIA/PA agregados |
 | `data/ibge_municipios.parquet` | Nome, UF, região, lat/lon |
 | `data/ibge_populacao.parquet` | População estimada por município e ano |
@@ -31,6 +33,8 @@ após `db/migrations/*.sql` e carga com `uv run python -m data-pipeline.run
 
 | Tabela | Origem Parquet |
 |--------|----------------|
+| `gold_sim_obitos_ocorrencia` | `sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet` |
+| `gold_sim_obitos_residencia` | `sim_v1_obitos_municipio_mes_residencia_v2.parquet` |
 | `gold_obitos_ocorrencia` | `obitos_ocorrencia_municipio_mes.parquet` |
 | `gold_obitos_residencia` | `obitos_residencia_municipio_mes.parquet` |
 | `gold_custos` | `custos_municipio_mes.parquet` |
@@ -43,6 +47,8 @@ O backend usa os mesmos nomes lógicos que no DuckDB:
 
 | View | Definição |
 |------|-----------|
+| `v_sim_obitos_ocorrencia` | `SELECT * FROM gold_sim_obitos_ocorrencia` (dashboard SIM) |
+| `v_sim_obitos_residencia` | `SELECT * FROM gold_sim_obitos_residencia` |
 | `v_obitos_ocorrencia` | `SELECT * FROM gold_obitos_ocorrencia` |
 | `v_obitos_residencia` | `SELECT * FROM gold_obitos_residencia` |
 | `v_obitos` | Alias da ocorrência (`v_obitos_ocorrencia`) |
@@ -52,9 +58,14 @@ O backend usa os mesmos nomes lógicos que no DuckDB:
 
 ### Índices
 
-Definidos em `db/migrations/001_init.sql` para filtros frequentes da API:
-`(ano, uf, cod_mun_ibge)`, `competencia` nas fact tables, e `(ano, cod_mun_ibge)`
-em população.
+Definidos em `db/migrations/001_init.sql` e `003_sim_marts.sql` para filtros
+frequentes da API: `(ano, uf, cod_mun_ibge)`, `competencia` nas fact tables,
+`(ano, uf, cod_mun_ibge_6)` nos marts SIM, e `(ano, cod_mun_ibge)` em população.
+
+Fluxos residência–ocorrência e temporal por dia da semana leem a Silver
+(`sim_v2_nacional_2010_2024_contract_v2.parquet`) e **não** entram no Postgres
+nesta fase: esses endpoints respondem `503` com `USE_POSTGRES=true`. A série
+mensal (`/api/sim/temporal/serie-mensal`) usa o mart Gold e funciona em ambos.
 
 ### Carga idempotente
 

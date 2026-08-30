@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ArcLayer } from "@deck.gl/layers";
+import { ArcLayer, TextLayer } from "@deck.gl/layers";
 import { useTheme } from "@/components/ThemeProvider";
-import { buildEndpointFeatures, polygonCentroid } from "@/lib/fluxoArc";
-import { MAP_NEUTRAL_COLOR, mapChoroplethRgb } from "@/lib/mapGradient";
+import { buildEndpointFeatures, polygonCentroid, pontoEAnguloNoArco } from "@/lib/fluxoArc";
+import { MAP_NEUTRAL_COLOR, mapChoroplethGradientCss, mapChoroplethRgb } from "@/lib/mapGradient";
+import { formatPercentual } from "@/lib/format";
 import type { FluxoGeoFeatureCollection } from "@/lib/api";
 import type { SimFluxoEdge } from "@/lib/types";
 
@@ -24,13 +25,21 @@ interface ArcDatum {
 
 type RgbColor = [number, number, number];
 
+/**
+ * design/DESIGN_SYSTEM.md §8.1 — auditoria S1: o design system original nao
+ * previa uma cor de DADO propria pro mapa de fluxos, entao o arco usava
+ * ambar/laranja generico (sem correspondencia com nenhum token). Valores
+ * literais (deck.gl nao le var() do CSS) espelhando --flow-origin/
+ * --flow-destino de app/tokens.css — origem em azul de exposicao
+ * (residencia), destino em vermelho de risco (= --risk-5, ocorrencia).
+ */
 const ARC_COLOR_LIGHT: { source: RgbColor; target: RgbColor } = {
-  source: [251, 191, 36], // amber-400: ponto de partida do fluxo
-  target: [194, 65, 12], // orange-800: ponto de chegada do fluxo
+  source: [79, 134, 179], // --flow-origin claro
+  target: [158, 62, 36], // --flow-destino claro (= --risk-5)
 };
 const ARC_COLOR_DARK: { source: RgbColor; target: RgbColor } = {
-  source: [253, 224, 71], // amber-300
-  target: [251, 113, 36], // orange-500
+  source: [106, 158, 202], // --flow-origin escuro
+  target: [224, 140, 94], // --flow-destino escuro (= --risk-5 escuro)
 };
 
 interface Props {
@@ -40,21 +49,15 @@ interface Props {
   direcao: "origens" | "destinos";
 }
 
-function tileUrl(isDark: boolean): string[] {
-  const base = isDark
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
-  return ["a", "b", "c", "d"].map((s) => base.replace("{s}", s));
-}
-
-function mapStyle(isDark: boolean): maplibregl.StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      carto: { type: "raster", tiles: tileUrl(isDark), tileSize: 256, attribution: "&copy; CARTO &copy; OpenStreetMap" },
-    },
-    layers: [{ id: "carto-tiles", type: "raster", source: "carto" }],
-  };
+/**
+ * Auditoria A6 — ver o mesmo comentario em MapView.tsx: o raster antigo do
+ * CARTO parou de servir tile de verdade sem chave (PNG 200 OK com "API KEY
+ * REQUIRED" escrito por cima). Estilo GL vetorial oficial continua gratuito.
+ */
+function mapStyle(isDark: boolean): string {
+  return isDark
+    ? "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+    : "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 }
 
 /**
@@ -188,7 +191,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       const p = feature.properties as Record<string, unknown>;
       const hasFlow = p.has_flow === true || p.has_flow === "true";
       const obitos = hasFlow ? `<b>${Number(p.obitos).toLocaleString("pt-BR")}</b> obitos` : "Sem fluxo registrado";
-      const part = hasFlow && Number(p.obitos) > 0 ? ` (${(Number(p.participacao) * 100).toFixed(1)}%)` : "";
+      const part = hasFlow && Number(p.obitos) > 0 ? ` (${formatPercentual(Number(p.participacao) * 100)}%)` : "";
       const proprio = p.propria_municipio === true || p.propria_municipio === "true" ? "<br/><span style='opacity:.7'>Proprio municipio</span>" : "";
       const alvo = p.is_alvo === true || p.is_alvo === "true" ? "<br/><span style='color:#f97316;font-weight:600'>Municipio alvo</span>" : "";
       popup.current
@@ -204,7 +207,19 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
 
     const { arcs, endpoints } = buildFlowData(geoData, arestas, codigoAlvo, direcao);
     const arcPalette = dark ? ARC_COLOR_DARK : ARC_COLOR_LIGHT;
-    const maxArcObitos = Math.max(...arcs.map((a) => a.obitos), 1);
+
+    // Auditoria S6/design/DESIGN_SYSTEM.md §8.1: cada arco ganha um
+    // triangulo em --flow-destino a t=0,82 apontando pro destino. No modo
+    // "destinos dos residentes" o sentido do FLUXO inverte (arestas.target
+    // vira o municipio alvo, nao mais o "outro"), entao a seta tem que
+    // apontar pra fora do alvo, no mesmo t — inverte-se o par usado pra
+    // calcular o angulo, sem inverter o arco em si (que ja segue
+    // source/target corretos, ver buildFlowData acima).
+    const setas = arcs.map((arco) => {
+      const [de, para] = direcao === "origens" ? [arco.source, arco.target] : [arco.target, arco.source];
+      const { posicao, anguloGraus } = pontoEAnguloNoArco(de, para, 0.82);
+      return { posicao, anguloGraus, obitos: arco.obitos };
+    });
 
     deckOverlay.current?.setProps({
       layers: [
@@ -218,10 +233,37 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
           getTargetPosition: (d) => d.target,
           getSourceColor: [...arcPalette.source, 210],
           getTargetColor: [...arcPalette.target, 230],
-          getWidth: (d) => 1.5 + 7.5 * (d.obitos / maxArcObitos),
-          getHeight: (d) => 0.5 + 0.7 * (d.obitos / maxArcObitos),
+          // Largura por raiz do volume (largura linear apaga os fluxos
+          // pequenos, que sao justamente os que revelam o alcance da
+          // rede). Altura FIXA e rasa: a altura existe so pra desembaracar
+          // arcos sobrepostos no plano, nao pra efeito tridimensional — um
+          // arco alto rouba a leitura da geografia e sugere que o fluxo
+          // "sobe", o que nao significa nada (era 0,5-1,2 antes, escalado
+          // por obitos; a auditoria S6 pediu 0,15 fixo).
+          getWidth: (d) => Math.sqrt(d.obitos),
+          getHeight: 0.15,
+          getTilt: 0,
           widthMinPixels: 1.5,
-          widthMaxPixels: 9,
+          widthMaxPixels: 12,
+          opacity: 0.55,
+          parameters: { depthCompare: "always" },
+        }),
+        new TextLayer<{ posicao: [number, number]; anguloGraus: number; obitos: number }>({
+          id: "fluxo-setas",
+          data: setas,
+          // O atlas de fonte do TextLayer so gera os caracteres do
+          // characterSet default (basicamente ASCII) — sem declarar "▲"
+          // aqui, o deck.gl loga "Missing character" e nao desenha nada,
+          // silenciosamente (bug real, so aparece no console, nao quebra a
+          // pagina).
+          characterSet: ["▲"],
+          getPosition: (d) => d.posicao,
+          getText: () => "▲",
+          getSize: 13,
+          getAngle: (d) => -d.anguloGraus,
+          getColor: [...arcPalette.target, 235],
+          billboard: true,
+          parameters: { depthCompare: "always" },
         }),
       ],
       getTooltip: ({ object }: { object?: ArcDatum }) => {
@@ -231,7 +273,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
             `<div style="font-family:Inter,system-ui,sans-serif;font-size:12px;line-height:1.6">` +
             `<b>${object.municipio}</b> <span style="opacity:.6">${object.uf}</span>` +
             `<br/><b>${object.obitos.toLocaleString("pt-BR")}</b> obitos` +
-            ` (${(object.participacao * 100).toFixed(1)}%)</div>`,
+            ` (${formatPercentual(object.participacao * 100)}%)</div>`,
           style: {
             backgroundColor: dark ? "#1f2937" : "#ffffff",
             color: dark ? "#f3f4f6" : "#111827",
@@ -281,6 +323,15 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
     }
   }, [geoData, arestas, codigoAlvo, direcao, dark]);
 
+  // Mesmo bug e mesma correcao de MapView.tsx (auditoria B1): addLayers muda
+  // de identidade a cada troca de municipio/direcao/tema, e tinha-lo como
+  // dependencia do efeito de CRIACAO do mapa desmontava e recriava a
+  // instancia inteira a cada interacao — o basemap sumia por alguns
+  // segundos. addLayersRef quebra esse acoplamento; o mapa e criado uma
+  // unica vez, e troca de tema so troca o estilo via setStyle.
+  const addLayersRef = useRef(addLayers);
+  useEffect(() => { addLayersRef.current = addLayers; }, [addLayers]);
+
   useEffect(() => {
     if (!container.current || map.current) return;
     const instance = new maplibregl.Map({
@@ -296,7 +347,7 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
     deckOverlay.current = overlay;
     instance.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
     popup.current = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: "260px" });
-    instance.on("load", addLayers);
+    instance.on("load", () => addLayersRef.current());
     map.current = instance;
     return () => {
       popup.current?.remove();
@@ -304,7 +355,17 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       map.current = null;
       deckOverlay.current = null;
     };
-  }, [addLayers, dark]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const temaMontado = useRef(false);
+  useEffect(() => {
+    if (!temaMontado.current) { temaMontado.current = true; return; }
+    const instance = map.current;
+    if (!instance) return;
+    instance.once("idle", () => addLayersRef.current());
+    instance.setStyle(mapStyle(dark));
+  }, [dark]);
 
   useEffect(() => {
     addLayers();
@@ -315,19 +376,29 @@ export default function FluxoMapView({ geoData, arestas, codigoAlvo, direcao }: 
       <div ref={container} className="h-full w-full" />
       <div
         className="absolute bottom-3 left-3 z-10 rounded-lg px-3 py-2 text-[11px]"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-muted)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}
       >
         <div className="flex items-center gap-2">
+          {/* Auditoria S1: legenda desatualizada — ainda mostrava o
+              gradiente azul->vermelho generico ja substituido pela rampa de
+              risco em mapGradient.ts (auditoria B2). */}
           <span
             className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: "linear-gradient(90deg, rgb(30,64,175) 0%, rgb(185,28,28) 100%)" }}
+            style={{ background: mapChoroplethGradientCss(dark) }}
           />
           Escala de obitos
         </div>
         <div className="mt-1 flex items-center gap-2">
+          {/* Auditoria S1: swatch usava ambar/laranja generico, sem
+              correspondencia com as cores reais do arco (--flow-origin/
+              --flow-destino). */}
           <span
             className="inline-block h-1.5 w-6 rounded-full"
-            style={{ background: "linear-gradient(90deg, #fbbf24 0%, #c2410c 100%)" }}
+            style={{
+              background: dark
+                ? "linear-gradient(90deg, rgb(106,158,202) 0%, rgb(224,140,94) 100%)"
+                : "linear-gradient(90deg, rgb(79,134,179) 0%, rgb(158,62,36) 100%)",
+            }}
           />
           Arco 3D origem &rarr; destino (arraste com botao direito para inclinar)
         </div>

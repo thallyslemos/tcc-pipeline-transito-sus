@@ -1,0 +1,50 @@
+# Producao v1.0 — VPS com DuckDB embedded (Parquet montado read-only).
+# Nao inclui PostgreSQL. Imagens publicadas no GHCR pela tag v*.*.*
+#
+# Pre-requisitos na VPS:
+#   1. Diretorio ./data com gold, silver (opcional) e IBGE — ver docs/DEPLOY_ARTEFATOS.md
+#   2. Arquivo .env.prod (copie de .env.prod.example)
+#   3. Login no GHCR: docker login ghcr.io
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Guia completo: docs/DEPLOY_VPS.md
+
+services:
+  api:
+    image: ghcr.io/thallyslemos/tcc-pipeline-transito-sus-api:${IMAGE_TAG:-1.0.0}
+    environment:
+      APP_ENV: production
+      USE_POSTGRES: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    volumes:
+      - ./data:/app/data:ro
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  web:
+    image: ghcr.io/thallyslemos/tcc-pipeline-transito-sus-web:${IMAGE_TAG:-1.0.0}
+    environment:
+      API_URL: ${API_URL:-http://localhost:8000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped

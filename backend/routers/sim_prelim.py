@@ -65,7 +65,13 @@ def _source(path: Path) -> str:
     return f"read_parquet('{str(path).replace(chr(39), chr(39) * 2)}')"
 
 
-def _where_clauses(*, ano: int | None, uf: str | None, regiao: str | None) -> list[str]:
+def _where_clauses(
+    *,
+    ano: int | None,
+    uf: str | None,
+    regiao: str | None,
+    municipio: str | None = None,
+) -> list[str]:
     clauses = ["1=1"]
     if ano is not None:
         clauses.append(f"ano = {ano}")
@@ -76,6 +82,11 @@ def _where_clauses(*, ano: int | None, uf: str | None, regiao: str | None) -> li
             raise HTTPException(status_code=422, detail="regiao invalida")
         ufs = ", ".join(f"'{state}'" for state in REGIOES[regiao])
         clauses.append(f"uf IN ({ufs})")
+    if municipio:
+        code = "".join(c for c in municipio if c.isdigit())[:6]
+        if len(code) != 6:
+            raise HTTPException(status_code=422, detail="municipio deve ter 6 digitos")
+        clauses.append(f"cod_mun_ibge_6 = '{_text(code)}'")
     return clauses
 
 
@@ -186,11 +197,12 @@ async def summary(
     dimensao: Role = Query("ocorrencia"),
     uf: str | None = Query(None, min_length=2, max_length=2),
     ano: int | None = Query(None, ge=2025, le=2100),
+    municipio: str | None = Query(None, min_length=6, max_length=7),
 ) -> dict:
     path = _prelim_mart_path(dimensao)
     con = get_connection()
     source = _source(path)
-    where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=None))
+    where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=None, municipio=municipio))
 
     total, municipios, extracao = con.sql(
         f"""
@@ -237,6 +249,7 @@ async def municipios(
     dimensao: Role = Query("ocorrencia"),
     uf: str | None = Query(None, min_length=2, max_length=2),
     ano: int | None = Query(None, ge=2025, le=2100),
+    municipio: str | None = Query(None, min_length=6, max_length=7),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ) -> dict:
@@ -244,7 +257,7 @@ async def municipios(
     con = get_connection()
     source = _source(path)
     where = " AND ".join(
-        [*_where_clauses(ano=ano, uf=uf, regiao=None), "geografia_status = 'encontrado'"]
+        [*_where_clauses(ano=ano, uf=uf, regiao=None, municipio=municipio), "geografia_status = 'encontrado'"]
     )
     offset = (page - 1) * page_size
 
@@ -293,6 +306,7 @@ async def completude(
     dimensao: Role = Query("ocorrencia"),
     uf: str | None = Query(None, min_length=2, max_length=2),
     ano: int = Query(..., ge=2025, le=2100),
+    municipio: str | None = Query(None, min_length=6, max_length=7),
 ) -> dict:
     """Indicador de completude por mes: SINAL de maturidade da base, nunca uma
     correcao/extrapolacao da contagem. Ver docs/DADOS_PRELIMINARES.md."""
@@ -300,7 +314,7 @@ async def completude(
     linhas = _completude_query(con, role=dimensao, uf=uf, ano=ano)
     path = _prelim_mart_path(dimensao)
     source = _source(path)
-    where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=None))
+    where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=None, municipio=municipio))
     extracao = con.sql(f"SELECT MAX(data_extracao) FROM {source} WHERE {where}").fetchone()[0]
 
     return {

@@ -8,6 +8,8 @@ outputs
 notebooks
 assets
 docs
+!docs/metadata
+!docs/metadata/**
 analysis
 scripts
 tests

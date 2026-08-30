@@ -1,159 +1,258 @@
-# Deploy em VPS com PostgreSQL
+# Deploy em VPS (v1.0 — DuckDB embedded)
 
-Este guia descreve o fluxo mínimo para servir a API em produção com PostgreSQL
-como camada de dados, sem montar o diretório completo `data/gold/*.parquet`.
+Guia principal para publicar o dashboard e a API em uma VPS Linux com Docker
+Compose. A versão **1.0.0** usa **DuckDB in-process + Parquet** montados no
+container (`USE_POSTGRES=false`) — cobertura completa das páginas (mapa,
+fluxos, temporal, preliminares) com boa performance.
 
-## Pré-requisitos
-
-- Máquina Linux com Docker (opcional) ou PostgreSQL 16+ instalado.
-- Parquets Gold e IBGE gerados localmente (ou em CI) pelo pipeline.
-- Variáveis `DATABASE_URL`, `USE_POSTGRES=true` e `POSTGRES_SCHEMA` (default
-  `public`) na API.
+Para PostgreSQL como serving layer, veja [Alternativa PostgreSQL](#alternativa-postgresql-staging) abaixo.
 
 ---
 
-## Passo a passo completo (local com Docker + API + Postgres)
+## Visão geral
 
-Ordem fixa; cada passo depende do anterior.
+```text
+[Maquina local]  pipeline ETL  -->  data/gold + data/silver + IBGE
+                                        |
+                                   rsync / scp
+                                        v
+[VPS]  GHCR images (api + web)  +  volume ./data:ro  -->  FastAPI + Next.js
+```
 
-1. **Instalar dependências Python** (na raiz do repositório `tcc-pipeline-transito-sus`):
-   ```bash
-   uv sync
-   ```
-
-2. **Gerar Parquet Gold (e IBGE) no disco** — sem isto a carga falha:
-   ```bash
-   uv run python -m data-pipeline.run
-   ```
-   Ou o seu fluxo real (`--real`, `--gold`, etc.) até existirem pelo menos:
-   `data/gold/obitos_ocorrencia_municipio_mes.parquet` (ou legado `obitos_municipio_mes.parquet`),
-   `data/gold/custos_municipio_mes.parquet` se quiser custos, e opcionalmente
-   `data/ibge_municipios.parquet` / `data/ibge_populacao.parquet`.
-
-3. **Subir o PostgreSQL** (exemplo na porta 5433):
-   ```bash
-   docker compose -f docker-compose.postgres.yml up -d
-   ```
-   Aguarde o healthcheck (`pg_isready`) ficar verde (~5–15 s).
-
-4. **Definir a URL de ligação** (ajuste host/porta se necessário):
-   ```bash
-   export DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus
-   ```
-   Opcional: `export POSTGRES_SCHEMA=public` (valor por omissão).
-
-5. **Aplicar todas as migrações** (inclui correções de tipos `BIGINT` para evitar
-   `integer out of range` na carga a partir de Parquet int64):
-   ```bash
-   uv run python db/run_migrations.py
-   ```
-   Se já tinha corrido migrações antigas, **volte a executar este comando** após
-   `git pull` para aplicar ficheiros novos em `db/migrations/*.sql`.
-
-6. **Carregar Parquet → Postgres** (idempotente: `TRUNCATE` + insert):
-   ```bash
-   uv run python -m data-pipeline.run --load-postgres
-   ```
-
-7. **Configurar a API para ler Postgres** — no `.env` na raiz do backend/projeto
-   (ou copie de `.env.example`):
-   ```bash
-   USE_POSTGRES=true
-   DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus
-   POSTGRES_SCHEMA=public
-   ```
-
-8. **Iniciar o backend**:
-   ```bash
-   uv run uvicorn backend.app:app --reload --port 8000
-   ```
-
-9. **Frontend** (opcional): em `frontend/.env.local` mantenha a API alcançável,
-   por exemplo:
-   ```bash
-   NEXT_PUBLIC_API_URL=http://localhost:8000
-   ```
-   Depois: `cd frontend && npm install && npm run dev`.
-
-**Verificação rápida:** `curl -s http://localhost:8000/ | jq` e
-`curl -s "http://localhost:8000/api/dashboard/summary" | jq '.total_obitos'`.
+Artefatos necessários: [DEPLOY_ARTEFATOS.md](DEPLOY_ARTEFATOS.md)
 
 ---
 
-## Passos (resumo produção / VPS)
-
-1. **Criar a base e o utilizador** (exemplo):
-   ```sql
-   CREATE DATABASE transito_sus;
-   CREATE USER transito_api WITH PASSWORD '***';
-   GRANT CONNECT ON DATABASE transito_sus TO transito_api;
-   ```
-
-2. **Aplicar migrações** (na raiz do repositório):
-   ```bash
-   export DATABASE_URL=postgresql://usuario:senha@host:5432/transito_sus
-   uv sync
-   uv run python db/run_migrations.py
-   ```
-
-3. **Carregar dados a partir dos Parquets** (máquina que tem `data/gold`):
-   ```bash
-   export DATABASE_URL=postgresql://usuario:senha@host:5432/transito_sus
-   uv run python -m data-pipeline.run --load-postgres
-   ```
-
-4. **Permissões**: conceder `SELECT` nas views/tabelas ao utilizador só de
-   leitura da API; evitar `SUPERUSER` na aplicação.
-
-5. **Subir a API** com `.env` de produção:
-   ```bash
-   USE_POSTGRES=true
-   DATABASE_URL=postgresql://transito_api:***@host:5432/transito_sus
-   POSTGRES_SCHEMA=public
-   uv run uvicorn backend.app:app --host 0.0.0.0 --port 8000
-   ```
-
-6. **Backup**: agendar `pg_dump` (lógico) e manter os Parquet Gold como
-   arquivo para reconstrução completa da base.
-
-## Compose de exemplo
-
-- [docker-compose.postgres.yml](../docker-compose.postgres.yml): Postgres 16 na
-  porta **5433** (desenvolvimento local ou staging).
-- [docker-compose.test.yml](../docker-compose.test.yml): Postgres na porta
-  **5434** para `pytest` com `TEST_DATABASE_URL`.
+## Fase A — Preparar dados (máquina local)
 
 ```bash
-docker compose -f docker-compose.postgres.yml up -d
+cd tcc-pipeline-transito-sus
+uv sync
+
+# Desenvolvimento rapido (amostra offline)
+uv run python -m data-pipeline.run
+
+# Dados reais (ajuste UFs/anos ao escopo do TCC)
+uv run python -m data-pipeline.run --real --ufs BA --anos 2010-2024
+uv run python -m data-pipeline.run --sim-evidence --silver-v2
+uv run python -m data-pipeline.run --ibge --malhas
+
+# Validar antes de enviar
+uv run python scripts/list_deploy_artifacts.py
+uv run python scripts/list_deploy_artifacts.py --strict
+```
+
+---
+
+## Fase B — Provisionar a VPS
+
+1. **SO:** Ubuntu 22.04 ou 24.04 LTS
+2. **Recursos:** minimo 2 vCPU, 4 GB RAM, 20 GB disco
+3. **Instalar Docker** (Engine + Compose plugin):
+
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   sudo usermod -aG docker $USER
+   # reconecte o SSH
+   docker compose version
+   ```
+
+4. **Firewall:** liberar 22 (SSH), 80 e 443 (HTTP/S). Nao exponha Postgres
+   publicamente se usar a alternativa PostgreSQL.
+5. **Criar diretorio de deploy:**
+
+   ```bash
+   sudo mkdir -p /opt/transito-sus/data
+   sudo chown -R $USER:$USER /opt/transito-sus
+   ```
+
+---
+
+## Fase C — Enviar dados para o servidor
+
+Na maquina local (com Parquet gerado):
+
+```bash
+rsync -avz --progress \
+  --relative \
+  ./data/./gold/sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet \
+  ./data/./gold/sim_v1_obitos_municipio_mes_residencia_v2.parquet \
+  ./data/./gold/sim_prelim_municipio_mes_ocorrencia.parquet \
+  ./data/./gold/sim_prelim_municipio_mes_residencia.parquet \
+  ./data/./gold/frota_municipio_ano.parquet \
+  ./data/./silver/sim_v2_nacional_2010_2024_contract_v2.parquet \
+  ./data/./ibge_municipios.parquet \
+  ./data/./ibge_populacao.parquet \
+  ./data/./ibge_malhas_municipios.geojson \
+  deploy@SEU_VPS:/opt/transito-sus/
+```
+
+Substitua `deploy@SEU_VPS` pelo utilizador e IP/domínio da VPS.
+
+---
+
+## Fase D — Publicar imagens (release Git)
+
+No repositorio, apos merge na `main`:
+
+```bash
+git checkout main && git pull
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+O workflow [`.github/workflows/release.yml`](../.github/workflows/release.yml)
+publica automaticamente no GHCR:
+
+- `ghcr.io/thallyslemos/tcc-pipeline-transito-sus-api:1.0.0`
+- `ghcr.io/thallyslemos/tcc-pipeline-transito-sus-web:1.0.0`
+
+Aguarde o GitHub Actions concluir antes de continuar na VPS.
+
+---
+
+## Fase E — Subir servicos na VPS
+
+```bash
+ssh deploy@SEU_VPS
+cd /opt/transito-sus
+
+# Copiar ficheiros de deploy do repo (ou via git clone minimo)
+curl -fsSLO https://raw.githubusercontent.com/thallyslemos/tcc-pipeline-transito-sus/main/docker-compose.prod.yml
+curl -fsSLO https://raw.githubusercontent.com/thallyslemos/tcc-pipeline-transito-sus/main/.env.prod.example
+cp .env.prod.example .env.prod
+# Edite .env.prod: API_URL, CORS_ORIGINS, IMAGE_TAG
+
+# Login no GHCR (PAT GitHub com read:packages)
+echo SEU_GITHUB_PAT | docker login ghcr.io -u SEU_USUARIO --password-stdin
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+docker compose -f docker-compose.prod.yml ps
+```
+
+Variaveis em `.env.prod`:
+
+| Variavel | Exemplo | Descricao |
+|----------|---------|-----------|
+| `IMAGE_TAG` | `1.0.0` | Tag semver (sem `v`) |
+| `API_URL` | `https://api.seudominio.com` | URL publica da API (browser) |
+| `CORS_ORIGINS` | `https://dashboard.seudominio.com` | Origem do frontend |
+| `WEB_PORT` | `3000` | Porta exposta do Next.js |
+
+---
+
+## Fase F — Nginx + TLS (recomendado)
+
+Exemplo com dois subdominios:
+
+- `dashboard.seudominio.com` -> `127.0.0.1:3000` (web)
+- `api.seudominio.com` -> `127.0.0.1:8000` (api) — publique a porta 8000
+  apenas em localhost adicionando `ports: ["127.0.0.1:8000:8000"]` ao servico
+  `api` se necessario, ou use rede Docker interna com proxy.
+
+```bash
+sudo apt install nginx certbot python3-certbot-nginx
+sudo certbot --nginx -d dashboard.seudominio.com -d api.seudominio.com
+```
+
+Actualize `.env.prod` com URLs `https://` e reinicie:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+---
+
+## Fase G — Verificacao
+
+```bash
+curl -s https://api.seudominio.com/
+curl -s "https://api.seudominio.com/api/sim/summary?ano=2024&uf=BA"
+curl -s "https://api.seudominio.com/api/sim/geo?ano=2024&uf=BA" | head -c 200
+```
+
+No browser: abra `https://dashboard.seudominio.com` — mapa, ranking e pagina
+Sobre devem carregar. O mapa com DuckDB deve responder em sub-segundo apos
+warm-up.
+
+---
+
+## Fase H — Actualizar dados
+
+1. Regenerar Parquet localmente (Fase A).
+2. `rsync` incremental (Fase C).
+3. Reiniciar API:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml restart api
+   ```
+
+---
+
+## Teste local antes da VPS
+
+Com imagens locais (build) ou GHCR:
+
+```bash
+# Build local
+docker build -f Dockerfile.backend -t transito-sus-api:local .
+docker build -f frontend/Dockerfile -t transito-sus-web:local frontend
+
+# Ou use docker-compose.prod.yml apos ajustar IMAGE_TAG e imagens
+cp .env.prod.example .env.prod
+# API_URL=http://localhost:8000  CORS_ORIGINS=http://localhost:3000
+docker compose -f docker-compose.prod.yml --env-file .env.prod up
+```
+
+---
+
+## Alternativa PostgreSQL (staging)
+
+Para testar serving via Postgres (ADR-002) — **nao recomendado para v1.0**
+devido a performance do mapa e rotas Silver ausentes:
+
+[`docker-compose.serving.yml`](../docker-compose.serving.yml)
+
+```bash
+docker compose -f docker-compose.serving.yml up -d postgres
 export DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus
 uv run python db/run_migrations.py
 uv run python -m data-pipeline.run --load-postgres
+docker compose -f docker-compose.serving.yml up --build api web
 ```
 
-## Segurança
+Detalhes: secções PostgreSQL abaixo e [ADR-002](adr/ADR-002_POSTGRES_SERVING.md).
 
-- TLS (`sslmode=require`) quando a base não está na mesma rede privada.
-- Pool e timeouts configurados no proxy (PgBouncer) se o tráfego crescer.
-- Não expor a porta PostgreSQL publicamente sem firewall.
+---
 
-## Resolução de problemas
+## PostgreSQL — referencia (nao usado na v1.0 VPS)
 
-- **`psycopg.errors.NumericValueOutOfRange: integer out of range`** na carga:
-  tipos `INTEGER` (32 bits) no Postgres são demasiado estreitos para alguns
-  valores int64 dos Parquets (`populacao_estimada`, `ano`/`mes` em certos
-  ficheiros, etc.). Corra de novo `uv run python db/run_migrations.py` para
-  aplicar `002_widen_integer_columns.sql` e repita o passo `--load-postgres`.
+### Passo a passo local com Docker + Postgres
 
-- **`cannot alter type of a column used by a view`**: a migração `002` remove
-  temporariamente as views `v_*`, altera as tabelas `gold_*` / `dim_*` e
-  recria as views. Atualize o repositório e volte a correr `db/run_migrations.py`.
+1. `uv sync`
+2. Gerar Parquet Gold
+3. `docker compose -f docker-compose.postgres.yml up -d`
+4. `export DATABASE_URL=postgresql://transito:transito@localhost:5433/transito_sus`
+5. `uv run python db/run_migrations.py`
+6. `uv run python -m data-pipeline.run --load-postgres`
+7. `USE_POSTGRES=true` na API
 
-- **`no schema has been selected to create in`**: costuma ser `POSTGRES_SCHEMA`
-  inválido ou vazio no `.env`, ou sessão sem `search_path` antes do primeiro
-  `CREATE TABLE`. O runner passa `options=-c search_path=<schema>,public` no
-  `psycopg.connect` e sanitiza o nome do schema (apenas `[a-zA-Z0-9_]`).
+### Compose auxiliar
 
-## Referências
+- [`docker-compose.postgres.yml`](../docker-compose.postgres.yml): Postgres 16 porta 5433
+- [`docker-compose.test.yml`](../docker-compose.test.yml): Postgres porta 5434 (pytest)
 
-- [docs/MODELAGEM_DADOS.md](MODELAGEM_DADOS.md)
-- [docs/adr/ADR-002_POSTGRES_SERVING.md](adr/ADR-002_POSTGRES_SERVING.md)
+### Resolucao de problemas (Postgres)
+
+- **`integer out of range` na carga:** reaplique `db/run_migrations.py` (migracao 002).
+- **`cannot alter type of a column used by a view`:** actualize repo e rerun migracoes.
+- **`no schema has been selected`:** verifique `POSTGRES_SCHEMA=public`.
+
+---
+
+## Referencias
+
+- [DEPLOY_ARTEFATOS.md](DEPLOY_ARTEFATOS.md) — lista de ficheiros para rsync
+- [MODELAGEM_DADOS.md](MODELAGEM_DADOS.md)
+- [ADR-002 PostgreSQL](adr/ADR-002_POSTGRES_SERVING.md)

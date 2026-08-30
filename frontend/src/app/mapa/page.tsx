@@ -1,37 +1,60 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
+import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
+import { useRecorte } from "@/lib/url/useRecorte";
 import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
 const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
+// useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
+// do App Router (ver dashboard/page.tsx).
 export default function MapaPage() {
-  const [filters, setFilters] = useState<FilterValues>({ dimensao: "ocorrencia" });
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+          Carregando...
+        </div>
+      }
+    >
+      <MapaContent />
+    </Suspense>
+  );
+}
+
+function MapaContent() {
+  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
-  const [escala, setEscala] = useState<MapScaleMode>("total");
+  // design/DESIGN_SYSTEM.md principio 2 (taxa antes de contagem) — auditoria
+  // B2: o padrao ao abrir a tela era "total" (contagem absoluta, escala
+  // relativa ao recorte filtrado), a unica visao SEM classe fixa validada.
+  const [escala, setEscala] = useState<MapScaleMode>("relative");
   const [loading, setLoading] = useState(true);
 
-  // So auto-seleciona o ultimo ano na carga inicial (ver dashboard/page.tsx).
+  // So auto-seleciona o ultimo ano na carga inicial, e so se nenhum ano ja
+  // estiver definido (ver dashboard/page.tsx pro mesmo guard e o motivo).
   const anoInicializado = useRef(false);
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setFilters((current) => ({ ...current, ano: result.anos.at(-1) }));
+        setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
-  }, [filters.dimensao]);
+  }, [filters.dimensao, setRecorte]);
+
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
@@ -41,15 +64,11 @@ export default function MapaPage() {
     fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
   }, [filters]);
   const change = (key: string, value: string) => {
-    setFilters((current) => {
-      const next = { ...current };
-      if (key === "dimensao") next.dimensao = value === "residencia" ? "residencia" : "ocorrencia";
-      if (key === "ano") next.ano = value ? Number(value) : undefined;
-      if (key === "uf") next.uf = value || undefined;
-      if (key === "regiao") next.regiao = value || undefined;
-      if (key === "tipo_veiculo") next.tipo_veiculo = value || undefined;
-      return next;
-    });
+    if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+    if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+    if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
+    if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
+    if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
   };
   const total = data.reduce((sum, row) => sum + row.valor, 0);
   const vehicleRateAvailable = data.some((row) => row.taxa_obitos_10mil_veiculos != null);
@@ -57,6 +76,19 @@ export default function MapaPage() {
   useEffect(() => {
     if (!vehicleRateAvailable && escala === "vehicle_rate") setEscala("total");
   }, [escala, vehicleRateAvailable]);
+  const chipsRecorte = useMemo(() => {
+    const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
+    if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
+    if (filters.regiao) chips.push({ rotulo: "Região", valor: filters.regiao });
+    chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
+    if (filters.tipo_veiculo) chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
+    return chips;
+  }, [filters]);
+
+  const copiarLinkDoRecorte = () => {
+    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
+  };
+
   const filterDefs = [
     { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
     { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
@@ -68,8 +100,8 @@ export default function MapaPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>Mapa SIM</h1>
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Mapa SIM</h1>
+          <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Obitos por municipio - {formatNumber(total)} no filtro atual
           </p>
         </div>
@@ -77,15 +109,16 @@ export default function MapaPage() {
           filters={filterDefs}
           values={filters as Record<string, string>}
           onChange={change}
-          onReset={() => setFilters({ dimensao: "ocorrencia", ano: anos.at(-1) })}
+          onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />
       </div>
+      <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
       <div className="flex items-center gap-2 text-xs">
         <button
           type="button"
           onClick={() => setEscala("total")}
           className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "total" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "total" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Obitos absolutos
         </button>
@@ -93,7 +126,7 @@ export default function MapaPage() {
           type="button"
           onClick={() => setEscala("relative")}
           className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "relative" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "relative" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 100 mil
         </button>
@@ -103,19 +136,19 @@ export default function MapaPage() {
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
           className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--primary-soft)" : "var(--bg-card)" }}
+          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 10 mil veiculos
         </button>
       </div>
       {!vehicleRateAvailable && (
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi materializado para este recorte.
         </p>
       )}
-      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}>
+      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--fg-muted)" }}>
+          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
             Carregando mapa...
           </div>
         ) : (
@@ -131,7 +164,7 @@ export default function MapaPage() {
           />
         )}
       </div>
-      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--fg-secondary)" }}>
+      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}>
         Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE.
         Os municipios sem registro permanecem no mapa em estado neutro. {municipios.length} municipios disponiveis para consulta.
       </div>

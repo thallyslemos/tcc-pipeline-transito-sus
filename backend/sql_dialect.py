@@ -20,3 +20,10 @@ def expr_round_numeric(expr: str, decimals: int = 2) -> str:
     if analytics_uses_postgres():
         return f"ROUND(({expr})::numeric, {decimals})"
     return f"ROUND({expr}, {decimals})"
+
+
+def expr_null_double() -> str:
+    """NULL tipado como ponto flutuante (DOUBLE no DuckDB; DOUBLE PRECISION no PG)."""
+    if analytics_uses_postgres():
+        return "CAST(NULL AS DOUBLE PRECISION)"
+    return "CAST(NULL AS DOUBLE)"

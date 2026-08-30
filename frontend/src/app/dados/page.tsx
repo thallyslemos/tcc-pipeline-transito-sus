@@ -8,13 +8,13 @@ import {
   fetchSimPopulacaoCobertura,
   fetchSimPrelimMetadata,
 } from "@/lib/api";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatPercentual, formatTaxa100k } from "@/lib/format";
 import type { SimCatalog, SimMunicipio, SimPopulacaoCobertura, SimPrelimMetadata } from "@/lib/types";
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
-  validated: { bg: "var(--success-soft)", fg: "var(--success)" },
-  partial: { bg: "var(--warning-soft)", fg: "var(--warning)" },
-  preliminary: { bg: "var(--warning-soft)", fg: "var(--warning)" },
+  validated: { bg: "var(--ok-soft)", fg: "var(--ok)" },
+  partial: { bg: "var(--attention-soft)", fg: "var(--attention)" },
+  preliminary: { bg: "var(--attention-soft)", fg: "var(--attention)" },
 };
 
 export default function DadosPage() {
@@ -48,10 +48,10 @@ export default function DadosPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-lg font-bold" style={{ color: "var(--fg)" }}>
+        <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
           Dados e metadados
         </h1>
-        <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+        <p className="text-xs" style={{ color: "var(--ink-2)" }}>
           Fontes, cobertura, grao, hashes e consulta paginada dos marts SIM.
         </p>
       </div>
@@ -61,26 +61,26 @@ export default function DadosPage() {
           <article
             key={dataset.id}
             className="rounded-xl p-4"
-            style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
           >
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
                 {dataset.id}
               </h2>
               <span
                 className="rounded-full px-2 py-0.5 text-[10px]"
                 style={{
                   backgroundColor: (STATUS_STYLE[dataset.status] ?? STATUS_STYLE.partial).bg,
-                  color: "var(--fg-secondary)",
+                  color: "var(--ink-2)",
                 }}
               >
                 {dataset.status}
               </span>
             </div>
-            <p className="mt-2 text-xs" style={{ color: "var(--fg-secondary)" }}>
+            <p className="mt-2 text-xs" style={{ color: "var(--ink-2)" }}>
               {dataset.provider} - {dataset.grain ?? "sem grao informado"}
             </p>
-            <p className="mt-1 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+            <p className="mt-1 text-[11px]" style={{ color: "var(--ink-2)" }}>
               Linhas: {dataset.quality?.rows == null ? "N/D" : formatNumber(Number(dataset.quality.rows))} -{" "}
               {dataset.sha256 ? `SHA-256 ${dataset.sha256.slice(0, 12)}...` : "hash nao informado"}
             </p>
@@ -90,25 +90,25 @@ export default function DadosPage() {
           <article
             key={dataset.id}
             className="rounded-xl p-4"
-            style={{ backgroundColor: "var(--bg-card)", border: `1px solid var(--warning)` }}
+            style={{ backgroundColor: "var(--surface)", border: `1px solid var(--attention)` }}
           >
             <div className="flex items-start justify-between gap-3">
-              <h2 className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--fg)" }}>
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: "var(--ink)" }}>
                 {dataset.id}
-                <AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--warning)" }} />
+                <AlertTriangle className="h-3.5 w-3.5" style={{ color: "var(--attention)" }} />
               </h2>
               <span
                 className="rounded-full px-2 py-0.5 text-[10px]"
-                style={{ backgroundColor: "var(--warning-soft)", color: "var(--warning)" }}
+                style={{ backgroundColor: "var(--attention-soft)", color: "var(--attention)" }}
               >
                 preliminary
               </span>
             </div>
-            <p className="mt-2 text-xs" style={{ color: "var(--fg-secondary)" }}>
+            <p className="mt-2 text-xs" style={{ color: "var(--ink-2)" }}>
               {dataset.available ? (dataset.provider ?? "DATASUS/SIM (PRELIM/DORES)") : "Ainda nao ingerido"} -{" "}
               {dataset.grain ?? "sem grao informado"}
             </p>
-            <p className="mt-1 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+            <p className="mt-1 text-[11px]" style={{ color: "var(--ink-2)" }}>
               {dataset.available
                 ? `Obitos: ${formatNumber(dataset.quality?.total_obitos ?? 0)} - extraido ate ${dataset.data_extracao_max ?? "N/D"}`
                 : "Rode data-pipeline/run.py --prelim para popular"}
@@ -119,12 +119,12 @@ export default function DadosPage() {
 
       <section
         className="rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <h2 className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
           Cobertura do denominador populacional (IBGE)
         </h2>
-        <p className="mt-1 text-[11px]" style={{ color: "var(--fg-muted)" }}>
+        <p className="mt-1 text-[11px]" style={{ color: "var(--ink-2)" }}>
           O artefato local de populacao IBGE nao cobre todos os anos para todos os municipios. Quando a
           populacao exata (mesmo municipio e ano) nao existe, a taxa por 100 mil usa a populacao do ano IBGE
           mais proximo do mesmo municipio (nunca interpolada ou projetada) e e marcada como estimada em toda
@@ -132,37 +132,37 @@ export default function DadosPage() {
         </p>
         {popCobertura && popCobertura.total_municipio_ano > 0 ? (
           <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--success-soft)" }}>
-              <p className="text-lg font-bold" style={{ color: "var(--success)" }}>
+            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--ok-soft)" }}>
+              <p className="text-lg font-bold" style={{ color: "var(--ok)" }}>
                 {formatNumber(popCobertura.exata)}
               </p>
-              <p className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>
-                Exata ({((popCobertura.exata / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+              <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
+                Exata ({formatPercentual((popCobertura.exata / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
-            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--warning-soft)" }}>
-              <p className="text-lg font-bold" style={{ color: "var(--warning)" }}>
+            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--attention-soft)" }}>
+              <p className="text-lg font-bold" style={{ color: "var(--attention)" }}>
                 {formatNumber(popCobertura.estimada)}
               </p>
-              <p className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>
-                Estimada ({((popCobertura.estimada / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+              <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
+                Estimada ({formatPercentual((popCobertura.estimada / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
-            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--bg-muted)" }}>
-              <p className="text-lg font-bold" style={{ color: "var(--fg-muted)" }}>
+            <div className="rounded-lg p-3" style={{ backgroundColor: "var(--sunken)" }}>
+              <p className="text-lg font-bold" style={{ color: "var(--ink-2)" }}>
                 {formatNumber(popCobertura.indisponivel)}
               </p>
-              <p className="text-[11px]" style={{ color: "var(--fg-secondary)" }}>
-                Indisponivel (N/D) ({((popCobertura.indisponivel / popCobertura.total_municipio_ano) * 100).toFixed(1)}%)
+              <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
+                Indisponivel (N/D) ({formatPercentual((popCobertura.indisponivel / popCobertura.total_municipio_ano) * 100)}%)
               </p>
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-xs" style={{ color: "var(--fg-muted)" }}>
+          <p className="mt-3 text-xs" style={{ color: "var(--ink-2)" }}>
             Carregando cobertura...
           </p>
         )}
-        <p className="mt-2 text-[10px]" style={{ color: "var(--fg-muted)" }}>
+        <p className="mt-2 text-[10px]" style={{ color: "var(--ink-2)" }}>
           {formatNumber(popCobertura?.total_municipio_ano ?? 0)} pares municipio-ano no total. Base: municipios
           com geografia encontrada no mart SIM-only.
         </p>
@@ -170,7 +170,7 @@ export default function DadosPage() {
 
       <section
         className="rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
         <div className="flex flex-wrap gap-2">
           <select
@@ -181,7 +181,7 @@ export default function DadosPage() {
               setPage(1);
             }}
             className="rounded-lg px-3 py-2 text-sm"
-            style={{ backgroundColor: "var(--bg-card)", color: "var(--fg)", border: "1px solid var(--border)" }}
+            style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
           >
             <option value="ocorrencia">Ocorrencia</option>
             <option value="residencia">Residencia</option>
@@ -194,13 +194,13 @@ export default function DadosPage() {
             }}
             placeholder="Buscar municipio ou codigo"
             className="min-w-0 flex-1 rounded-lg px-3 py-2 text-sm"
-            style={{ backgroundColor: "var(--bg)", color: "var(--fg)", border: "1px solid var(--border)" }}
+            style={{ backgroundColor: "var(--canvas)", color: "var(--ink)", border: "1px solid var(--border)" }}
           />
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead style={{ backgroundColor: "var(--bg-muted)" }}>
-              <tr className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            <thead style={{ backgroundColor: "var(--sunken)" }}>
+              <tr className="text-xs" style={{ color: "var(--ink-2)" }}>
                 <th className="px-3 py-2 text-left">Codigo</th>
                 <th className="px-3 py-2 text-left">Municipio</th>
                 <th className="px-3 py-2 text-left">UF</th>
@@ -216,14 +216,14 @@ export default function DadosPage() {
                   <td className="px-3 py-2">{row.uf}</td>
                   <td className="px-3 py-2 text-right">{formatNumber(row.obitos)}</td>
                   <td className="px-3 py-2 text-right">
-                    {row.taxa_obitos_100mil == null ? "N/D" : row.taxa_obitos_100mil.toFixed(1)}
+                    {row.taxa_obitos_100mil == null ? "N/D" : formatTaxa100k(row.taxa_obitos_100mil)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--fg-muted)" }}>
+        <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "var(--ink-2)" }}>
           <span>
             {total ? `${(page - 1) * 25 + 1}-${Math.min(page * 25, total)} de ${total}` : "Sem dados"}
           </span>
