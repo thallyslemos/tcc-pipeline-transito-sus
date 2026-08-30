@@ -104,3 +104,9 @@ export function lerRecorteSession(): Partial<FilterValues> {
     return {};
   }
 }
+
+/** Telas agregadas (ranking, dashboard, mapa) ignoram municipio do nucleo persistido. */
+export function recorteAgregadoMunicipal(filters: FilterValues): FilterValues {
+  const { municipio: _ignorado, ...resto } = filters;
+  return resto;
+}

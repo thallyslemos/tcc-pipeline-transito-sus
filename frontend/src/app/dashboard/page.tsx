@@ -32,6 +32,7 @@ import {
 import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
+import { recorteAgregadoMunicipal } from "@/lib/url/recorte";
 import { baixarCsv } from "@/lib/exportar/csv";
 import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
@@ -79,6 +80,7 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
+  const consulta = useMemo(() => recorteAgregadoMunicipal(filters), [filters]);
   const [data, setData] = useState<SimSummary | null>(null);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [anos, setAnos] = useState<number[]>([]);
@@ -113,7 +115,7 @@ function DashboardContent() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchSimSummary(filters), fetchSimMunicipios(filters, 1, 200)])
+    Promise.all([fetchSimSummary(consulta), fetchSimMunicipios(consulta, 1, 200)])
       .then(([summary, rows]) => {
         if (cancelled) return;
         setData(summary);
@@ -130,7 +132,7 @@ function DashboardContent() {
     return () => {
       cancelled = true;
     };
-  }, [filters]);
+  }, [consulta]);
 
   useEffect(() => {
     fetchSimPopulacaoCobertura({

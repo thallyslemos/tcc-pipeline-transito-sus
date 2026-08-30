@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hrefComRecorte, lerRecorteDaUrl, serializarRecorte, serializarRecorteNucleo } from "./recorte";
+import { hrefComRecorte, lerRecorteDaUrl, recorteAgregadoMunicipal, serializarRecorte, serializarRecorteNucleo } from "./recorte";
 
 describe("serializarRecorte", () => {
   it("inclui so os campos definidos e nao-vazios", () => {
@@ -66,5 +66,15 @@ describe("hrefComRecorte", () => {
     expect(params.get("uf")).toBe("BA");
     expect(params.has("regiao")).toBe(false);
     expect(params.has("tipo_veiculo")).toBe(false);
+  });
+});
+
+describe("recorteAgregadoMunicipal", () => {
+  it("remove municipio para consultas territoriais", () => {
+    expect(recorteAgregadoMunicipal({ dimensao: "ocorrencia", uf: "CE", ano: 2023, municipio: "2304400" })).toEqual({
+      dimensao: "ocorrencia",
+      uf: "CE",
+      ano: 2023,
+    });
   });
 });
