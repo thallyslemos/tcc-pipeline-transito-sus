@@ -21,7 +21,7 @@ from ..ibge import (
     get_populacao,
     taxa_por_100mil,
 )
-from .utils import Dimensao, Regiao, _escape_sql_literal, _has_view
+from .utils import Dimensao, Regiao, _escape_sql_literal, _has_view, cod6_seguro
 
 router = APIRouter(prefix="/api/indicadores", tags=["Indicadores"])
 
@@ -33,12 +33,6 @@ def _view_obitos_dim(con, dimensao: Dimensao) -> str:
     return "v_obitos"
 
 
-def _cod6_seguro(cod_mun: str) -> str | None:
-    raw = cod_mun.strip()[:6]
-    cod6 = "".join(c for c in raw if c.isdigit())
-    return cod6 if len(cod6) == 6 else None
-
-
 @router.get("/municipio/{cod_mun}")
 async def indicadores_municipio(
     cod_mun: str,
@@ -47,7 +41,7 @@ async def indicadores_municipio(
 ):
     """Indicadores relativos por municipio com dados demograficos."""
     con = get_connection()
-    cod6 = _cod6_seguro(cod_mun)
+    cod6 = cod6_seguro(cod_mun)
     if not cod6:
         return {"error": "codigo de municipio invalido"}
 

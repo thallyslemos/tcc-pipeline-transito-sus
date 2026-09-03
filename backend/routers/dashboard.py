@@ -1,6 +1,6 @@
 """Router para endpoints do dashboard - dados agregados para visualizacao."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..database import get_connection
 from ..sql_dialect import expr_competencia_yyyy_mm, expr_round_numeric
@@ -10,9 +10,11 @@ from .utils import (
     _has_view,
     _ibge_label_exprs,
     _ibge_municipios_join,
+    _literal_sql,
     _sanitize_floats,
     _where,
     _where_and,
+    cod6_seguro,
 )
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
@@ -162,11 +164,12 @@ async def dashboard_summary(
     if uf:
         partes.append(uf)
     if municipio:
+        mun_cod = cod6_seguro(municipio) or municipio
         nome_mun_row = con.sql(
             f"""
             SELECT DISTINCT municipio
             FROM {view_obitos}
-            WHERE cod_mun_ibge = '{municipio}'
+            WHERE cod_mun_ibge = {_literal_sql(mun_cod)}
             LIMIT 1
             """
         ).fetchone()
@@ -246,9 +249,11 @@ async def detalhe_municipio(
 ):
     """Detalhe de um municipio especifico com series temporais."""
     con = get_connection()
-    cod6 = cod_mun[:6]
+    cod6 = cod6_seguro(cod_mun)
+    if not cod6:
+        raise HTTPException(status_code=422, detail="cod_mun_ibge invalido")
     wa = f"AND ano = {ano}" if ano is not None else ""
-    wc = f"LEFT(cod_mun_ibge, 6) = '{cod6}'"
+    wc = f"LEFT(cod_mun_ibge, 6) = {_literal_sql(cod6)}"
     comp_expr = expr_competencia_yyyy_mm("competencia")
 
     view_obitos = f"v_obitos_{dimensao.value}"
@@ -315,8 +320,8 @@ async def serie_diaria_municipio(
 ):
     """Óbitos por dia (Gold diário) e indicadores de concentração temporal (picos)."""
     con = get_connection()
-    cod6 = "".join(c for c in cod_mun.strip()[:6] if c.isdigit())
-    if len(cod6) != 6:
+    cod6 = cod6_seguro(cod_mun)
+    if not cod6:
         return {"error": "codigo de municipio invalido"}
 
     if dimensao != Dimensao.ocorrencia:

@@ -16,12 +16,21 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from backend.database import get_connection
-from backend.routers.utils import REGIOES
+from backend.routers.utils import (
+    REGIOES,
+    _literal_sql,
+    dimensao_segura,
+    ilike_clause,
+    regiao_segura,
+    uf_seguro,
+)
 from backend.sql_dialect import expr_competencia_yyyy_mm
 
 ibge_mod = import_module("data-pipeline.ibge")
 get_populacao = ibge_mod.get_populacao
 taxa_por_100mil = ibge_mod.taxa_por_100mil
+
+_MCP_QUERY_LIMIT = 500
 
 mcp = FastMCP(
     "Transito SUS",
@@ -37,11 +46,49 @@ mcp = FastMCP(
 )
 
 
+def _filtro_clauses(
+    *,
+    municipio: str | None = None,
+    uf: str | None = None,
+    regiao: str | None = None,
+    ano: int | None = None,
+    tipo_veiculo: str | None = None,
+) -> list[str]:
+    clauses: list[str] = []
+    if municipio:
+        part = ilike_clause("municipio", municipio)
+        if part:
+            clauses.append(part)
+    if uf:
+        safe = uf_seguro(uf)
+        if safe:
+            clauses.append(f"uf = {_literal_sql(safe)}")
+    if regiao:
+        reg = regiao_segura(regiao)
+        if reg:
+            ufs_list = REGIOES[reg]
+            if len(ufs_list) == 1:
+                clauses.append(f"uf = {_literal_sql(ufs_list[0])}")
+            else:
+                joined = ", ".join(_literal_sql(u) for u in ufs_list)
+                clauses.append(f"uf IN ({joined})")
+    if ano is not None:
+        clauses.append(f"ano = {int(ano)}")
+    if tipo_veiculo:
+        part = ilike_clause("tipo_veiculo", tipo_veiculo)
+        if part:
+            clauses.append(part)
+    return clauses
+
+
+def _where_sql(clauses: list[str]) -> str:
+    return "WHERE " + " AND ".join(clauses) if clauses else ""
+
+
 @mcp.tool()
 def listar_opcoes_filtro() -> str:
     """Lista os valores possíveis para os filtros de ano, UF, região e tipo de veículo."""
     con = get_connection()
-    # Usamos v_obitos como referencia para anos, ufs e veiculos
     anos = con.sql("SELECT DISTINCT ano FROM v_obitos ORDER BY ano DESC").df()["ano"].tolist()
     ufs = con.sql("SELECT DISTINCT uf FROM v_obitos ORDER BY uf").df()["uf"].tolist()
     veiculos = (
@@ -68,26 +115,16 @@ def query_obitos(
 ) -> str:
     """Consulta óbitos por acidentes de trânsito no SUS."""
     con = get_connection()
-    clauses = []
-    if municipio:
-        clauses.append(f"municipio ILIKE '%{municipio}%'")
-    if uf:
-        clauses.append(f"uf = '{uf.upper()}'")
-    if regiao:
-        ufs_list = REGIOES.get(regiao.title())
-        if ufs_list:
-            if len(ufs_list) == 1:
-                clauses.append(f"uf = '{ufs_list[0]}'")
-            else:
-                clauses.append(f"uf IN {tuple(ufs_list)}")
-    if ano:
-        clauses.append(f"ano = {ano}")
-    if tipo_veiculo:
-        clauses.append(f"tipo_veiculo ILIKE '%{tipo_veiculo}%'")
-
-    where = "WHERE " + " AND ".join(clauses) if clauses else ""
-    # Mapeia dimensao para as views corretas definidas em database.py
-    view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
+    clauses = _filtro_clauses(
+        municipio=municipio,
+        uf=uf,
+        regiao=regiao,
+        ano=ano,
+        tipo_veiculo=tipo_veiculo,
+    )
+    where = _where_sql(clauses)
+    dim = dimensao_segura(dimensao)
+    view = "v_obitos_ocorrencia" if dim == "ocorrencia" else "v_obitos_residencia"
 
     result = con.sql(
         f"""
@@ -114,24 +151,14 @@ def query_custos(
 ) -> str:
     """Consulta custos ambulatoriais de acidentes de trânsito no SUS."""
     con = get_connection()
-    clauses = []
-    if municipio:
-        clauses.append(f"municipio ILIKE '%{municipio}%'")
-    if uf:
-        clauses.append(f"uf = '{uf.upper()}'")
-    if regiao:
-        ufs_list = REGIOES.get(regiao.title())
-        if ufs_list:
-            if len(ufs_list) == 1:
-                clauses.append(f"uf = '{ufs_list[0]}'")
-            else:
-                clauses.append(f"uf IN {tuple(ufs_list)}")
-    if ano:
-        clauses.append(f"ano = {ano}")
-    if tipo_veiculo:
-        clauses.append(f"tipo_veiculo ILIKE '%{tipo_veiculo}%'")
-
-    where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    clauses = _filtro_clauses(
+        municipio=municipio,
+        uf=uf,
+        regiao=regiao,
+        ano=ano,
+        tipo_veiculo=tipo_veiculo,
+    )
+    where = _where_sql(clauses)
 
     result = con.sql(
         f"""
@@ -159,21 +186,18 @@ def query_taxa_mortalidade(
 ) -> str:
     """Calcula taxa de mortalidade por 100 mil habitantes."""
     con = get_connection()
-    clauses = []
-    if municipio:
-        clauses.append(f"municipio ILIKE '%{municipio}%'")
-    if uf:
-        clauses.append(f"uf = '{uf.upper()}'")
-
-    where_clause = " AND ".join(clauses)
-    view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
+    clauses = _filtro_clauses(municipio=municipio, uf=uf, ano=ano)
+    where_clause = " AND ".join(clauses) if clauses else "1=1"
+    dim = dimensao_segura(dimensao)
+    view = "v_obitos_ocorrencia" if dim == "ocorrencia" else "v_obitos_residencia"
 
     rows = con.sql(
         f"""
         SELECT cod_mun_ibge, municipio, SUM(total_obitos) AS obitos
-        FROM {view} WHERE ano = {ano} AND {where_clause if where_clause else '1=1'}
+        FROM {view} WHERE ano = {int(ano)} AND {where_clause}
         GROUP BY cod_mun_ibge, municipio
         ORDER BY obitos DESC
+        LIMIT 50
     """
     ).fetchdf()
 
@@ -198,25 +222,29 @@ def query_serie_temporal(
     """Retorna serie temporal mensal de um municipio."""
     con = get_connection()
     comp = expr_competencia_yyyy_mm("competencia")
+    mun_filter = ilike_clause("municipio", municipio)
+    if not mun_filter:
+        return "Nome de municipio invalido."
     if metrica == "custos":
         result = con.sql(
             f"""
             SELECT {comp} AS mes,
                    ROUND(SUM(custo_total), 2) AS valor
             FROM v_custos
-            WHERE municipio ILIKE '%{municipio}%'
+            WHERE {mun_filter}
             GROUP BY competencia
             ORDER BY competencia
         """
         ).fetchdf()
     else:
-        view = "v_obitos_ocorrencia" if dimensao == "ocorrencia" else "v_obitos_residencia"
+        dim = dimensao_segura(dimensao)
+        view = "v_obitos_ocorrencia" if dim == "ocorrencia" else "v_obitos_residencia"
         result = con.sql(
             f"""
             SELECT {comp} AS mes,
                    SUM(total_obitos) AS valor
             FROM {view}
-            WHERE municipio ILIKE '%{municipio}%'
+            WHERE {mun_filter}
             GROUP BY competencia
             ORDER BY competencia
         """
@@ -231,13 +259,19 @@ def query_serie_temporal(
 def listar_municipios(uf: str | None = None) -> str:
     """Lista os municipios disponiveis na base com totais gerais, opcionalmente por UF."""
     con = get_connection()
-    where = f"WHERE uf = '{uf.upper()}'" if uf else ""
+    clauses: list[str] = []
+    if uf:
+        safe = uf_seguro(uf)
+        if safe:
+            clauses.append(f"uf = {_literal_sql(safe)}")
+    where = _where_sql(clauses)
     result = con.sql(
         f"""
         SELECT municipio, uf, SUM(total_obitos) AS total_obitos
         FROM v_obitos {where}
         GROUP BY municipio, uf
         ORDER BY total_obitos DESC
+        LIMIT {_MCP_QUERY_LIMIT}
     """
     ).fetchdf()
     return result.to_string(index=False)
