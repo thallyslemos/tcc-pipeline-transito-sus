@@ -6,6 +6,7 @@ previsões de 12 meses para óbitos ou custos por município.
 
 from __future__ import annotations
 
+import threading
 from datetime import date
 from typing import Literal
 
@@ -19,6 +20,7 @@ logger = structlog.get_logger(__name__)
 
 _model = None
 _model_loading = False
+_model_lock = threading.Lock()
 
 MIN_HISTORY_MONTHS = 12
 HORIZON = 12
@@ -30,34 +32,37 @@ def _get_model():
     global _model, _model_loading
     if _model is not None:
         return _model
-    if _model_loading:
-        msg = "Modelo TimesFM ainda carregando. Tente novamente em alguns segundos."
-        raise RuntimeError(msg)
+    with _model_lock:
+        if _model is not None:
+            return _model
+        if _model_loading:
+            msg = "Modelo TimesFM ainda carregando. Tente novamente em alguns segundos."
+            raise RuntimeError(msg)
 
-    _model_loading = True
-    try:
-        import timesfm
+        _model_loading = True
+        try:
+            import timesfm
 
-        logger.info("timesfm_carregando", modelo="google/timesfm-1.0-200m-pytorch")
-        hparams = timesfm.TimesFmHparams(
-            context_len=512,
-            horizon_len=HORIZON,
-            per_core_batch_size=32,
-            backend="cpu",
-            quantiles=QUANTILES,
-        )
-        checkpoint = timesfm.TimesFmCheckpoint(
-            version="torch",
-            huggingface_repo_id="google/timesfm-1.0-200m-pytorch",
-        )
-        tfm = timesfm.TimesFm(hparams=hparams, checkpoint=checkpoint)
-        tfm.load_from_checkpoint(checkpoint)
-        logger.info("timesfm_carregado")
-        _model = tfm
-        return _model
-    except Exception:
-        _model_loading = False
-        raise
+            logger.info("timesfm_carregando", modelo="google/timesfm-1.0-200m-pytorch")
+            hparams = timesfm.TimesFmHparams(
+                context_len=512,
+                horizon_len=HORIZON,
+                per_core_batch_size=32,
+                backend="cpu",
+                quantiles=QUANTILES,
+            )
+            checkpoint = timesfm.TimesFmCheckpoint(
+                version="torch",
+                huggingface_repo_id="google/timesfm-1.0-200m-pytorch",
+            )
+            tfm = timesfm.TimesFm(hparams=hparams, checkpoint=checkpoint)
+            tfm.load_from_checkpoint(checkpoint)
+            logger.info("timesfm_carregado")
+            _model = tfm
+            return _model
+        except Exception:
+            _model_loading = False
+            raise
 
 
 def _query_series(

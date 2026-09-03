@@ -14,6 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import close_connection, get_connection
+from .middleware_security import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    validate_production_settings,
+)
 from .routers import (
     dashboard,
     geo,
@@ -25,6 +30,8 @@ from .routers import (
     sim_prelim,
     sim_temporal,
 )
+
+_HEAVY_PATHS = frozenset({"/api/predict", "/api/mcp", "/api/sim/temporal/outliers"})
 
 
 def _setup_logging() -> None:
@@ -68,9 +75,15 @@ def _setup_logging() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Gerencia ciclo de vida: inicializa DuckDB no startup, fecha no shutdown."""
+    validate_production_settings(settings)
     _setup_logging()
     logger = structlog.get_logger("backend")
-    logger.info("backend_iniciando", env=settings.app_env)
+    logger.info(
+        "backend_iniciando",
+        env=settings.app_env,
+        mcp_bridge=settings.mcp_bridge_active,
+        predict=settings.predict_active,
+    )
     get_connection()
     logger.info("backend_pronto", port=settings.backend_port)
     yield
@@ -91,16 +104,24 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["GET"],
-    allow_headers=["*"],
+    allow_headers=["Accept", "Content-Type"],
+)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=settings.rate_limit_rpm,
+    heavy_paths=_HEAVY_PATHS,
 )
 
 app.include_router(dashboard.router)
 app.include_router(geo.router)
 app.include_router(indicadores.router)
-app.include_router(mcp_bridge.router)
-app.include_router(predict.router)
+if settings.mcp_bridge_active:
+    app.include_router(mcp_bridge.router)
+if settings.predict_active:
+    app.include_router(predict.router)
 app.include_router(sim_only.router)
 app.include_router(sim_temporal.router)
 app.include_router(sim_prelim.router)
@@ -114,4 +135,8 @@ async def root():
         "status": "ok",
         "service": "Pipeline Analítico de Acidentes de Trânsito no SUS",
         "version": "0.1.0",
+        "security": {
+            "mcp_bridge": settings.mcp_bridge_active,
+            "predict": settings.predict_active,
+        },
     }
