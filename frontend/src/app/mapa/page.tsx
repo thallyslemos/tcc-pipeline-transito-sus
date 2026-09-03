@@ -7,11 +7,11 @@ import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
 import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { useRecorte } from "@/lib/url/useRecorte";
+import { buildFiltrosAgregados, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
 const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
-const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
 // useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
 // do App Router (ver dashboard/page.tsx).
@@ -30,7 +30,7 @@ export default function MapaPage() {
 }
 
 function MapaContent() {
-  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
+  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
@@ -48,12 +48,13 @@ function MapaContent() {
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
+      registrarAnosDisponiveis(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
         setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
-  }, [filters.dimensao, setRecorte]);
+  }, [filters.dimensao, registrarAnosDisponiveis, setRecorte]);
 
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
@@ -89,13 +90,21 @@ function MapaContent() {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
   };
 
-  const filterDefs = [
-    { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
-    { key: "regiao", label: "Regiao", options: REGIOES.map((value) => ({ value, label: value })), placeholder: "Todas" },
-    { key: "uf", label: "UF", options: ufs.map((value) => ({ value, label: value })), placeholder: "Todas" },
-    { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
-    { key: "tipo_veiculo", label: "Veiculo", options: tipos.map((value) => ({ value, label: value })), placeholder: "Todos" },
-  ];
+  const filterDefs = useMemo(
+    () => buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),
+    [anos, ufs, tipos, filters.uf]
+  );
+
+  const filterValues = useMemo(
+    () =>
+      valoresRecorteFilter(
+        filters,
+        filterDefs.map((f) => f.key),
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+      ),
+    [filters, filterDefs]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -107,7 +116,7 @@ function MapaContent() {
         </div>
         <FilterBar
           filters={filterDefs}
-          values={filters as Record<string, string>}
+          values={filterValues}
           onChange={change}
           onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />

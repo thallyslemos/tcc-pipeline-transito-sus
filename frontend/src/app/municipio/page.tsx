@@ -6,7 +6,9 @@ import ThemedTooltip from "@/components/charts/ThemedTooltip";
 import GraficoMoldura from "@/components/ui/GraficoMoldura";
 import KpiStat from "@/components/ui/KpiStat";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
+import FilterBar from "@/components/filters/FilterBar";
 import { fetchSimAnos, fetchSimMunicipio, fetchSimMunicipios } from "@/lib/api";
+import { buildAnoOptions, buildDimensaoOptions, buildUfOptions, buscarMunicipioFilterOptions } from "@/lib/filtros/buildFilterDefs";
 import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
@@ -29,7 +31,7 @@ export default function MunicipioPage() {
 }
 
 function MunicipioContent() {
-  const { recorte, patchRecorte } = useRecorte();
+  const { recorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const dimensao = recorte.dimensao ?? "ocorrencia";
   const cod = recorte.municipio ?? "";
   const ano = recorte.ano;
@@ -56,17 +58,23 @@ function MunicipioContent() {
   useEffect(() => {
     fetchSimAnos(dimensao).then((result) => {
       setAnos(result.anos);
-      if (!recorte.ano && result.anos.length) {
+      registrarAnosDisponiveis(result.anos);
+      if (recorte.ano != null && !result.anos.includes(recorte.ano)) {
+        patchRecorte({ ano: result.anos.at(-1) });
+      } else if (!recorte.ano && result.anos.length) {
         patchRecorte({ ano: result.anos.at(-1) });
       }
     });
     fetchSimMunicipios({ dimensao, uf: recorte.uf }, 1, 200).then((result) => {
       setMunicipios(result.municipios);
-      if (!cod && result.municipios.length) {
+      const codValido = cod && result.municipios.some((m) => m.cod_mun_ibge === cod);
+      if (cod && !codValido) {
+        patchRecorte({ municipio: undefined });
+      } else if (!cod && result.municipios.length) {
         patchRecorte({ municipio: result.municipios[0].cod_mun_ibge });
       }
     });
-  }, [dimensao, recorte.uf, recorte.ano, cod, patchRecorte]);
+  }, [dimensao, recorte.uf, cod, patchRecorte, registrarAnosDisponiveis, recorte.ano]);
 
   useEffect(() => {
     if (!cod) return;
@@ -87,47 +95,32 @@ function MunicipioContent() {
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <select
-          aria-label="Dimensao"
-          value={dimensao}
-          onChange={(event) =>
-            patchRecorte({ dimensao: event.target.value === "residencia" ? "residencia" : "ocorrencia" })
-          }
-          className="rounded-lg px-3 py-2 text-sm"
-          style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
-        >
-          <option value="ocorrencia">Ocorrencia</option>
-          <option value="residencia">Residencia</option>
-        </select>
-        <select
-          aria-label="Ano"
-          value={ano ?? ""}
-          onChange={(event) => patchRecorte({ ano: event.target.value ? Number(event.target.value) : undefined })}
-          className="rounded-lg px-3 py-2 text-sm"
-          style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
-        >
-          <option value="">Todos</option>
-          {anos.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Municipio"
-          value={cod}
-          onChange={(event) => patchRecorte({ municipio: event.target.value })}
-          className="min-w-[220px] rounded-lg px-3 py-2 text-sm"
-          style={{ backgroundColor: "var(--surface)", color: "var(--ink)", border: "1px solid var(--border)" }}
-        >
-          {municipios.map((row) => (
-            <option key={row.cod_mun_ibge} value={row.cod_mun_ibge}>
-              {row.municipio} ({row.uf})
-            </option>
-          ))}
-        </select>
-      </div>
+      <FilterBar
+        filters={[
+          { key: "dimensao", label: "Dimensao", options: buildDimensaoOptions() },
+          { key: "ano", label: "Ano", options: buildAnoOptions(anos), placeholder: "Todos" },
+          {
+            key: "municipio",
+            label: "Municipio",
+            options: municipios.map((row) => ({
+              value: row.cod_mun_ibge,
+              label: `${row.municipio} (${row.uf})`,
+            })),
+            variant: "combobox",
+            onSearch: (term) => buscarMunicipioFilterOptions(term, dimensao, recorte.uf),
+          },
+        ]}
+        values={{
+          dimensao,
+          ano: ano != null ? String(ano) : "",
+          municipio: cod,
+        }}
+        onChange={(key, value) => {
+          if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+          if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+          if (key === "municipio") patchRecorte({ municipio: value || undefined });
+        }}
+      />
 
       <BarraDeRecorte
         chips={[

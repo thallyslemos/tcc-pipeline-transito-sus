@@ -11,6 +11,7 @@ import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
 import { recorteAgregadoMunicipal } from "@/lib/url/recorte";
+import { buildFiltrosRanking, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import SeloQualidade from "@/components/ui/SeloQualidade";
 import { taxaInstavel } from "@/content/qualidade";
@@ -37,7 +38,7 @@ export default function RankingPage() {
 }
 
 function RankingContent() {
-  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
+  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const consulta = useMemo(() => recorteAgregadoMunicipal(filters), [filters]);
   const [anos, setAnos] = useState<number[]>([]);
   const [rows, setRows] = useState<SimMunicipio[]>([]);
@@ -56,20 +57,13 @@ function RankingContent() {
   useEffect(() => {
     fetchSimAnos(filters.dimensao).then((result) => {
       setAnos(result.anos);
+      registrarAnosDisponiveis(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
         setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
       }
     });
-  }, [filters.dimensao, setRecorte]);
-
-  // Ranking e visao territorial: municipio do nucleo persistido nao deve filtrar a lista.
-  const municipioLimpo = useRef(false);
-  useEffect(() => {
-    if (municipioLimpo.current) return;
-    municipioLimpo.current = true;
-    if (filters.municipio) patchRecorte({ municipio: undefined });
-  }, [filters.municipio, patchRecorte]);
+  }, [filters.dimensao, registrarAnosDisponiveis, setRecorte]);
 
   useEffect(() => {
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => {
@@ -139,16 +133,20 @@ function RankingContent() {
   });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filterDefs = [
-    { key: "dimensao", label: "Dimensao", options: [{ value: "ocorrencia", label: "Ocorrencia" }, { value: "residencia", label: "Residencia" }] },
-    {
-      key: "uf",
-      label: "UF",
-      options: [...new Set([...ufs, ...(filters.uf ? [filters.uf] : [])])].sort().map((value) => ({ value, label: value })),
-      placeholder: "Todas",
-    },
-    { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
-  ];
+  const filterDefs = useMemo(
+    () => buildFiltrosRanking({ anos, ufs, ufSelecionada: filters.uf }),
+    [anos, ufs, filters.uf]
+  );
+
+  const filterValues = useMemo(
+    () =>
+      valoresRecorteFilter(
+        filters,
+        filterDefs.map((f) => f.key),
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+      ),
+    [filters, filterDefs]
+  );
 
   return (
     <div className="space-y-4">
@@ -159,7 +157,7 @@ function RankingContent() {
             Comparacao municipal com denominador explicito - {total} municipios
           </p>
         </div>
-        <FilterBar filters={filterDefs} values={filters as Record<string, string>} onChange={handleChange} onReset={() => { setPage(1); setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) }); }} />
+        <FilterBar filters={filterDefs} values={filterValues} onChange={handleChange} onReset={() => { setPage(1); setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) }); }} />
       </div>
 
       <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
