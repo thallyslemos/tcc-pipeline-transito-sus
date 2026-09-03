@@ -17,7 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
-import { hrefComRecorte } from "@/lib/url/recorte";
+import { hrefComRecorteParaRota } from "@/lib/url/recorte";
 import { useRecorteParaNavegacao } from "@/lib/url/useRecorte";
 
 const NAV_GRUPOS = [
@@ -72,7 +72,7 @@ function SidebarNav({ onClose }: { onClose: () => void }) {
             return (
               <Link
                 key={href}
-                href={hrefComRecorte(href, recorte)}
+                href={hrefComRecorteParaRota(href, recorte)}
                 onClick={onClose}
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
                 style={{

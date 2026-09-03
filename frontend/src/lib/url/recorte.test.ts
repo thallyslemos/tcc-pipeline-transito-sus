@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { hrefComRecorte, lerRecorteDaUrl, recorteAgregadoMunicipal, serializarRecorte, serializarRecorteNucleo } from "./recorte";
+import {
+  hrefComRecorte,
+  hrefComRecorteParaRota,
+  lerRecorteDaUrl,
+  ordenarOpcoesFilter,
+  recorteAgregadoMunicipal,
+  recorteParaRota,
+  sanitizarAno,
+  serializarRecorte,
+  serializarRecorteNucleo,
+} from "./recorte";
 
 describe("serializarRecorte", () => {
   it("inclui so os campos definidos e nao-vazios", () => {
@@ -76,5 +86,70 @@ describe("recorteAgregadoMunicipal", () => {
       uf: "CE",
       ano: 2023,
     });
+  });
+});
+
+describe("sanitizarAno", () => {
+  const anos = [2010, 2011, 2024];
+
+  it("mantem ano valido", () => {
+    expect(sanitizarAno(2024, anos)).toBe(2024);
+  });
+
+  it("corrige ano invalido para o ultimo disponivel", () => {
+    expect(sanitizarAno(2025, anos)).toBe(2024);
+  });
+
+  it("retorna undefined quando fallback undefined", () => {
+    expect(sanitizarAno(2025, anos, "undefined")).toBeUndefined();
+  });
+});
+
+describe("recorteParaRota", () => {
+  it("remove municipio em rotas agregadas", () => {
+    expect(recorteParaRota("/dashboard", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+    });
+  });
+
+  it("corrige ano 2025 ao sair de preliminares para dashboard", () => {
+    expect(
+      recorteParaRota("/dashboard", { dimensao: "ocorrencia", ano: 2025, uf: "BA" }, [2010, 2024])
+    ).toEqual({ dimensao: "ocorrencia", ano: 2024, uf: "BA" });
+  });
+
+  it("aplica piso 2025 em preliminares", () => {
+    expect(recorteParaRota("/preliminares", { dimensao: "ocorrencia", ano: 2024 })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2025,
+    });
+  });
+
+  it("mantem municipio em /municipio", () => {
+    expect(recorteParaRota("/municipio", { dimensao: "ocorrencia", municipio: "2927408", ano: 2024 })).toEqual({
+      dimensao: "ocorrencia",
+      municipio: "2927408",
+      ano: 2024,
+    });
+  });
+});
+
+describe("hrefComRecorteParaRota", () => {
+  it("nao propaga municipio para mapa", () => {
+    expect(hrefComRecorteParaRota("/mapa", { uf: "BA", ano: 2024, municipio: "2927408" })).toBe(
+      "/mapa?dimensao=ocorrencia&uf=BA&ano=2024"
+    );
+  });
+});
+
+describe("ordenarOpcoesFilter", () => {
+  it("ordena por label pt-BR", () => {
+    const sorted = ordenarOpcoesFilter([
+      { value: "SP", label: "SP" },
+      { value: "BA", label: "BA" },
+      { value: "RJ", label: "RJ" },
+    ]);
+    expect(sorted.map((o) => o.value)).toEqual(["BA", "RJ", "SP"]);
   });
 });

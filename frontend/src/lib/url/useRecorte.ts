@@ -9,32 +9,26 @@ import {
   lerRecorteDaUrl,
   lerRecorteNucleo,
   lerRecorteSession,
+  recorteParaRota,
+  recortesEquivalentes,
   salvarRecorteSession,
   serializarRecorte,
 } from "@/lib/url/recorte";
 
-const PRELIM_ANO_MIN = 2025;
-
 function recorteInicial(
   searchParams: URLSearchParams,
+  pathname: string,
   defaults?: Partial<FilterValues>
 ): FilterValues {
   const daUrl = lerRecorteDaUrl(searchParams);
   if (Object.keys(daUrl).length > 0) {
-    return { dimensao: "ocorrencia", ...defaults, ...daUrl };
+    return recorteParaRota(pathname, { dimensao: "ocorrencia", ...defaults, ...daUrl });
   }
   const daSession = lerRecorteSession();
   if (Object.keys(daSession).length > 0) {
-    return { dimensao: "ocorrencia", ...defaults, ...daSession };
+    return recorteParaRota(pathname, { dimensao: "ocorrencia", ...defaults, ...daSession });
   }
-  return { dimensao: "ocorrencia", ...defaults };
-}
-
-function normalizarPreliminares(recorte: FilterValues): FilterValues {
-  if (recorte.ano != null && recorte.ano < PRELIM_ANO_MIN) {
-    return { ...recorte, ano: PRELIM_ANO_MIN };
-  }
-  return recorte;
+  return recorteParaRota(pathname, { dimensao: "ocorrencia", ...defaults });
 }
 
 /**
@@ -42,14 +36,22 @@ function normalizarPreliminares(recorte: FilterValues): FilterValues {
  * Sincroniza URL <-> sessionStorage; paginas extras (regiao, tipo_veiculo) transitam
  * pela URL mas nao entram no nucleo da sidebar.
  */
-export function useRecorte(defaults?: Partial<FilterValues>, opcoes?: { preliminares?: boolean }) {
+export function useRecorte(defaults?: Partial<FilterValues>) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const sessionRestaurada = useRef(false);
+  const anosDisponiveisRef = useRef<number[]>([]);
+  const ignorarProximaUrl = useRef(false);
 
   const [recorte, setRecorteState] = useState<FilterValues>(() =>
-    opcoes?.preliminares ? normalizarPreliminares(recorteInicial(searchParams, defaults)) : recorteInicial(searchParams, defaults)
+    recorteInicial(searchParams, pathname, defaults)
+  );
+
+  const aplicarPolitica = useCallback(
+    (base: FilterValues): FilterValues =>
+      recorteParaRota(pathname, base, anosDisponiveisRef.current),
+    [pathname]
   );
 
   // Primeira visita sem query: restaura sessionStorage na URL.
@@ -60,25 +62,50 @@ export function useRecorte(defaults?: Partial<FilterValues>, opcoes?: { prelimin
     if (Object.keys(daUrl).length > 0) return;
     const daSession = lerRecorteSession();
     if (Object.keys(daSession).length === 0) return;
-    const merged = opcoes?.preliminares
-      ? normalizarPreliminares({ dimensao: "ocorrencia", ...defaults, ...daSession })
-      : ({ dimensao: "ocorrencia" as const, ...defaults, ...daSession } satisfies FilterValues);
-    const query = serializarRecorte(merged).toString();
-    if (query) router.replace(`${pathname}?${query}`, { scroll: false });
-  }, [defaults, opcoes?.preliminares, pathname, router, searchParams]);
+    const merged = aplicarPolitica({ dimensao: "ocorrencia", ...defaults, ...daSession });
+    ignorarProximaUrl.current = true;
+    setRecorteState(merged);
+  }, [aplicarPolitica, defaults, searchParams]);
 
+  // URL externa (back/forward, link colado) -> estado.
+  useEffect(() => {
+    if (ignorarProximaUrl.current) {
+      ignorarProximaUrl.current = false;
+      return;
+    }
+    const daUrl = lerRecorteDaUrl(searchParams);
+    const merged = aplicarPolitica({ dimensao: "ocorrencia", ...defaults, ...daUrl });
+    setRecorteState((prev) => (recortesEquivalentes(prev, merged) ? prev : merged));
+  }, [aplicarPolitica, defaults, searchParams]);
+
+  // Mudanca de rota: reaplica politica (ex.: strip municipio ao ir para dashboard).
+  useEffect(() => {
+    setRecorteState((prev) => {
+      const next = aplicarPolitica(prev);
+      return recortesEquivalentes(prev, next) ? prev : next;
+    });
+  }, [aplicarPolitica]);
+
+  // Estado -> URL + sessionStorage.
   useEffect(() => {
     const query = serializarRecorte(recorte).toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    const atual = searchParams.toString();
+    if (query !== atual) {
+      ignorarProximaUrl.current = true;
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }
     salvarRecorteSession(recorte);
-  }, [recorte, pathname, router]);
+  }, [recorte, pathname, router, searchParams]);
 
-  const setRecorte = useCallback((next: FilterValues | ((prev: FilterValues) => FilterValues)) => {
-    setRecorteState((prev) => {
-      const resolved = typeof next === "function" ? next(prev) : next;
-      return opcoes?.preliminares ? normalizarPreliminares(resolved) : resolved;
-    });
-  }, [opcoes?.preliminares]);
+  const setRecorte = useCallback(
+    (next: FilterValues | ((prev: FilterValues) => FilterValues)) => {
+      setRecorteState((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        return aplicarPolitica(resolved);
+      });
+    },
+    [aplicarPolitica]
+  );
 
   const patchRecorte = useCallback(
     (patch: Partial<FilterValues>) => {
@@ -99,9 +126,21 @@ export function useRecorte(defaults?: Partial<FilterValues>, opcoes?: { prelimin
     [setRecorte]
   );
 
+  /** Chamar apos fetchSimAnos para validar ano contra catalogo consolidado. */
+  const registrarAnosDisponiveis = useCallback(
+    (anos: number[]) => {
+      anosDisponiveisRef.current = anos;
+      setRecorteState((prev) => {
+        const next = aplicarPolitica(prev);
+        return recortesEquivalentes(prev, next) ? prev : next;
+      });
+    },
+    [aplicarPolitica]
+  );
+
   const hrefWithRecorte = useCallback((path: string) => hrefComRecorte(path, recorte), [recorte]);
 
-  return { recorte, setRecorte, patchRecorte, hrefWithRecorte };
+  return { recorte, setRecorte, patchRecorte, hrefWithRecorte, registrarAnosDisponiveis };
 }
 
 /** Hook leve para a Sidebar: le recorte atual da URL ou sessionStorage. */

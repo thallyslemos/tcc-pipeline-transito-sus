@@ -17,6 +17,98 @@ export const STORAGE_KEY_RECORTE = "recorte-v1";
 /** Rotas institucionais — links da sidebar nao carregam query de filtro. */
 export const ROTAS_SEM_RECORTE = ["/sobre", "/dados", "/chat"] as const;
 
+/** Paginas territoriais agregadas — municipio do nucleo nao deve persistir. */
+export const ROTAS_AGREGADAS = ["/dashboard", "/ranking", "/mapa", "/temporal", "/fluxos"] as const;
+
+export const ROTA_PRELIMINARES = "/preliminares";
+export const ROTA_MUNICIPIO = "/municipio";
+
+export const PRELIM_ANO_MIN = 2025;
+
+export interface FilterOption {
+  value: string;
+  label: string;
+}
+
+export function isRotaAgregada(pathname: string): boolean {
+  return ROTAS_AGREGADAS.some((rota) => pathname.startsWith(rota));
+}
+
+export function isRotaPreliminares(pathname: string): boolean {
+  return pathname.startsWith(ROTA_PRELIMINARES);
+}
+
+export function ordenarOpcoesFilter(options: FilterOption[]): FilterOption[] {
+  return [...options].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+
+/** Se ano nao esta no catalogo, usa o ultimo disponivel ou undefined. */
+export function sanitizarAno(
+  ano: number | undefined,
+  anosDisponiveis: number[],
+  fallback: "undefined" | "last" = "last"
+): number | undefined {
+  if (ano == null) return undefined;
+  if (anosDisponiveis.includes(ano)) return ano;
+  if (fallback === "last" && anosDisponiveis.length > 0) return anosDisponiveis.at(-1);
+  return undefined;
+}
+
+/** Politica de recorte por rota (municipio, ano preliminar vs consolidado). */
+export function recorteParaRota(
+  pathname: string,
+  recorte: FilterValues,
+  anosDisponiveis?: number[]
+): FilterValues {
+  let next: FilterValues = { ...recorte };
+
+  if (isRotaAgregada(pathname)) {
+    const { municipio: _ignorado, ...resto } = next;
+    next = resto;
+  }
+
+  if (isRotaPreliminares(pathname)) {
+    if (next.ano != null && next.ano < PRELIM_ANO_MIN) {
+      next = { ...next, ano: PRELIM_ANO_MIN };
+    }
+  } else if (anosDisponiveis && anosDisponiveis.length > 0 && next.ano != null) {
+    next = { ...next, ano: sanitizarAno(next.ano, anosDisponiveis) };
+  }
+
+  return next;
+}
+
+export function hrefComRecorteParaRota(path: string, filters: Partial<FilterValues>): string {
+  if (ROTAS_SEM_RECORTE.some((rota) => path.startsWith(rota))) return path;
+  const ajustado = recorteParaRota(path, { dimensao: "ocorrencia", ...filters });
+  const qs = serializarRecorteNucleo(ajustado).toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export function recortesEquivalentes(a: FilterValues, b: FilterValues): boolean {
+  return serializarRecorte(a).toString() === serializarRecorte(b).toString();
+}
+
+/** Valores do FilterBar sempre como string; omite valores orfaos (sem option). */
+export function valoresFilterBar(
+  recorte: FilterValues,
+  chaves: string[],
+  optionsPorChave: Partial<Record<string, FilterOption[]>>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const chave of chaves) {
+    const bruto = recorte[chave as keyof FilterValues];
+    const str = bruto != null && bruto !== "" ? String(bruto) : "";
+    const options = optionsPorChave[chave];
+    if (str && options && !options.some((o) => o.value === str)) {
+      out[chave] = "";
+    } else {
+      out[chave] = str;
+    }
+  }
+  return out;
+}
+
 export function serializarRecorte(filters: FilterValues): URLSearchParams {
   const params = new URLSearchParams();
   for (const chave of CHAVES_RECORTE) {

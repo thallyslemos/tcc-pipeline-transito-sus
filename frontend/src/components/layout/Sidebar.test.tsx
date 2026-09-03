@@ -1,5 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/lib/url/useRecorte', () => ({
+  useRecorteParaNavegacao: () => ({ dimensao: 'ocorrencia' as const }),
+}));
+
 import Sidebar from './Sidebar';
 
 describe('Sidebar Component', () => {
@@ -23,9 +28,19 @@ describe('Sidebar Component', () => {
     // design/DESIGN_SYSTEM.md §10: "renomeie apenas os rotulos; mantenha os
     // caminhos de rota como estao" — cada link precisa continuar apontando
     // pro href original, so o texto visivel mudou.
-    expect(screen.getByText('Visão geral').closest('a')).toHaveAttribute('href', '/dashboard');
-    expect(screen.getByText('Qualidade e preliminares').closest('a')).toHaveAttribute('href', '/preliminares');
-    expect(screen.getByText('Fluxos entre municípios').closest('a')).toHaveAttribute('href', '/fluxos');
+    // hrefComRecorteParaRota anexa recorte valido (ex.: dimensao default)
+    expect(screen.getByText('Visão geral').closest('a')).toHaveAttribute(
+      'href',
+      '/dashboard?dimensao=ocorrencia'
+    );
+    expect(screen.getByText('Qualidade e preliminares').closest('a')).toHaveAttribute(
+      'href',
+      '/preliminares?dimensao=ocorrencia'
+    );
+    expect(screen.getByText('Fluxos entre municípios').closest('a')).toHaveAttribute(
+      'href',
+      '/fluxos?dimensao=ocorrencia'
+    );
   });
 
   it('should display the logo correctly', () => {
