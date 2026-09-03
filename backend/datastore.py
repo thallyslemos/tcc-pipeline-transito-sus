@@ -125,9 +125,18 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
     gold_dir = Path(settings.resolve(settings.gold_dir))
     custos_path = _gold_path("custos_municipio_mes.parquet")
 
-    ocorrencia_path = gold_dir / "obitos_ocorrencia_municipio_mes.parquet"
-    residencia_path = gold_dir / "obitos_residencia_municipio_mes.parquet"
+    ocorrencia_candidates = (
+        gold_dir / "obitos_ocorrencia_municipio_mes.parquet",
+        gold_dir / "sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet",
+    )
+    residencia_candidates = (
+        gold_dir / "obitos_residencia_municipio_mes.parquet",
+        gold_dir / "sim_v1_obitos_municipio_mes_residencia_v2.parquet",
+    )
     obitos_legacy_path = gold_dir / "obitos_municipio_mes.parquet"
+
+    ocorrencia_path = next((p for p in ocorrencia_candidates if p.exists()), ocorrencia_candidates[0])
+    residencia_path = next((p for p in residencia_candidates if p.exists()), residencia_candidates[0])
 
     if ocorrencia_path.exists():
         con.sql(f"""
@@ -141,10 +150,8 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
             SELECT * FROM read_parquet('{obitos_legacy_path}')
         """)
     else:
-        msg = (
-            "Parquet Gold de óbitos não encontrado. Esperado: "
-            f"{ocorrencia_path} ou {obitos_legacy_path}"
-        )
+        expected = ", ".join(str(p) for p in (*ocorrencia_candidates, obitos_legacy_path))
+        msg = f"Parquet Gold de óbitos não encontrado. Esperado um de: {expected}"
         raise FileNotFoundError(msg)
 
     if residencia_path.exists():
