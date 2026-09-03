@@ -159,6 +159,41 @@ Cada propriedade municipal inclui `cod_mun_ibge`, `municipio`, `uf`, `valor`, `h
 
 Resposta resumida `GET /api/dashboard/municipio/{cod}/serie-diaria`: `serie_diaria_disponivel`, `pontos` (`data`, `obitos`), `resumo` com `total_obitos_ano`, `dia_pico`, `share_obitos_no_dia_pico`, `alerta_concentracao`, limiares; ou `motivo` quando indisponível (residência ou Parquet ausente).
 
+### 3.5 Contrato temporal — série mensal
+
+`GET /api/sim/temporal/serie-mensal` retorna a distribuição mensal de óbitos no recorte filtrado.
+
+**Query:** `dimensao` (ocorrencia|residencia), `ano`, opcionalmente `uf`, `regiao`, `cod_mun_ibge`, `tipo_veiculo`.
+
+**Resposta:**
+
+```json
+{
+  "pontos": [
+    {
+      "competencia": "2024-02",
+      "obitos": 209,
+      "dias_no_mes": 29,
+      "media_diaria": 7.21
+    }
+  ],
+  "resumo": {
+    "total_obitos": 3105,
+    "media_mensal": 258.75,
+    "media_diaria_geral": 8.48,
+    "mes_pico": "2024-01",
+    "mes_pico_media_diaria": 9.12,
+    "meses_com_obito": 12,
+    "classe_concentracao": "difuso"
+  }
+}
+```
+
+- `dias_no_mes`: dias civis do mês (`calendar.monthrange`).
+- `media_diaria`: `obitos / dias_no_mes`, arredondado a 2 casas.
+- `media_diaria_geral`: `total_obitos / soma(dias_no_mes)` no período filtrado.
+- `mes_pico_media_diaria`: média diária do mês com maior contagem absoluta de óbitos.
+
 ### 4.3 Frontend (frontend/src/app/)
 
 | Página | Status | Filtros |

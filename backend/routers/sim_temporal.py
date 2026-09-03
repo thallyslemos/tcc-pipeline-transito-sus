@@ -8,6 +8,7 @@ cientificos usados em /api/sim/fluxos: is_v01_v89=true, qa_status='ok', tipobito
 
 from __future__ import annotations
 
+import calendar
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
@@ -43,6 +44,15 @@ _DIAS_UTEIS = (1, 2, 3, 4, 5)
 
 _DATA_RANGE_MIN = "2010-01-01"
 _DATA_RANGE_MAX = "2024-12-31"
+
+
+def _dias_no_mes(competencia: str) -> int:
+    """Dias civis do mes YYYY-MM."""
+    partes = str(competencia).split("-")
+    if len(partes) < 2:
+        return 30
+    ano, mes = int(partes[0]), int(partes[1])
+    return calendar.monthrange(ano, mes)[1]
 
 
 def _mun_uf_cols(dimensao: Role) -> tuple[str, str, str]:
@@ -149,7 +159,21 @@ async def serie_mensal(
         GROUP BY 1 ORDER BY 1
         """
     ).fetchall()
-    pontos = [{"competencia": str(c), "obitos": int(o)} for c, o in rows]
+    pontos: list[dict] = []
+    total_dias_periodo = 0
+    for c, o in rows:
+        competencia = str(c)
+        obitos = int(o)
+        dias = _dias_no_mes(competencia)
+        total_dias_periodo += dias
+        pontos.append(
+            {
+                "competencia": competencia,
+                "obitos": obitos,
+                "dias_no_mes": dias,
+                "media_diaria": round(obitos / dias, 2) if dias else None,
+            }
+        )
 
     total = sum(p["obitos"] for p in pontos)
     meses_com_obito = len(pontos)
@@ -157,9 +181,11 @@ async def serie_mensal(
     resumo: dict = {
         "total_obitos": total,
         "media_mensal": None,
+        "media_diaria_geral": round(total / total_dias_periodo, 2) if total_dias_periodo else None,
         "desvio_mensal": None,
         "mes_pico": None,
         "share_mes_pico": None,
+        "mes_pico_media_diaria": None,
         "meses_com_obito": meses_com_obito,
         "hhi_mensal": None,
         "classe_concentracao": None,
@@ -181,6 +207,7 @@ async def serie_mensal(
                 "desvio_mensal": round(desvio, 2),
                 "mes_pico": pico["competencia"],
                 "share_mes_pico": round(share_pico, 4),
+                "mes_pico_media_diaria": pico.get("media_diaria"),
                 "hhi_mensal": round(hhi, 4),
                 "classe_concentracao": classe,
                 "alerta": bool(z_pico >= 2.0),

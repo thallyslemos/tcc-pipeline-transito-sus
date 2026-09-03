@@ -138,6 +138,12 @@ export const ajuda = {
     oQueNaoPermiteConcluir:
       "Um município grande pode liderar aqui e não liderar por taxa por 100 mil — ver a tela de Ranking pra comparação por taxa.",
   },
+  media_diaria_mensal: {
+    titulo: "Média diária no mês",
+    oQueMostra: "Óbitos do mês divididos pelos dias civis daquele mês (28 a 31).",
+    comoLer: "Compara meses com durações diferentes — fevereiro deixa de parecer artificialmente mais baixo só por ter menos dias.",
+    oQueNaoPermiteConcluir: "Não é taxa por habitante; ainda é contagem absoluta normalizada pelo calendário.",
+  },
 } as const satisfies Record<string, AjudaEntry>;
 
 export type TermoAjuda = keyof typeof ajuda;

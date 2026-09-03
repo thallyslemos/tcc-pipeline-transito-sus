@@ -40,9 +40,11 @@ def test_serie_mensal_estrutura_do_resumo(client):
     resumo = response.json()["resumo"]
     for key in (
         "media_mensal",
+        "media_diaria_geral",
         "desvio_mensal",
         "mes_pico",
         "share_mes_pico",
+        "mes_pico_media_diaria",
         "meses_com_obito",
         "hhi_mensal",
         "classe_concentracao",
@@ -51,6 +53,19 @@ def test_serie_mensal_estrutura_do_resumo(client):
         assert key in resumo
     assert 0.0 <= resumo["share_mes_pico"] <= 1.0
     assert resumo["classe_concentracao"] in ("concentrado", "difuso")
+
+
+def test_serie_mensal_pontos_tem_media_diaria(client):
+    response = client.get(
+        "/api/sim/temporal/serie-mensal",
+        params={"dimensao": "ocorrencia", "uf": _UF, "ano": _ANO},
+    )
+    assert response.status_code == 200
+    ponto = response.json()["pontos"][0]
+    assert "dias_no_mes" in ponto
+    assert "media_diaria" in ponto
+    assert ponto["dias_no_mes"] >= 28
+    assert ponto["media_diaria"] == round(ponto["obitos"] / ponto["dias_no_mes"], 2)
 
 
 def test_serie_mensal_municipio_pequeno_pode_ser_concentrado(client):
