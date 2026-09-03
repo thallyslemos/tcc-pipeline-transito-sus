@@ -1,5 +1,7 @@
 # Deploy em VPS (v1.0 — DuckDB embedded)
 
+> **Atualização de ambiente (segurança v1.1.0):** ver [ATUALIZACAO_AMBIENTES.md](ATUALIZACAO_AMBIENTES.md) e [SECURITY.md](SECURITY.md).
+
 Guia principal para publicar o dashboard e a API em uma VPS Linux com Docker
 Compose. A versão **1.0.0** usa **DuckDB in-process + Parquet** montados no
 container (`USE_POSTGRES=false`) — cobertura completa das páginas (mapa,
