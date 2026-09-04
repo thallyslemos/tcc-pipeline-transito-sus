@@ -6,6 +6,7 @@ apenas as variáveis que precisa.
 
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -34,9 +35,31 @@ class Settings(BaseSettings):
     database_url: str | None = None
     postgres_schema: str = "public"
 
+    # Segurança (produção: MCP e predict desligados por padrão)
+    mcp_bridge_enabled: bool | None = None
+    predict_enabled: bool | None = None
+    rate_limit_rpm: int = 60
+
+    @field_validator("rate_limit_rpm")
+    @classmethod
+    def _rpm_minimo(cls, v: int) -> int:
+        return max(v, 10)
+
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",")]
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def mcp_bridge_active(self) -> bool:
+        if self.mcp_bridge_enabled is not None:
+            return self.mcp_bridge_enabled
+        return self.app_env != "production"
+
+    @property
+    def predict_active(self) -> bool:
+        if self.predict_enabled is not None:
+            return self.predict_enabled
+        return self.app_env != "production"
 
     @property
     def project_root(self) -> Path:

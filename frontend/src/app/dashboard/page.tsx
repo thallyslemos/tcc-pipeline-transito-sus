@@ -33,11 +33,10 @@ import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
 import { recorteAgregadoMunicipal } from "@/lib/url/recorte";
+import { buildFiltrosAgregados, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import { baixarCsv } from "@/lib/exportar/csv";
 import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
 import type { FilterValues, SimMunicipio, SimPopulacaoCobertura, SimSummary } from "@/lib/types";
-
-const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
 /**
  * Mapeia tipo_veiculo (ate 9 categorias vindas do backend, ver
@@ -79,7 +78,7 @@ export default function DashboardPage() {
 }
 
 function DashboardContent() {
-  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
+  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const consulta = useMemo(() => recorteAgregadoMunicipal(filters), [filters]);
   const [data, setData] = useState<SimSummary | null>(null);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
@@ -101,6 +100,7 @@ function DashboardContent() {
       .then(([years, vehicleTypes]) => {
         setAnos(years.anos);
         setTipos(vehicleTypes.tipos);
+        registrarAnosDisponiveis(years.anos);
         if (!anoInicializado.current && years.anos.length) {
           anoInicializado.current = true;
           // So auto-seleciona se o ano nao veio de lugar nenhum ainda (nem da
@@ -110,7 +110,7 @@ function DashboardContent() {
         }
       })
       .catch(() => setError("Nao foi possivel carregar os filtros do SIM."));
-  }, [filters.dimensao, setRecorte]);
+  }, [filters.dimensao, registrarAnosDisponiveis, setRecorte]);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,30 +246,20 @@ function DashboardContent() {
     });
   }, [data, municipios]);
 
-  const filterDefs = [
-    {
-      key: "dimensao",
-      label: "Dimensao",
-      options: [
-        { value: "ocorrencia", label: "Ocorrencia" },
-        { value: "residencia", label: "Residencia" },
-      ],
-    },
-    {
-      key: "regiao",
-      label: "Regiao",
-      options: REGIOES.map((value) => ({ value, label: value })),
-      placeholder: "Todas",
-    },
-    { key: "uf", label: "UF", options: ufs.map((value) => ({ value, label: value })), placeholder: "Todas" },
-    { key: "ano", label: "Ano", options: anos.map((value) => ({ value: String(value), label: String(value) })) },
-    {
-      key: "tipo_veiculo",
-      label: "Veiculo",
-      options: tipos.map((value) => ({ value, label: value })),
-      placeholder: "Todos",
-    },
-  ];
+  const filterDefs = useMemo(
+    () => buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),
+    [anos, ufs, tipos, filters.uf]
+  );
+
+  const filterValues = useMemo(
+    () =>
+      valoresRecorteFilter(
+        filters,
+        filterDefs.map((f) => f.key),
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+      ),
+    [filters, filterDefs]
+  );
 
   if (loading && !data) {
     return (
@@ -300,7 +290,7 @@ function DashboardContent() {
         </div>
         <FilterBar
           filters={filterDefs}
-          values={filters as Record<string, string>}
+          values={filterValues}
           onChange={handleChange}
           onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
         />

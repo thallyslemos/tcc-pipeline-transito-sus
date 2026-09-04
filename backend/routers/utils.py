@@ -1,6 +1,7 @@
 """Funções utilitárias compartilhadas entre os routers."""
 
 import math
+import re
 from enum import StrEnum
 
 REGIOES = {
@@ -10,6 +11,10 @@ REGIOES = {
     "Sul": ["PR", "RS", "SC"],
     "Centro-Oeste": ["DF", "GO", "MT", "MS"],
 }
+
+ALL_UFS: frozenset[str] = frozenset(uf for ufs in REGIOES.values() for uf in ufs)
+_COD6_RE = re.compile(r"^\d{6}$")
+_UF_RE = re.compile(r"^[A-Za-z]{2}$")
 
 
 class Dimensao(StrEnum):
@@ -28,6 +33,48 @@ class Regiao(StrEnum):
 def _escape_sql_literal(value: str) -> str:
     """Escapa aspas simples para uso seguro dentro de literais SQL interpolados."""
     return value.replace("'", "''")
+
+
+def _literal_sql(value: str) -> str:
+    return f"'{_escape_sql_literal(value)}'"
+
+
+def cod6_seguro(cod_mun: str) -> str | None:
+    """Retorna código IBGE de 6 dígitos ou None se inválido."""
+    cod6 = "".join(c for c in cod_mun.strip()[:7] if c.isdigit())
+    return cod6 if _COD6_RE.match(cod6) else None
+
+
+def uf_seguro(uf: str) -> str | None:
+    """Valida sigla UF contra a lista oficial."""
+    raw = uf.strip().upper()
+    if not _UF_RE.match(raw):
+        return None
+    return raw if raw in ALL_UFS else None
+
+
+def regiao_segura(regiao: str) -> str | None:
+    title = regiao.strip().title()
+    return title if title in REGIOES else None
+
+
+def dimensao_segura(dim: str) -> str:
+    d = dim.strip().lower()
+    return d if d in ("ocorrencia", "residencia") else "ocorrencia"
+
+
+def texto_busca_seguro(value: str, *, max_len: int = 80) -> str | None:
+    """Texto para ILIKE sem wildcards SQL."""
+    cleaned = "".join(c for c in value.strip() if c.isalnum() or c in " -.")
+    cleaned = cleaned[:max_len].strip()
+    return cleaned or None
+
+
+def ilike_clause(column: str, value: str | None, *, max_len: int = 80) -> str | None:
+    term = texto_busca_seguro(value, max_len=max_len) if value else None
+    if not term:
+        return None
+    return f"{column} ILIKE '%{_escape_sql_literal(term)}%'"
 
 
 def _sanitize_floats(rows: list[dict]) -> list[dict]:
@@ -70,6 +117,19 @@ def _ibge_label_exprs(con, table_alias: str = "o") -> tuple[str, str]:
     return (f"MAX({table_alias}.municipio)", f"MAX({table_alias}.uf)")
 
 
+def _mun_clause(field: str, mun: str) -> str:
+    cod = cod6_seguro(mun)
+    value = cod if cod else mun
+    return f"{field} = {_literal_sql(value)}"
+
+
+def _uf_clause(field: str, uf: str) -> str | None:
+    safe = uf_seguro(uf)
+    if not safe:
+        return None
+    return f"{field} = {_literal_sql(safe)}"
+
+
 def _where(
     ano: int | None = None,
     mun: str | None = None,
@@ -82,11 +142,13 @@ def _where(
     if ano is not None:
         clauses.append(f"ano = {ano}")
     if mun:
-        clauses.append(f"cod_mun_ibge = '{_escape_sql_literal(mun)}'")
+        clauses.append(_mun_clause("cod_mun_ibge", mun))
     if veiculo:
-        clauses.append(f"tipo_veiculo = '{_escape_sql_literal(veiculo)}'")
+        clauses.append(f"tipo_veiculo = {_literal_sql(veiculo)}")
     if uf:
-        clauses.append(f"uf = '{_escape_sql_literal(uf)}'")
+        uf_part = _uf_clause("uf", uf)
+        if uf_part:
+            clauses.append(uf_part)
     if regiao:
         ufs_in_region = REGIOES[regiao.value]
         clauses.append(f"uf IN {tuple(ufs_in_region)}")
@@ -104,22 +166,20 @@ def _where_and(
     *,
     uf_expr: str | None = None,
 ) -> str:
-    """Monta filtro como AND para queries com WHERE 1=1.
-
-    uf_expr: expressão SQL completa para filtro geográfico (ex.: COALESCE(ibge.uf, o.uf))
-    quando o rótulo canônico vem do IBGE; padrão: {alias}.uf
-    """
+    """Monta filtro como AND para queries com WHERE 1=1."""
     pref = f"{table_alias}." if table_alias else ""
     uf_sql = uf_expr if uf_expr is not None else f"{pref}uf"
     clauses = []
     if ano is not None:
         clauses.append(f"AND {pref}ano = {ano}")
     if mun:
-        clauses.append(f"AND {pref}cod_mun_ibge = '{mun}'")
+        clauses.append(f"AND {_mun_clause(f'{pref}cod_mun_ibge', mun)}")
     if veiculo:
-        clauses.append(f"AND {pref}tipo_veiculo = '{veiculo}'")
+        clauses.append(f"AND {pref}tipo_veiculo = {_literal_sql(veiculo)}")
     if uf:
-        clauses.append(f"AND {uf_sql} = '{uf}'")
+        uf_part = _uf_clause(uf_sql, uf)
+        if uf_part:
+            clauses.append(f"AND {uf_part}")
     if regiao:
         ufs_in_region = REGIOES[regiao.value]
         clauses.append(f"AND {uf_sql} IN {tuple(ufs_in_region)}")

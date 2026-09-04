@@ -175,7 +175,7 @@ export default function FluxosPage() {
 }
 
 function FluxosContent() {
-  const { recorte, patchRecorte } = useRecorte();
+  const { recorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const ano = recorte.ano;
   const tipoVeiculo = recorte.tipo_veiculo;
 
@@ -195,10 +195,11 @@ function FluxosContent() {
   useEffect(() => {
     fetchSimAnos("ocorrencia").then((r) => {
       setAnos(r.anos);
+      registrarAnosDisponiveis(r.anos);
       if (recorte.ano == null && r.anos.length) patchRecorte({ ano: r.anos.at(-1) });
     });
     fetchSimTipos("ocorrencia").then((r) => setTipos(r.tipos));
-  }, [patchRecorte, recorte.ano]);
+  }, [patchRecorte, recorte.ano, registrarAnosDisponiveis]);
 
   useEffect(() => {
     const codigo = recorte.municipio;

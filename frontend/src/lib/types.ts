@@ -131,14 +131,18 @@ export interface SimFluxoEdge {
 export interface SerieMensalPonto {
   competencia: string;
   obitos: number;
+  dias_no_mes?: number;
+  media_diaria?: number | null;
 }
 
 export interface SerieMensalResumo {
   total_obitos: number;
   media_mensal: number | null;
+  media_diaria_geral: number | null;
   desvio_mensal: number | null;
   mes_pico: string | null;
   share_mes_pico: number | null;
+  mes_pico_media_diaria: number | null;
   meses_com_obito: number;
   hhi_mensal: number | null;
   classe_concentracao: "concentrado" | "difuso" | null;

@@ -28,9 +28,8 @@ import {
 import { formatNumber, formatPValor, formatPercentual } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
+import { buildFiltrosTemporal, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import type { FilterValues, SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
-
-const REGIOES = ["Norte", "Nordeste", "Sudeste", "Sul", "Centro-Oeste"];
 
 // design/DESIGN_SYSTEM.md §2: "percentual com uma casa", sempre pt-BR
 // (virgula) — auditoria A2, .toFixed() sozinho gera separador em ponto.
@@ -71,10 +70,11 @@ export default function TemporalPage() {
 }
 
 function TemporalContent() {
-  const { recorte: filters, setRecorte, patchRecorte } = useRecorte();
+  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
+  const [modoSerieMensal, setModoSerieMensal] = useState<"obitos" | "media_diaria">("obitos");
 
   const [serieMensal, setSerieMensal] = useState<SimSerieMensal | null>(null);
   const [diaSemana, setDiaSemana] = useState<SimDiaSemana | null>(null);
@@ -88,14 +88,17 @@ function TemporalContent() {
   };
 
   useEffect(() => {
-    fetchSimAnos(filters.dimensao).then((r) => setAnos(r.anos));
+    fetchSimAnos(filters.dimensao).then((r) => {
+      setAnos(r.anos);
+      registrarAnosDisponiveis(r.anos);
+    });
     fetchSimTipos(filters.dimensao).then((r) => setTipos(r.tipos));
     // page_size maximo aceito pela API e 200 (acima disso o backend retorna
     // 422 e, sem .catch, o dropdown de UF ficava vazio silenciosamente).
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200)
       .then((r) => setUfs([...new Set(r.municipios.map((m) => m.uf))].sort()))
       .catch(() => setUfs([]));
-  }, [filters.dimensao]);
+  }, [filters.dimensao, registrarAnosDisponiveis]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,9 +139,27 @@ function TemporalContent() {
       (serieMensal?.pontos ?? []).map((p) => ({
         competencia: p.competencia,
         obitos: p.obitos,
+        media_diaria:
+          p.media_diaria ??
+          (p.dias_no_mes && p.dias_no_mes > 0 ? Math.round((p.obitos / p.dias_no_mes) * 100) / 100 : 0),
         pico: p.competencia === serieMensal?.resumo.mes_pico,
       })),
     [serieMensal]
+  );
+
+  const filterDefs = useMemo(
+    () => buildFiltrosTemporal({ anos, ufs, tipos, ufSelecionada: filters.uf }),
+    [anos, ufs, tipos, filters.uf]
+  );
+
+  const filterValues = useMemo(
+    () =>
+      valoresRecorteFilter(
+        filters,
+        filterDefs.map((f) => f.key),
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+      ),
+    [filters, filterDefs]
   );
 
   const diaSemanaChartData = useMemo(
@@ -214,33 +235,8 @@ function TemporalContent() {
         </div>
 
         <FilterBar
-          filters={[
-            { key: "uf", label: "UF", options: ufs.map((v) => ({ value: v, label: v })), placeholder: "Todas" },
-            {
-              key: "regiao",
-              label: "Regiao",
-              options: REGIOES.map((v) => ({ value: v, label: v })),
-              placeholder: "Todas",
-            },
-            {
-              key: "ano",
-              label: "Ano",
-              options: anos.map((a) => ({ value: String(a), label: String(a) })),
-              placeholder: "2010-2024 (completo)",
-            },
-            {
-              key: "tipo_veiculo",
-              label: "Veiculo",
-              options: tipos.map((v) => ({ value: v, label: v })),
-              placeholder: "Todos",
-            },
-          ]}
-          values={{
-            uf: filters.uf ?? "",
-            regiao: filters.regiao ?? "",
-            ano: filters.ano ? String(filters.ano) : "",
-            tipo_veiculo: filters.tipo_veiculo ?? "",
-          }}
+          filters={filterDefs}
+          values={filterValues}
           onChange={(key, value) => {
             if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
             else if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
@@ -282,16 +278,41 @@ function TemporalContent() {
           <Lede rotulo="Panorama do recorte" leitura={leituraSerieMensal} />
 
           {/* KPIs */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiStat
               rotulo="Media mensal"
               valor={serieMensal.resumo.media_mensal != null ? formatNumber(Math.round(serieMensal.resumo.media_mensal)) : "-"}
               denominador={`${serieMensal.resumo.meses_com_obito} meses com registro`}
             />
             <KpiStat
+              rotulo="Media diaria (periodo)"
+              valor={
+                serieMensal.resumo.media_diaria_geral != null
+                  ? serieMensal.resumo.media_diaria_geral.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })
+                  : "-"
+              }
+              denominador="obitos por dia civil no recorte"
+              termoAjuda="media_diaria_mensal"
+            />
+            <KpiStat
               rotulo="Mes de pico"
               valor={serieMensal.resumo.mes_pico ?? "-"}
               denominador={`${pct(serieMensal.resumo.share_mes_pico)} do total no mes de pico`}
+            />
+            <KpiStat
+              rotulo="Media diaria no pico"
+              valor={
+                serieMensal.resumo.mes_pico_media_diaria != null
+                  ? serieMensal.resumo.mes_pico_media_diaria.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    })
+                  : "-"
+              }
+              denominador="obitos/dia no mes de maior contagem"
             />
             <KpiStat
               rotulo="Razao fim de semana / dia util"
@@ -316,6 +337,25 @@ function TemporalContent() {
           </div>
 
           {/* Serie mensal */}
+          <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
+            <span>Serie mensal:</span>
+            <button
+              type="button"
+              className="rounded-lg px-3 py-1.5"
+              style={{ backgroundColor: modoSerieMensal === "obitos" ? "var(--brand-soft)" : "var(--surface)" }}
+              onClick={() => setModoSerieMensal("obitos")}
+            >
+              Contagem absoluta
+            </button>
+            <button
+              type="button"
+              className="rounded-lg px-3 py-1.5"
+              style={{ backgroundColor: modoSerieMensal === "media_diaria" ? "var(--brand-soft)" : "var(--surface)" }}
+              onClick={() => setModoSerieMensal("media_diaria")}
+            >
+              Media por dia no mes
+            </button>
+          </div>
           <GraficoMoldura medidaId="serie_mensal_obitos" leitura={leituraSerieMensal} proveniencia={proveniencia}>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={serieChartData}>
@@ -329,9 +369,22 @@ function TemporalContent() {
                 />
                 <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
                 <ThemedTooltip
-                  formatter={(value: number) => [formatNumber(value), "Obitos"]}
+                  formatter={(value: number, _name: string, item: { payload?: { obitos?: number; media_diaria?: number } }) => {
+                    const row = item?.payload as { obitos?: number; media_diaria?: number } | undefined;
+                    if (modoSerieMensal === "media_diaria" && row?.obitos != null) {
+                      return [
+                        `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} /dia (${formatNumber(row.obitos)} obitos)`,
+                        "Media diaria",
+                      ];
+                    }
+                    return [formatNumber(value), "Obitos"];
+                  }}
                 />
-                <Bar dataKey="obitos" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                <Bar
+                  dataKey={modoSerieMensal === "media_diaria" ? "media_diaria" : "obitos"}
+                  radius={[3, 3, 0, 0]}
+                  isAnimationActive={false}
+                >
                   {serieChartData.map((entry, i) => (
                     <Cell key={i} fill={entry.pico ? "var(--risk-5)" : "var(--hairline)"} />
                   ))}

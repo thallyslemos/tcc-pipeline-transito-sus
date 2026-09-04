@@ -27,6 +27,14 @@ import {
 } from "@/lib/api";
 import { formatNumber, formatPercentual } from "@/lib/format";
 import { useRecorte } from "@/lib/url/useRecorte";
+import { PRELIM_ANO_MIN } from "@/lib/url/recorte";
+import {
+  buildAnoOptions,
+  buildDimensaoOptions,
+  buildUfOptions,
+  buscarMunicipioFilterOptions,
+  valoresRecorteFilter,
+} from "@/lib/filtros/buildFilterDefs";
 import type {
   SimPrelimCompletude,
   SimPrelimMunicipio,
@@ -115,7 +123,7 @@ export default function PreliminaresPage() {
 }
 
 function PreliminaresContent() {
-  const { recorte, patchRecorte } = useRecorte(undefined, { preliminares: true });
+  const { recorte, patchRecorte } = useRecorte();
   const dimensao = recorte.dimensao ?? "ocorrencia";
   const uf = recorte.uf;
   const ano = recorte.ano ?? PRELIM_ANOS[0];
@@ -208,36 +216,49 @@ function PreliminaresContent() {
     ? `Consolidado ${ANO_CONSOLIDADO_REF}${nomeMunicipio ? ` · ${nomeMunicipio}` : ""}`
     : `Consolidado ${ANO_CONSOLIDADO_REF}${uf ? ` · ${uf}` : ""}`;
 
-  const filterDefs = [
-    {
-      key: "uf",
-      label: "UF",
-      options: ufs.map((v) => ({ value: v, label: v })),
-      placeholder: "Todas",
-    },
-    {
-      key: "municipio",
-      label: "Municipio",
-      options: municipiosOpcoes.map((m) => ({
-        value: m.cod_mun_ibge,
-        label: `${m.municipio} (${m.uf})`,
-      })),
-      placeholder: "Todos",
-    },
-    {
-      key: "ano",
-      label: "Ano preliminar",
-      options: PRELIM_ANOS.map((a) => ({ value: String(a), label: String(a) })),
-    },
-    {
-      key: "dimensao",
-      label: "Dimensao",
-      options: [
-        { value: "ocorrencia", label: "Ocorrencia" },
-        { value: "residencia", label: "Residencia" },
-      ],
-    },
-  ];
+  const filterDefs = useMemo(
+    () => [
+      {
+        key: "uf",
+        label: "UF",
+        options: buildUfOptions(ufs),
+        placeholder: "Todas",
+        variant: "combobox" as const,
+      },
+      {
+        key: "municipio",
+        label: "Municipio",
+        options: municipiosOpcoes.map((m) => ({
+          value: m.cod_mun_ibge,
+          label: `${m.municipio} (${m.uf})`,
+        })),
+        placeholder: "Todos",
+        variant: "combobox" as const,
+        onSearch: (term: string) => buscarMunicipioFilterOptions(term, dimensao, uf),
+      },
+      {
+        key: "ano",
+        label: "Ano preliminar",
+        options: buildAnoOptions(PRELIM_ANOS),
+      },
+      {
+        key: "dimensao",
+        label: "Dimensao",
+        options: buildDimensaoOptions(),
+      },
+    ],
+    [dimensao, municipiosOpcoes, uf, ufs]
+  );
+
+  const filterValues = useMemo(
+    () =>
+      valoresRecorteFilter(
+        { dimensao, uf, municipio, ano },
+        filterDefs.map((f) => f.key),
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+      ),
+    [ano, dimensao, filterDefs, municipio, uf]
+  );
 
   return (
     <div className="space-y-4">
@@ -276,13 +297,13 @@ function PreliminaresContent() {
         className="flex flex-wrap items-end gap-4 rounded-xl p-4"
         style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
       >
-        <FilterBar
+        <FilterBar<"uf" | "municipio" | "ano" | "dimensao">
           filters={filterDefs}
-          values={{ uf: uf ?? "", municipio: municipio ?? "", ano: String(ano), dimensao }}
+          values={{ ...filterValues, ano: String(ano), dimensao }}
           onChange={(key, value) => {
             if (key === "uf") patchRecorte({ uf: value || undefined, municipio: undefined });
             if (key === "municipio") patchRecorte({ municipio: value || undefined });
-            if (key === "ano") patchRecorte({ ano: value ? Number(value) : PRELIM_ANOS[0] });
+            if (key === "ano") patchRecorte({ ano: value ? Number(value) : PRELIM_ANO_MIN });
             if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
           }}
         />
