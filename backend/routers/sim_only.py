@@ -185,6 +185,7 @@ def _where_clauses(
     uf: str | None = None,
     regiao: str | None = None,
     tipo_veiculo: str | None = None,
+    municipio: str | None = None,
     require_geografia: bool = False,
 ) -> list[str]:
     """Monta filtros SQL controlados para consultas do mart SIM."""
@@ -209,6 +210,14 @@ def _where_clauses(
         cleaned = _text(tipo_veiculo)
         if cleaned:
             clauses.append(f"tipo_veiculo = '{cleaned}'")
+    if municipio:
+        code = "".join(c for c in municipio if c.isdigit())[:6]
+        if code:
+            clauses.append(f"cod_mun_ibge_6 = '{code}'")
+        else:
+            cleaned = _text(municipio)
+            if cleaned:
+                clauses.append(f"LOWER(municipio) = LOWER('{cleaned}')")
     return clauses
 
 
@@ -332,9 +341,18 @@ async def summary(
     uf: str | None = Query(None, min_length=2, max_length=2),
     regiao: str | None = Query(None),
     tipo_veiculo: str | None = Query(None, max_length=80),
+    municipio: str | None = Query(None, min_length=1, max_length=80),
 ) -> dict:
     con = get_connection()
-    where = " AND ".join(_where_clauses(ano=ano, uf=uf, regiao=regiao, tipo_veiculo=tipo_veiculo))
+    where = " AND ".join(
+        _where_clauses(
+            ano=ano,
+            uf=uf,
+            regiao=regiao,
+            tipo_veiculo=tipo_veiculo,
+            municipio=municipio,
+        )
+    )
     source = _source_for_role(_role(dimensao))
     total, municipios, inicio, fim = con.sql(
         f"""

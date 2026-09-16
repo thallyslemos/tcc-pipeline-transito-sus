@@ -106,10 +106,23 @@ describe("sanitizarAno", () => {
 });
 
 describe("recorteParaRota", () => {
-  it("remove municipio em rotas agregadas", () => {
+  it("remove municipio em rotas agregadas (mapa, temporal, fluxos)", () => {
+    expect(recorteParaRota("/mapa", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+    });
+  });
+
+  it("preserva municipio em dashboard e ranking", () => {
     expect(recorteParaRota("/dashboard", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
       dimensao: "ocorrencia",
       ano: 2024,
+      municipio: "2927408",
+    });
+    expect(recorteParaRota("/ranking", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+      municipio: "2927408",
     });
   });
 

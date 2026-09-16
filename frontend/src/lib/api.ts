@@ -30,6 +30,7 @@ function simQuery(filters: FilterValues = {}): string {
   if (filters.regiao) params.set("regiao", filters.regiao);
   if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
   if (filters.dimensao) params.set("dimensao", filters.dimensao);
+  if (filters.municipio) params.set("municipio", filters.municipio);
   const query = params.toString();
   return query ? `?${query}` : "";
 }

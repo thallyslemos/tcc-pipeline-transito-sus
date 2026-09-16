@@ -36,6 +36,7 @@ function MunicipioContent() {
   const cod = recorte.municipio ?? "";
   const ano = recorte.ano;
   const [anos, setAnos] = useState<number[]>([]);
+  const [ufs, setUfs] = useState<string[]>([]);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [detail, setDetail] = useState<SimMunicipioDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,16 +66,22 @@ function MunicipioContent() {
         patchRecorte({ ano: result.anos.at(-1) });
       }
     });
+  }, [dimensao, patchRecorte, registrarAnosDisponiveis, recorte.ano]);
+
+  useEffect(() => {
+    fetchSimMunicipios({ dimensao }, 1, 200).then((result) => {
+      setUfs([...new Set(result.municipios.map((row) => row.uf))].sort());
+    });
+  }, [dimensao]);
+
+  useEffect(() => {
     fetchSimMunicipios({ dimensao, uf: recorte.uf }, 1, 200).then((result) => {
       setMunicipios(result.municipios);
-      const codValido = cod && result.municipios.some((m) => m.cod_mun_ibge === cod);
-      if (cod && !codValido) {
-        patchRecorte({ municipio: undefined });
-      } else if (!cod && result.municipios.length) {
+      if (!cod && result.municipios.length) {
         patchRecorte({ municipio: result.municipios[0].cod_mun_ibge });
       }
     });
-  }, [dimensao, recorte.uf, cod, patchRecorte, registrarAnosDisponiveis, recorte.ano]);
+  }, [dimensao, recorte.uf, cod, patchRecorte]);
 
   useEffect(() => {
     if (!cod) return;
@@ -83,6 +90,20 @@ function MunicipioContent() {
       .then(setDetail)
       .finally(() => setLoading(false));
   }, [cod, ano, dimensao]);
+
+  const municipioOptions = useMemo(() => {
+    const list = municipios.map((row) => ({
+      value: row.cod_mun_ibge,
+      label: `${row.municipio} (${row.uf})`,
+    }));
+    if (detail && !list.some((o) => o.value === detail.cod_mun_ibge)) {
+      list.unshift({
+        value: detail.cod_mun_ibge,
+        label: `${detail.municipio} (${detail.uf})`,
+      });
+    }
+    return list;
+  }, [municipios, detail]);
 
   return (
     <div className="space-y-5">
@@ -98,35 +119,43 @@ function MunicipioContent() {
       <FilterBar
         filters={[
           { key: "dimensao", label: "Dimensao", options: buildDimensaoOptions() },
-          { key: "ano", label: "Ano", options: buildAnoOptions(anos), placeholder: "Todos" },
+          {
+            key: "uf",
+            label: "UF",
+            options: buildUfOptions([...new Set([...ufs, ...(recorte.uf ? [recorte.uf] : [])])]),
+            placeholder: "Todas",
+            variant: "combobox",
+          },
           {
             key: "municipio",
             label: "Municipio",
-            options: municipios.map((row) => ({
-              value: row.cod_mun_ibge,
-              label: `${row.municipio} (${row.uf})`,
-            })),
+            options: municipioOptions,
             variant: "combobox",
             onSearch: (term) => buscarMunicipioFilterOptions(term, dimensao, recorte.uf),
           },
+          { key: "ano", label: "Ano", options: buildAnoOptions(anos), placeholder: "Todos" },
         ]}
         values={{
           dimensao,
-          ano: ano != null ? String(ano) : "",
+          uf: recorte.uf ?? "",
           municipio: cod,
+          ano: ano != null ? String(ano) : "",
         }}
         onChange={(key, value) => {
           if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
-          if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
+          if (key === "uf") patchRecorte({ uf: value || undefined });
           if (key === "municipio") patchRecorte({ municipio: value || undefined });
+          if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
         }}
+        onReset={() => patchRecorte({ dimensao: "ocorrencia", uf: undefined, ano: anos.at(-1) })}
       />
 
       <BarraDeRecorte
         chips={[
           { rotulo: "Dimensão", valor: dimensao === "residencia" ? "Residência" : "Ocorrência" },
-          { rotulo: "Ano", valor: ano ? String(ano) : "Todos" },
+          ...(recorte.uf ? [{ rotulo: "UF", valor: recorte.uf }] : []),
           ...(detail ? [{ rotulo: "Município", valor: `${detail.municipio} (${detail.uf})` }] : []),
+          { rotulo: "Ano", valor: ano ? String(ano) : "Todos" },
         ]}
         n={detail?.total_obitos ?? 0}
         aoClicarLink={copiarLinkDoRecorte}

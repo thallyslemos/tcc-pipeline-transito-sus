@@ -303,3 +303,24 @@ def test_sim_geo_exposes_vehicle_rate_contract_without_zero_fallback(client):
         and feature["properties"]["taxa_obitos_10mil_veiculos"] is None
         for feature in historical.json()["features"]
     )
+
+
+def test_sim_summary_filtro_municipio(client):
+    # Summary estadual
+    r_ba = client.get(
+        "/api/sim/summary",
+        params={"dimensao": "ocorrencia", "ano": 2024, "uf": "BA"},
+    )
+    assert r_ba.status_code == 200
+    total_ba = r_ba.json()["total_obitos"]
+
+    # Summary filtrado por município de Salvador (2927408)
+    r_ssa = client.get(
+        "/api/sim/summary",
+        params={"dimensao": "ocorrencia", "ano": 2024, "uf": "BA", "municipio": "2927408"},
+    )
+    assert r_ssa.status_code == 200
+    d_ssa = r_ssa.json()
+    assert d_ssa["municipios"] == 1
+    assert 0 < d_ssa["total_obitos"] < total_ba
+

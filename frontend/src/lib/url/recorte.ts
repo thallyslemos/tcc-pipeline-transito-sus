@@ -18,7 +18,7 @@ export const STORAGE_KEY_RECORTE = "recorte-v1";
 export const ROTAS_SEM_RECORTE = ["/sobre", "/dados", "/chat"] as const;
 
 /** Paginas territoriais agregadas — municipio do nucleo nao deve persistir. */
-export const ROTAS_AGREGADAS = ["/dashboard", "/ranking", "/mapa", "/temporal", "/fluxos"] as const;
+export const ROTAS_AGREGADAS = ["/mapa", "/temporal", "/fluxos"] as const;
 
 export const ROTA_PRELIMINARES = "/preliminares";
 export const ROTA_MUNICIPIO = "/municipio";
@@ -100,7 +100,9 @@ export function valoresFilterBar(
     const bruto = recorte[chave as keyof FilterValues];
     const str = bruto != null && bruto !== "" ? String(bruto) : "";
     const options = optionsPorChave[chave];
-    if (str && options && !options.some((o) => o.value === str)) {
+    if (chave === "municipio") {
+      out[chave] = str;
+    } else if (str && options && !options.some((o) => o.value === str)) {
       out[chave] = "";
     } else {
       out[chave] = str;

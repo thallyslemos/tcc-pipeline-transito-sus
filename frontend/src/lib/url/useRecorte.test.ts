@@ -32,7 +32,19 @@ describe("useRecorte", () => {
     expect(result.current.recorte.ano).toBe(2024);
   });
 
-  it("nao mantem municipio ao navegar para rota agregada", () => {
+  it("nao mantem municipio ao navegar para rota agregada (/mapa)", () => {
+    searchParams = new URLSearchParams(
+      "dimensao=ocorrencia&uf=BA&ano=2024&municipio=2927408"
+    );
+    pathname = "/mapa";
+
+    const { result } = renderHook(() => useRecorte());
+
+    expect(result.current.recorte.municipio).toBeUndefined();
+    expect(result.current.recorte.uf).toBe("BA");
+  });
+
+  it("mantem municipio ao navegar para ranking ou dashboard", () => {
     searchParams = new URLSearchParams(
       "dimensao=ocorrencia&uf=BA&ano=2024&municipio=2927408"
     );
@@ -40,7 +52,7 @@ describe("useRecorte", () => {
 
     const { result } = renderHook(() => useRecorte());
 
-    expect(result.current.recorte.municipio).toBeUndefined();
+    expect(result.current.recorte.municipio).toBe("2927408");
     expect(result.current.recorte.uf).toBe("BA");
   });
 

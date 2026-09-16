@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 import { ordenarOpcoesFilter, type FilterOption } from "@/lib/url/recorte";
@@ -24,7 +24,14 @@ export default function FilterCombobox({
   onChange,
   onSearch,
 }: Props) {
-  const sorted = ordenarOpcoesFilter(options);
+  const [selectedOption, setSelectedOption] = useState<FilterOption | null>(null);
+  const sorted = useMemo(() => {
+    const list =
+      selectedOption && selectedOption.value === value && !options.some((o) => o.value === value)
+        ? [...options, selectedOption]
+        : options;
+    return ordenarOpcoesFilter(list);
+  }, [options, selectedOption, value]);
   const selected = sorted.find((o) => o.value === value);
   const [search, setSearch] = useState(selected?.label ?? "");
   const [open, setOpen] = useState(false);
@@ -35,8 +42,13 @@ export default function FilterCombobox({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setSearch(selected?.label ?? "");
-  }, [selected?.label]);
+    if (selected?.label) {
+      setSearch(selected.label);
+    } else if (!value) {
+      setSearch("");
+      setSelectedOption(null);
+    }
+  }, [selected?.label, value]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -82,9 +94,11 @@ export default function FilterCombobox({
 
   const selecionar = (opt: FilterOption | null) => {
     if (!opt || opt.value === "") {
+      setSelectedOption(null);
       onChange("");
       setSearch("");
     } else {
+      setSelectedOption(opt);
       onChange(opt.value);
       setSearch(opt.label);
     }

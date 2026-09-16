@@ -32,7 +32,6 @@ import {
 import { formatNumber, formatPercentual, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
-import { recorteAgregadoMunicipal } from "@/lib/url/recorte";
 import { buildFiltrosAgregados, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import { baixarCsv } from "@/lib/exportar/csv";
 import { nomeArquivoExportacao } from "@/lib/exportar/nomeArquivo";
@@ -79,7 +78,6 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
-  const consulta = useMemo(() => recorteAgregadoMunicipal(filters), [filters]);
   const [data, setData] = useState<SimSummary | null>(null);
   const [municipios, setMunicipios] = useState<SimMunicipio[]>([]);
   const [anos, setAnos] = useState<number[]>([]);
@@ -115,7 +113,7 @@ function DashboardContent() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchSimSummary(consulta), fetchSimMunicipios(consulta, 1, 200)])
+    Promise.all([fetchSimSummary(filters), fetchSimMunicipios(filters, 1, 200)])
       .then(([summary, rows]) => {
         if (cancelled) return;
         setData(summary);
@@ -132,7 +130,7 @@ function DashboardContent() {
     return () => {
       cancelled = true;
     };
-  }, [consulta]);
+  }, [filters]);
 
   useEffect(() => {
     fetchSimPopulacaoCobertura({
@@ -150,6 +148,7 @@ function DashboardContent() {
     if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
     if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
     if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
+    if (key === "municipio") patchRecorte({ municipio: value || undefined });
   };
 
   // Auditoria A1: o painel nao tinha nenhum KPI de taxa, so contagem e
@@ -178,10 +177,14 @@ function DashboardContent() {
     const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
     if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
     if (filters.regiao) chips.push({ rotulo: "Região", valor: filters.regiao });
+    if (filters.municipio) {
+      const row = municipios.find((m) => m.cod_mun_ibge === filters.municipio);
+      chips.push({ rotulo: "Município", valor: row ? `${row.municipio} (${row.uf})` : filters.municipio });
+    }
     chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
     if (filters.tipo_veiculo) chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
     return chips;
-  }, [filters]);
+  }, [filters, municipios]);
 
   const copiarLinkDoRecorte = () => {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
@@ -246,9 +249,27 @@ function DashboardContent() {
     });
   }, [data, municipios]);
 
+  const municipioOpcoes = useMemo(
+    () =>
+      municipios.map((m) => ({
+        value: m.cod_mun_ibge,
+        label: `${m.municipio} (${m.uf})`,
+      })),
+    [municipios]
+  );
+
   const filterDefs = useMemo(
-    () => buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),
-    [anos, ufs, tipos, filters.uf]
+    () =>
+      buildFiltrosAgregados({
+        anos,
+        ufs,
+        tipos,
+        ufSelecionada: filters.uf,
+        dimensao: filters.dimensao,
+        municipioOpcoes,
+        incluirMunicipio: true,
+      }),
+    [anos, ufs, tipos, filters.uf, filters.dimensao, municipioOpcoes]
   );
 
   const filterValues = useMemo(

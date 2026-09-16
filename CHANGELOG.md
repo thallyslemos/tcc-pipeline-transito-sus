@@ -6,7 +6,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e
 segue [SemVer](https://semver.org/lang/pt-BR/).
 ## [Nao lancado]
 
-## [1.0.0] - 2026-08-30
+## [1.1.1] - 2026-09-15
+
+### Corrigido
+- **Filtro de Município**: Restaurado filtro de município com combobox e busca assíncrona nas páginas de Ranking (`/ranking`) e Painel Geral (`/dashboard`).
+- **Navegação e Recorte**: Atualizado `recorteParaRota` e `ROTAS_AGREGADAS` para manter o parâmetro `municipio` ao navegar entre telas que suportam visualização municipal.
+- **Consulta Municipal**: Corrigida validação que sobrescrevia municípios selecionados fora do lote inicial de 200 cidades, e adicionado seletor de UF na barra de filtros.
+- **API Backend**: Adicionado suporte ao parâmetro `municipio` (código IBGE ou nome) no endpoint `GET /api/sim/summary` para filtrar agregados globais e distribuições de vítimas no painel.
 
 ### Adicionado
 - Pagina Sobre o projeto (`/sobre`) com diagrama de fluxo e metadados SIM
