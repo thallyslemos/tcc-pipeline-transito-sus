@@ -74,6 +74,7 @@ function TemporalContent() {
   const [anos, setAnos] = useState<number[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
+  const [municipios, setMunicipios] = useState<{ cod_mun_ibge: string; municipio: string; uf: string }[]>([]);
   const [modoSerieMensal, setModoSerieMensal] = useState<"obitos" | "media_diaria">("obitos");
 
   const [serieMensal, setSerieMensal] = useState<SimSerieMensal | null>(null);
@@ -97,12 +98,25 @@ function TemporalContent() {
     fetchSimTipos(filters.dimensao)
       .then((r) => setTipos(r.tipos))
       .catch(() => {});
-    // page_size maximo aceito pela API e 200 (acima disso o backend retorna
-    // 422 e, sem .catch, o dropdown de UF ficava vazio silenciosamente).
+    // page_size maximo aceito pela API e 200
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200)
-      .then((r) => setUfs([...new Set(r.municipios.map((m) => m.uf))].sort()))
-      .catch(() => setUfs([]));
+      .then((r) => {
+        setUfs([...new Set(r.municipios.map((m) => m.uf))].sort());
+        setMunicipios(r.municipios);
+      })
+      .catch(() => {
+        setUfs([]);
+        setMunicipios([]);
+      });
   }, [filters.dimensao, registrarAnosDisponiveis]);
+
+  useEffect(() => {
+    if (filters.uf) {
+      fetchSimMunicipios({ dimensao: filters.dimensao, uf: filters.uf }, 1, 200)
+        .then((r) => setMunicipios(r.municipios))
+        .catch(() => {});
+    }
+  }, [filters.dimensao, filters.uf]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +128,7 @@ function TemporalContent() {
       regiao: filters.regiao,
       ano: filters.ano,
       tipo_veiculo: filters.tipo_veiculo,
-      municipio: filters.municipio,
+      cod_mun_ibge: filters.municipio,
       ...(filters.ano ? {} : { ano_inicio: 2010, ano_fim: 2024 }),
     };
     Promise.all([
@@ -152,6 +166,41 @@ function TemporalContent() {
     [serieMensal]
   );
 
+  const [detail, setDetail] = useState<{ cod_mun_ibge: string; municipio: string; uf: string } | null>(null);
+
+  useEffect(() => {
+    if (!filters.municipio) {
+      setDetail(null);
+      return;
+    }
+    // Check if it's already in the list to avoid fetch
+    const exists = municipios.find(m => m.cod_mun_ibge === filters.municipio);
+    if (exists) {
+      setDetail(exists);
+      return;
+    }
+    // We could use fetchSimMunicipio here, but it requires ano, which we might not have, so let's use fetchSimMunicipios with exactly this code if needed. Actually we can just let it display the ID or use fetchSimMunicipios
+    fetchSimMunicipios({ dimensao: filters.dimensao, municipio: filters.municipio }, 1, 1)
+      .then((r) => {
+        if (r.municipios.length > 0) setDetail(r.municipios[0]);
+      })
+      .catch(() => {});
+  }, [filters.municipio, filters.dimensao, municipios]);
+
+  const municipioOpcoes = useMemo(() => {
+    const list = municipios.map((m) => ({
+      value: m.cod_mun_ibge,
+      label: `${m.municipio} (${m.uf})`,
+    }));
+    if (detail && !list.some((o) => o.value === detail.cod_mun_ibge)) {
+      list.push({
+        value: detail.cod_mun_ibge,
+        label: `${detail.municipio} (${detail.uf})`,
+      });
+    }
+    return list;
+  }, [municipios, detail]);
+
   const filterDefs = useMemo(
     () =>
       buildFiltrosTemporal({
@@ -160,9 +209,9 @@ function TemporalContent() {
         tipos,
         ufSelecionada: filters.uf,
         dimensao: filters.dimensao,
-        municipioOpcoes: [], // Options will be fetched dynamically via onSearch
+        municipioOpcoes,
       }),
-    [anos, ufs, tipos, filters.uf, filters.dimensao]
+    [anos, ufs, tipos, filters.uf, filters.dimensao, municipioOpcoes]
   );
 
   const filterValues = useMemo(
