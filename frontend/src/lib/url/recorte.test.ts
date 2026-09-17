@@ -48,6 +48,11 @@ describe("lerRecorteDaUrl", () => {
     expect(lerRecorteDaUrl(new URLSearchParams())).toEqual({});
   });
 
+  it("le cod_municipio como alias de municipio", () => {
+    const params = new URLSearchParams("cod_municipio=293330&ano=2024");
+    expect(lerRecorteDaUrl(params).municipio).toBe("293330");
+  });
+
   it("round-trip: serializar depois ler reproduz o mesmo recorte", () => {
     const original: Parameters<typeof serializarRecorte>[0] = {
       dimensao: "ocorrencia",
@@ -106,10 +111,32 @@ describe("sanitizarAno", () => {
 });
 
 describe("recorteParaRota", () => {
-  it("remove municipio em rotas agregadas", () => {
+  it("remove municipio em rotas agregadas (mapa, ranking)", () => {
+    expect(recorteParaRota("/mapa", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+    });
+    expect(recorteParaRota("/ranking", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+    });
+  });
+
+  it("preserva municipio em dashboard, temporal e fluxos", () => {
     expect(recorteParaRota("/dashboard", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
       dimensao: "ocorrencia",
       ano: 2024,
+      municipio: "2927408",
+    });
+    expect(recorteParaRota("/temporal", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+      municipio: "2927408",
+    });
+    expect(recorteParaRota("/fluxos", { dimensao: "ocorrencia", ano: 2024, municipio: "2927408" })).toEqual({
+      dimensao: "ocorrencia",
+      ano: 2024,
+      municipio: "2927408",
     });
   });
 

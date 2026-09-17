@@ -32,16 +32,18 @@ function PrevisaoContent() {
   const [data, setData] = useState<SimMunicipioDetail | null>(null);
 
   useEffect(() => {
-    fetchSimMunicipios({ dimensao, uf: recorte.uf }, 1, 200).then((result) => {
-      setMunicipios(result.municipios);
-      if (!cod && result.municipios.length) {
-        patchRecorte({ municipio: result.municipios[0].cod_mun_ibge });
-      }
-    });
+    fetchSimMunicipios({ dimensao, uf: recorte.uf }, 1, 200)
+      .then((result) => {
+        setMunicipios(result.municipios);
+        if (!cod && result.municipios.length) {
+          patchRecorte({ municipio: result.municipios[0].cod_mun_ibge });
+        }
+      })
+      .catch(() => setMunicipios([]));
   }, [dimensao, recorte.uf, cod, patchRecorte]);
 
   useEffect(() => {
-    if (cod) fetchSimMunicipio(cod, undefined, dimensao).then(setData);
+    if (cod) fetchSimMunicipio(cod, undefined, dimensao).then(setData).catch(() => setData(null));
   }, [cod, dimensao]);
 
   const leituraSerie = useMemo(() => {

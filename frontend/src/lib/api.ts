@@ -30,6 +30,7 @@ function simQuery(filters: FilterValues = {}): string {
   if (filters.regiao) params.set("regiao", filters.regiao);
   if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
   if (filters.dimensao) params.set("dimensao", filters.dimensao);
+  if (filters.municipio) params.set("municipio", filters.municipio);
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -182,6 +183,7 @@ export const fetchSimTemporalOutliers = (
   if (filters.ano_fim) params.set("ano_fim", String(filters.ano_fim));
   if (filters.uf) params.set("uf", filters.uf);
   if (filters.regiao) params.set("regiao", filters.regiao);
+  if (filters.cod_mun_ibge) params.set("cod_mun_ibge", filters.cod_mun_ibge);
   if (filters.tipo_veiculo) params.set("tipo_veiculo", filters.tipo_veiculo);
   if (filters.min_obitos) params.set("min_obitos", String(filters.min_obitos));
   if (filters.somente_concentrados !== undefined) {

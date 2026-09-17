@@ -27,7 +27,10 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     backend_reload: bool = True
     gold_dir: str = "data/gold"
-    cors_origins: str = "http://localhost:3000,http://localhost:8000"
+    cors_origins: str = (
+        "http://localhost:3000,http://localhost:3001,http://localhost:8000,"
+        "http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:8000"
+    )
     geojson_path: str = "data/ibge_malhas_municipios.geojson"
 
     # PostgreSQL (produção / VPS). Sem URL: mantém DuckDB + Parquet.

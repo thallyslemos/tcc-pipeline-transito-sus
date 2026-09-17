@@ -36,6 +36,8 @@ const mockSerieMensal: SimSerieMensal = {
     share_mes_pico: 0.5717,
     meses_com_obito: 2,
     hhi_mensal: 0.55,
+    media_diaria_geral: 8.0,
+    mes_pico_media_diaria: 9.0,
     classe_concentracao: "concentrado",
     alerta: false,
   },

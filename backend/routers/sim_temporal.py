@@ -392,6 +392,7 @@ async def outliers(
     uf: str | None = Query(None, min_length=2, max_length=2),
     regiao: str | None = Query(None),
     tipo_veiculo: str | None = Query(None, max_length=80),
+    cod_mun_ibge: str | None = Query(None, min_length=6, max_length=7),
     min_obitos: int = Query(10, ge=1),
     somente_concentrados: bool = Query(True),
 ) -> dict:
@@ -412,7 +413,7 @@ async def outliers(
         ano_hi=ano_hi,
         uf=uf,
         regiao=regiao,
-        cod_mun_ibge=None,
+        cod_mun_ibge=cod_mun_ibge,
         tipo_veiculo=tipo_veiculo,
     )
     where = " AND ".join(clauses)

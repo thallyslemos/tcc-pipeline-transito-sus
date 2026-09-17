@@ -10,7 +10,6 @@ import { fetchSimAnos, fetchSimMunicipios } from "@/lib/api";
 import { formatNumber, formatTaxa100k, formatTaxa10k } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
-import { recorteAgregadoMunicipal } from "@/lib/url/recorte";
 import { buildFiltrosRanking, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
 import PopulacaoBadge from "@/components/PopulacaoBadge";
 import SeloQualidade from "@/components/ui/SeloQualidade";
@@ -39,7 +38,6 @@ export default function RankingPage() {
 
 function RankingContent() {
   const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
-  const consulta = useMemo(() => recorteAgregadoMunicipal(filters), [filters]);
   const [anos, setAnos] = useState<number[]>([]);
   const [rows, setRows] = useState<SimMunicipio[]>([]);
   const [total, setTotal] = useState(0);
@@ -73,14 +71,14 @@ function RankingContent() {
 
   useEffect(() => {
     setLoading(true);
-    fetchSimMunicipios(consulta, page, PAGE_SIZE)
+    fetchSimMunicipios(filters, page, PAGE_SIZE)
       .then((result) => {
         setRows(result.municipios);
         setTotal(result.total);
         setUfs([...new Set(result.municipios.map((row) => row.uf))].sort());
       })
       .finally(() => setLoading(false));
-  }, [consulta, page]);
+  }, [filters, page]);
 
   useEffect(() => {
     if (!vehicleRateAvailable && sortMode === "vehicle_rate") setSortMode("rate");
@@ -92,8 +90,8 @@ function RankingContent() {
   // 200 que dashboard/mapa/etc ja usam pros proprios agregados do recorte).
   const [municipiosParaLeitura, setMunicipiosParaLeitura] = useState<SimMunicipio[]>([]);
   useEffect(() => {
-    fetchSimMunicipios(consulta, 1, 200).then((result) => setMunicipiosParaLeitura(result.municipios));
-  }, [consulta]);
+    fetchSimMunicipios(filters, 1, 200).then((result) => setMunicipiosParaLeitura(result.municipios));
+  }, [filters]);
 
   const leituraRanking = useMemo(() => {
     if (!municipiosParaLeitura.length) return null;
@@ -111,6 +109,7 @@ function RankingContent() {
     if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
     if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
     if (key === "uf") patchRecorte({ uf: value || undefined });
+    if (key === "municipio") patchRecorte({ municipio: value || undefined });
   };
 
   const chipsRecorte = useMemo(() => {
@@ -118,7 +117,7 @@ function RankingContent() {
     if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
     chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
     return chips;
-  }, [filters]);
+  }, [filters, rows]);
 
   const copiarLinkDoRecorte = () => {
     if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
@@ -133,8 +132,14 @@ function RankingContent() {
   });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const filterDefs = useMemo(
-    () => buildFiltrosRanking({ anos, ufs, ufSelecionada: filters.uf }),
+    () =>
+      buildFiltrosRanking({
+        anos,
+        ufs,
+        ufSelecionada: filters.uf,
+      }),
     [anos, ufs, filters.uf]
   );
 

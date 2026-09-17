@@ -18,19 +18,34 @@ export {
   buildUfOptions,
 } from "./catalogo";
 
+export interface FilterDef {
+  key: string;
+  label: string;
+  options: FilterOption[];
+  placeholder?: string;
+  variant?: "select" | "combobox";
+  onSearch?: (term: string) => Promise<FilterOption[]>;
+}
+
 export function buildFiltrosAgregados({
   anos,
   ufs,
   tipos,
   ufSelecionada,
+  dimensao = "ocorrencia",
+  municipioOpcoes = [],
+  incluirMunicipio = false,
 }: {
   anos: number[];
   ufs: string[];
   tipos: string[];
   ufSelecionada?: string;
-}) {
+  dimensao?: FilterValues["dimensao"];
+  municipioOpcoes?: FilterOption[];
+  incluirMunicipio?: boolean;
+}): FilterDef[] {
   const ufList = [...new Set([...ufs, ...(ufSelecionada ? [ufSelecionada] : [])])];
-  return [
+  const filters: FilterDef[] = [
     { key: "dimensao", label: "Dimensao", options: buildDimensaoOptions() },
     {
       key: "regiao",
@@ -55,6 +70,19 @@ export function buildFiltrosAgregados({
       variant: "combobox" as const,
     },
   ];
+
+  if (incluirMunicipio) {
+    filters.push({
+      key: "municipio",
+      label: "Município",
+      options: municipioOpcoes,
+      placeholder: "Todos",
+      variant: "combobox" as const,
+      onSearch: (term: string) => buscarMunicipioFilterOptions(term, dimensao, ufSelecionada),
+    });
+  }
+
+  return filters;
 }
 
 export function buildFiltrosTemporal({
@@ -62,13 +90,25 @@ export function buildFiltrosTemporal({
   ufs,
   tipos,
   ufSelecionada,
+  dimensao = "ocorrencia",
+  municipioOpcoes = [],
 }: {
   anos: number[];
   ufs: string[];
   tipos: string[];
   ufSelecionada?: string;
+  dimensao?: FilterValues["dimensao"];
+  municipioOpcoes?: FilterOption[];
 }) {
-  return buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada }).filter((f) => f.key !== "dimensao");
+  return buildFiltrosAgregados({
+    anos,
+    ufs,
+    tipos,
+    ufSelecionada,
+    dimensao,
+    municipioOpcoes,
+    incluirMunicipio: true,
+  }).filter((f) => f.key !== "dimensao");
 }
 
 export function buildFiltrosRanking({
@@ -116,7 +156,9 @@ export function valoresRecorteFilter(
     const bruto = recorte[chave as keyof FilterValues];
     const str = bruto != null && bruto !== "" ? String(bruto) : "";
     const options = optionsPorChave[chave];
-    if (str && options && !options.some((o) => o.value === str)) {
+    if (chave === "municipio") {
+      out[chave] = str;
+    } else if (str && options && !options.some((o) => o.value === str)) {
       out[chave] = "";
     } else {
       out[chave] = str;
