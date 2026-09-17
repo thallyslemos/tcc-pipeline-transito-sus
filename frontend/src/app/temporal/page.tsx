@@ -88,11 +88,15 @@ function TemporalContent() {
   };
 
   useEffect(() => {
-    fetchSimAnos(filters.dimensao).then((r) => {
-      setAnos(r.anos);
-      registrarAnosDisponiveis(r.anos);
-    });
-    fetchSimTipos(filters.dimensao).then((r) => setTipos(r.tipos));
+    fetchSimAnos(filters.dimensao)
+      .then((r) => {
+        setAnos(r.anos);
+        registrarAnosDisponiveis(r.anos);
+      })
+      .catch(() => {});
+    fetchSimTipos(filters.dimensao)
+      .then((r) => setTipos(r.tipos))
+      .catch(() => {});
     // page_size maximo aceito pela API e 200 (acima disso o backend retorna
     // 422 e, sem .catch, o dropdown de UF ficava vazio silenciosamente).
     fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200)

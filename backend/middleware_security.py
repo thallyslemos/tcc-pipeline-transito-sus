@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-if TYPE_CHECKING:
-    from .config import Settings
+from .config import Settings, settings
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -59,7 +57,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return True
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.url.path == "/":
+        if request.url.path == "/" or settings.app_env != "production":
             return await call_next(request)
 
         ip = self._client_ip(request)
