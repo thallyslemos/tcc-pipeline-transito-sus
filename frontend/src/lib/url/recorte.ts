@@ -18,7 +18,7 @@ export const STORAGE_KEY_RECORTE = "recorte-v1";
 export const ROTAS_SEM_RECORTE = ["/sobre", "/dados", "/chat"] as const;
 
 /** Paginas territoriais agregadas — municipio do nucleo nao deve persistir. */
-export const ROTAS_AGREGADAS = ["/mapa", "/temporal"] as const;
+export const ROTAS_AGREGADAS = ["/mapa", "/ranking"] as const;
 
 export const ROTA_PRELIMINARES = "/preliminares";
 export const ROTA_MUNICIPIO = "/municipio";

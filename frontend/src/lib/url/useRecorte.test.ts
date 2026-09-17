@@ -44,11 +44,11 @@ describe("useRecorte", () => {
     expect(result.current.recorte.uf).toBe("BA");
   });
 
-  it("mantem municipio ao navegar para ranking ou dashboard", () => {
+  it("mantem municipio ao navegar para temporal ou dashboard", () => {
     searchParams = new URLSearchParams(
       "dimensao=ocorrencia&uf=BA&ano=2024&municipio=2927408"
     );
-    pathname = "/ranking";
+    pathname = "/dashboard";
 
     const { result } = renderHook(() => useRecorte());
 

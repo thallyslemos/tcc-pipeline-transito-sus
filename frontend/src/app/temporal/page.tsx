@@ -114,6 +114,7 @@ function TemporalContent() {
       regiao: filters.regiao,
       ano: filters.ano,
       tipo_veiculo: filters.tipo_veiculo,
+      municipio: filters.municipio,
       ...(filters.ano ? {} : { ano_inicio: 2010, ano_fim: 2024 }),
     };
     Promise.all([
@@ -152,8 +153,16 @@ function TemporalContent() {
   );
 
   const filterDefs = useMemo(
-    () => buildFiltrosTemporal({ anos, ufs, tipos, ufSelecionada: filters.uf }),
-    [anos, ufs, tipos, filters.uf]
+    () =>
+      buildFiltrosTemporal({
+        anos,
+        ufs,
+        tipos,
+        ufSelecionada: filters.uf,
+        dimensao: filters.dimensao,
+        municipioOpcoes: [], // Options will be fetched dynamically via onSearch
+      }),
+    [anos, ufs, tipos, filters.uf, filters.dimensao]
   );
 
   const filterValues = useMemo(
@@ -243,9 +252,10 @@ function TemporalContent() {
           values={filterValues}
           onChange={(key, value) => {
             if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
-            else if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
-            else if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
+            else if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined, municipio: undefined });
+            else if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined, municipio: undefined });
             else if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
+            else if (key === "municipio") patchRecorte({ municipio: value || undefined });
           }}
           onReset={() => setRecorte({ dimensao: filters.dimensao ?? "ocorrencia" })}
         />
@@ -256,6 +266,7 @@ function TemporalContent() {
           { rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" },
           ...(filters.uf ? [{ rotulo: "UF", valor: filters.uf }] : []),
           ...(filters.regiao ? [{ rotulo: "Região", valor: filters.regiao }] : []),
+          ...(filters.municipio ? [{ rotulo: "Município", valor: String(filters.municipio) }] : []),
           { rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "2010-2024" },
           ...(filters.tipo_veiculo ? [{ rotulo: "Veículo", valor: filters.tipo_veiculo }] : []),
         ]}

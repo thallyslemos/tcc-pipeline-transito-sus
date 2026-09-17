@@ -90,27 +90,35 @@ export function buildFiltrosTemporal({
   ufs,
   tipos,
   ufSelecionada,
+  dimensao = "ocorrencia",
+  municipioOpcoes = [],
 }: {
   anos: number[];
   ufs: string[];
   tipos: string[];
   ufSelecionada?: string;
+  dimensao?: FilterValues["dimensao"];
+  municipioOpcoes?: FilterOption[];
 }) {
-  return buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada }).filter((f) => f.key !== "dimensao");
+  return buildFiltrosAgregados({
+    anos,
+    ufs,
+    tipos,
+    ufSelecionada,
+    dimensao,
+    municipioOpcoes,
+    incluirMunicipio: true,
+  }).filter((f) => f.key !== "dimensao");
 }
 
 export function buildFiltrosRanking({
   anos,
   ufs,
   ufSelecionada,
-  dimensao = "ocorrencia",
-  municipioOpcoes = [],
 }: {
   anos: number[];
   ufs: string[];
   ufSelecionada?: string;
-  dimensao?: FilterValues["dimensao"];
-  municipioOpcoes?: FilterOption[];
 }) {
   const ufList = [...new Set([...ufs, ...(ufSelecionada ? [ufSelecionada] : [])])];
   return [
@@ -121,14 +129,6 @@ export function buildFiltrosRanking({
       options: buildUfOptions(ufList),
       placeholder: "Todas",
       variant: "combobox" as const,
-    },
-    {
-      key: "municipio",
-      label: "Município",
-      options: municipioOpcoes,
-      placeholder: "Todos",
-      variant: "combobox" as const,
-      onSearch: (term: string) => buscarMunicipioFilterOptions(term, dimensao, ufSelecionada),
     },
     { key: "ano", label: "Ano", options: buildAnoOptions(anos) },
   ];

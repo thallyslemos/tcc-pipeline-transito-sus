@@ -115,10 +115,6 @@ function RankingContent() {
   const chipsRecorte = useMemo(() => {
     const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
     if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
-    if (filters.municipio) {
-      const row = rows.find((r) => r.cod_mun_ibge === filters.municipio);
-      chips.push({ rotulo: "Município", valor: row ? `${row.municipio} (${row.uf})` : filters.municipio });
-    }
     chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
     return chips;
   }, [filters, rows]);
@@ -136,14 +132,6 @@ function RankingContent() {
   });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const municipioOpcoes = useMemo(
-    () =>
-      rows.map((row) => ({
-        value: row.cod_mun_ibge,
-        label: `${row.municipio} (${row.uf})`,
-      })),
-    [rows]
-  );
 
   const filterDefs = useMemo(
     () =>
@@ -151,10 +139,8 @@ function RankingContent() {
         anos,
         ufs,
         ufSelecionada: filters.uf,
-        dimensao: filters.dimensao,
-        municipioOpcoes,
       }),
-    [anos, ufs, filters.uf, filters.dimensao, municipioOpcoes]
+    [anos, ufs, filters.uf]
   );
 
   const filterValues = useMemo(
