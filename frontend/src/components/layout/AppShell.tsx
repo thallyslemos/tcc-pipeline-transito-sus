@@ -23,6 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setSidebarOpen(true)}
             className="rounded-lg p-1.5 lg:hidden"
             style={{ color: "var(--ink-2)" }}
+            aria-label="Abrir menu de navegação"
           >
             <Menu className="h-5 w-5" />
           </button>
