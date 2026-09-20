@@ -8,7 +8,6 @@ defasagem corretos) e ausencia total de populacao (N/D sem quebrar).
 
 import duckdb
 import pytest
-
 from backend.routers.sim_only import _populacao_fallback_exprs
 
 

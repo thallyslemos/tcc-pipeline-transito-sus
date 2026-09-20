@@ -24,7 +24,13 @@ import duckdb
 
 from .config import settings
 from .logging import get_logger
-from .sim_evidence import ANALYTIC_FILTER, _atomic_copy, _dimension_paths, _has_columns, _sql_literal
+from .sim_evidence import (
+    ANALYTIC_FILTER,
+    _atomic_copy,
+    _dimension_paths,
+    _has_columns,
+    _sql_literal,
+)
 
 logger = get_logger(__name__)
 
