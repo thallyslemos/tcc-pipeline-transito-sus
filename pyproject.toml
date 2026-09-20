@@ -42,10 +42,12 @@ src = ["data-pipeline", "backend", "mcp-server", "tests", "db"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "S", "B", "SIM", "RUF"]
-ignore = ["S608", "S101", "S104", "E501", "RUF001", "S108"]
+ignore = ["S608", "S101", "S104"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S106"]
+"tests/**" = ["S101", "S106", "S108", "E501", "RUF001"]
+"scripts/**" = ["S101", "S106", "E501", "RUF001", "F541"]
+"design/**" = ["E702", "E701", "UP031", "E741", "E501"]
 "data-pipeline/sample_data.py" = ["S311"]
 "notebooks/**" = ["E501", "F541", "I001"]
 # FastAPI usa Query(...) nos defaults por desenho da framework (falso positivo B008).
