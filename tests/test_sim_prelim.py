@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Contratos obrigatorios da camada SIM PRELIMINAR (paralela, isolada da consolidada).
 
 Cobre exatamente os requisitos mandatorios da feature:

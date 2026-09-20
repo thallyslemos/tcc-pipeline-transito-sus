@@ -12,6 +12,7 @@ consuma dado preliminar sem saber que e preliminar.
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Literal
 

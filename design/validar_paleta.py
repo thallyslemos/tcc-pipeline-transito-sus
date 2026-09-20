@@ -4,7 +4,6 @@
 
 import math
 
-
 # ---------- OKLCH -> sRGB ----------
 def oklab_to_lrgb(L,a,b):
     l_=L+0.3963377774*a+0.2158037573*b
@@ -35,7 +34,7 @@ def oklch_hex(L,C,H, clamp=True):
         C=lo
         a=C*math.cos(math.radians(H)); b=C*math.sin(math.radians(H))
         r,g,bl=oklab_to_lrgb(L,a,b)
-    return "#{:02X}{:02X}{:02X}".format(*tuple(round(f(v)*255) for v in (r,g,bl))), C, ing
+    return "#%02X%02X%02X"%tuple(round(f(v)*255) for v in (r,g,bl)), C, ing
 
 def lum(hexs):
     hexs=hexs.lstrip('#')

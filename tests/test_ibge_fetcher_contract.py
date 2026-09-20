@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 from importlib import import_module
 from pathlib import Path
 
