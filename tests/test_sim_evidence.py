@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Contratos do mart SIM-only e dos denominadores opcionais."""
 
 from importlib import import_module

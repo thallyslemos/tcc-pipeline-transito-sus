@@ -12,9 +12,8 @@ Uso:
 Saída: /opt/team-shared/resumo_conhecimento_<YYYYMMDD>.md
 """
 
-import re
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 # ── Configuração ──────────────────────────────────────────────────────────────
 
@@ -421,7 +420,6 @@ REGRAS = [
 # ── Funções de output ─────────────────────────────────────────────────────────
 
 def titulo(texto, nivel=1):
-    prefixos = {1: "=", 2: "-", 3: "^", 4: "+"}
     if nivel == 1:
         return f"\n{'=' * 60}\n{texto}\n{'=' * 60}\n"
     elif nivel == 2:
@@ -436,7 +434,7 @@ def gerar_markdown():
     linhas = []
 
     # Header
-    linhas.append(f"# Resumo de Conhecimentos e Fontes — tcc-pipeline-transito-sus")
+    linhas.append("# Resumo de Conhecimentos e Fontes — tcc-pipeline-transito-sus")
     linhas.append(f"\n*Gerado em: {TODAY}*")
     linhas.append("\n> Este documento compila o conhecimento acumulado durante as pesquisas e ")
     linhas.append("descobertas sobre fontes de dados, conceitos metodológicos e possibilidades ")
@@ -621,7 +619,7 @@ def gerar_markdown():
         linhas.append(f"| {nome} | {url} | {uso} |")
 
     # Footer
-    linhas.append(f"\n---\n")
+    linhas.append("\n---\n")
     linhas.append("*Documento gerado automaticamente pelo Hermes Agent — projeto tcc-pipeline-transito-sus*")
 
     return "\n".join(linhas)
