@@ -9,6 +9,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--canvas)" }}>
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-4 focus:bg-[var(--surface)] focus:text-[var(--brand)] font-medium rounded-br-lg border-[var(--border)] border-b border-r"
+      >
+        Pular para o conteúdo principal
+      </a>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="lg:pl-64">
@@ -34,7 +40,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="p-4 sm:p-6">{children}</main>
+        <main id="main-content" tabIndex={-1} className="p-4 sm:p-6 outline-none">
+          {children}
+        </main>
       </div>
     </div>
   );
