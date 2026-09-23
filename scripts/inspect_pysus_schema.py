@@ -20,16 +20,16 @@ def inspect_parquet(path: Path) -> None:
     finally:
         con.close()
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"  {path.name}")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     con2 = duckdb.connect(":memory:")
     count = con2.sql(f"SELECT COUNT(*) FROM read_parquet('{path}')").fetchone()[0]
     con2.close()
     print(f"  Registros: {count:,}")
     print(f"\n  {'Coluna':<25} {'Tipo':<15} {'Exemplo (linha 1)'}")
-    print(f"  {'-'*25} {'-'*15} {'-'*40}")
+    print(f"  {'-' * 25} {'-' * 15} {'-' * 40}")
     for col_name, col_type, *_ in schema:
         val = sample[col_name].iloc[0] if len(sample) > 0 and col_name in sample.columns else "—"
         print(f"  {col_name:<25} {col_type:<15} {val}")

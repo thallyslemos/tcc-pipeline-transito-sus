@@ -32,9 +32,7 @@ def gerar_gold_obitos_ocorrencia(silver_sim: Path) -> Path:
         msg = f"Silver SIM nao encontrado: {silver_sim}. Execute o pipeline ETL antes."
         raise FileNotFoundError(msg)
 
-    destino = (
-        settings.resolve(settings.gold_dir) / "obitos_ocorrencia_municipio_mes.parquet"
-    )
+    destino = settings.resolve(settings.gold_dir) / "obitos_ocorrencia_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
     ibge_mun_path, ibge_pop_path = _ibge_paths()
     has_ibge_mun = ibge_mun_path.exists()
@@ -275,9 +273,7 @@ def gerar_gold_obitos_residencia(silver_sim: Path) -> Path:
         msg = f"Silver SIM nao encontrado: {silver_sim}. Execute o pipeline ETL antes."
         raise FileNotFoundError(msg)
 
-    destino = (
-        settings.resolve(settings.gold_dir) / "obitos_residencia_municipio_mes.parquet"
-    )
+    destino = settings.resolve(settings.gold_dir) / "obitos_residencia_municipio_mes.parquet"
     destino.parent.mkdir(parents=True, exist_ok=True)
     ibge_mun_path, ibge_pop_path = _ibge_paths()
     has_ibge_mun = ibge_mun_path.exists()

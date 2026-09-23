@@ -75,9 +75,7 @@ def test_populacao_fallback_taxas_2024_nao_regridem(client):
 
 def test_populacao_fallback_municipio_detalhe_usa_ano_mais_proximo(client):
     """Vitoria da Conquista (293330) nao tem populacao exata em 2022 nem 2023."""
-    r_2022 = client.get(
-        "/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2022}
-    )
+    r_2022 = client.get("/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2022})
     assert r_2022.status_code == 200
     d_2022 = r_2022.json()
     assert d_2022["populacao_origem"] == "estimada"
@@ -86,9 +84,7 @@ def test_populacao_fallback_municipio_detalhe_usa_ano_mais_proximo(client):
     assert d_2022["populacao"] == 343643
     assert d_2022["taxa_obitos_100mil"] is not None
 
-    r_2024 = client.get(
-        "/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2024}
-    )
+    r_2024 = client.get("/api/sim/municipio/293330", params={"dimensao": "ocorrencia", "ano": 2024})
     d_2024 = r_2024.json()
     assert d_2024["populacao_origem"] == "exata"
     assert d_2024["populacao_defasagem_anos"] == 0
@@ -189,8 +185,9 @@ def test_populacao_cobertura_ba(client):
     assert response.status_code == 200
     payload = response.json()
     assert payload["total_municipio_ano"] > 0
-    assert payload["exata"] + payload["estimada"] + payload["indisponivel"] == (
-        payload["total_municipio_ano"]
+    assert (
+        payload["exata"] + payload["estimada"] + payload["indisponivel"]
+        == (payload["total_municipio_ano"])
     )
     assert payload["exata"] > 0
     assert payload["estimada"] > 0
@@ -200,9 +197,7 @@ def test_populacao_cobertura_brasil_maior_que_ba(client):
     ba = client.get(
         "/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia", "uf": "BA"}
     ).json()
-    brasil = client.get(
-        "/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia"}
-    ).json()
+    brasil = client.get("/api/sim/populacao/cobertura", params={"dimensao": "ocorrencia"}).json()
     assert brasil["total_municipio_ano"] > ba["total_municipio_ano"]
 
 
@@ -323,4 +318,3 @@ def test_sim_summary_filtro_municipio(client):
     d_ssa = r_ssa.json()
     assert d_ssa["municipios"] == 1
     assert 0 < d_ssa["total_obitos"] < total_ba
-

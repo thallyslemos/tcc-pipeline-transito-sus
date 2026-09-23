@@ -67,9 +67,7 @@ def run_sim_evidence(
     """Audita e materializa o contrato SIM-only sem baixar nem sobrescrever."""
     from .sim_evidence import auditar_snapshot_sim, materializar_marts_sim
 
-    report = auditar_snapshot_sim(
-        silver_path, manifest_path=manifest_path, output_path=qa_output
-    )
+    report = auditar_snapshot_sim(silver_path, manifest_path=manifest_path, output_path=qa_output)
     marts = materializar_marts_sim(silver_path, destino_dir=gold_dir)
     logger.info(
         "sim_evidence_concluido",
@@ -231,9 +229,9 @@ def run_prelim(ufs: list[str], anos: list[int]) -> None:
         uv run python -m data-pipeline.run --prelim --ufs BA --prelim-anos 2025 2026
     """
     from .datasus import UFS_BRASIL
+    from .silver_prelim import processar_silver_sim_prelim
     from .sim_prelim_gold import materializar_marts_prelim
     from .sim_prelim_ingest import baixar_sim_prelim_streaming
-    from .silver_prelim import processar_silver_sim_prelim
 
     if ufs == ["ALL"]:
         ufs = UFS_BRASIL

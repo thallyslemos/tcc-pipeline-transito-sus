@@ -1,4 +1,4 @@
-﻿"""Testes do caminho de materializacao Bronze deterministico."""
+"""Testes do caminho de materializacao Bronze deterministico."""
 
 import importlib
 from pathlib import Path
@@ -125,4 +125,3 @@ def test_falha_de_conversao_nao_deixa_parquet_final(tmp_path: Path):
     assert list(parts_dir.glob("*.parquet")) == []
     assert list(parts_dir.glob("*.tmp*")) == []
     assert store.entries[0]["status"] == "pending"
-

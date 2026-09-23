@@ -41,15 +41,35 @@ def _df_for_insert_logic(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any
 
 
 _OBITOS_COLS = [
-    "cod_mun_ibge", "municipio", "uf", "competencia", "ano", "mes",
-    "total_obitos", "tipo_veiculo", "faixa_etaria", "sexo",
-    "lat", "lon", "populacao_estimada",
+    "cod_mun_ibge",
+    "municipio",
+    "uf",
+    "competencia",
+    "ano",
+    "mes",
+    "total_obitos",
+    "tipo_veiculo",
+    "faixa_etaria",
+    "sexo",
+    "lat",
+    "lon",
+    "populacao_estimada",
 ]
 
 _CUSTOS_COLS = [
-    "cod_mun_ibge", "municipio", "uf", "competencia", "ano", "mes",
-    "custo_total", "total_procedimentos", "total_atendimentos",
-    "tipo_veiculo", "faixa_etaria", "lat", "lon",
+    "cod_mun_ibge",
+    "municipio",
+    "uf",
+    "competencia",
+    "ano",
+    "mes",
+    "custo_total",
+    "total_procedimentos",
+    "total_atendimentos",
+    "tipo_veiculo",
+    "faixa_etaria",
+    "lat",
+    "lon",
 ]
 
 

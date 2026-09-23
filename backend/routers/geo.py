@@ -65,20 +65,26 @@ def _query_metrics(
     has_pop = _has_view(con, "v_ibge_populacao")
     join_ibge = _ibge_municipios_join(con, "o")
     uf_filt_geo = "COALESCE(ibge.uf, o.uf)" if join_ibge else None
-    wa_o = _where_and(
-        ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_geo
-    )
+    wa_o = _where_and(ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_geo)
     mun_expr, uf_expr = _ibge_label_exprs(con, "o")
-    join_pop_custo = """
+    join_pop_custo = (
+        """
             LEFT JOIN v_ibge_populacao pop
               ON LEFT(o.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
              AND o.ano = pop.ano
-    """ if has_pop else ""
-    join_pop_obitos = """
+    """
+        if has_pop
+        else ""
+    )
+    join_pop_obitos = (
+        """
             LEFT JOIN v_ibge_populacao pop
               ON LEFT(o.cod_mun_ibge, 6) = LEFT(pop.cod_mun_ibge, 6)
              AND o.ano = pop.ano
-    """ if has_pop else ""
+    """
+        if has_pop
+        else ""
+    )
 
     if metrica == "custos":
         pop_select = "MAX(pop.populacao) AS populacao"

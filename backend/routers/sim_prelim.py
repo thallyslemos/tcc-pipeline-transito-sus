@@ -12,7 +12,6 @@ consuma dado preliminar sem saber que e preliminar.
 
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -177,7 +176,11 @@ def _completude_query(
         obitos_prelim = r.get("obitos_prelim")
         media_consolidado = r.get("media_consolidado")
         completude_estimada = r.get("completude_estimada")
-        r["obitos_prelim"] = int(obitos_prelim) if obitos_prelim == obitos_prelim and obitos_prelim is not None else None
+        r["obitos_prelim"] = (
+            int(obitos_prelim)
+            if obitos_prelim == obitos_prelim and obitos_prelim is not None
+            else None
+        )
         r["media_consolidado"] = (
             round(float(media_consolidado), 2)
             if media_consolidado == media_consolidado and media_consolidado is not None
@@ -224,7 +227,11 @@ async def summary(
     completude_media = None
     if ano is not None:
         linhas = _completude_query(con, role=dimensao, uf=uf, ano=ano)
-        valores = [linha["completude_estimada"] for linha in linhas if linha["completude_estimada"] is not None]
+        valores = [
+            linha["completude_estimada"]
+            for linha in linhas
+            if linha["completude_estimada"] is not None
+        ]
         completude_media = round(sum(valores) / len(valores), 4) if valores else None
 
     return {
@@ -233,7 +240,8 @@ async def summary(
         "total_obitos": int(total or 0),
         "municipios": int(municipios or 0),
         "obitos_por_mes": [
-            {"competencia": str(competencia), "total": int(total_mes)} for competencia, total_mes in by_month
+            {"competencia": str(competencia), "total": int(total_mes)}
+            for competencia, total_mes in by_month
         ],
         "aviso_preliminar": {
             "preliminar": True,
@@ -257,12 +265,16 @@ async def municipios(
     con = get_connection()
     source = _source(path)
     where = " AND ".join(
-        [*_where_clauses(ano=ano, uf=uf, regiao=None, municipio=municipio), "geografia_status = 'encontrado'"]
+        [
+            *_where_clauses(ano=ano, uf=uf, regiao=None, municipio=municipio),
+            "geografia_status = 'encontrado'",
+        ]
     )
     offset = (page - 1) * page_size
 
     total = con.sql(
-        f"SELECT COUNT(*) FROM (SELECT cod_mun_ibge_6 FROM {source} WHERE {where} GROUP BY cod_mun_ibge_6)"
+        f"SELECT COUNT(*) FROM (SELECT cod_mun_ibge_6 "
+        f"FROM {source} WHERE {where} GROUP BY cod_mun_ibge_6)"
     ).fetchone()[0]
     rows = (
         con.sql(
@@ -282,7 +294,9 @@ async def municipios(
     )
     for row in rows:
         row["obitos"] = int(row["obitos"] or 0)
-        row["data_extracao"] = row["data_extracao"].isoformat() if row.get("data_extracao") is not None else None
+        row["data_extracao"] = (
+            row["data_extracao"].isoformat() if row.get("data_extracao") is not None else None
+        )
 
     extracao_geral = con.sql(f"SELECT MAX(data_extracao) FROM {source} WHERE {where}").fetchone()[0]
     return {
