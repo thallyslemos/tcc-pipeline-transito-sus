@@ -341,23 +341,21 @@ async def serie_diaria_municipio(
             "ano": ano,
             "dimensao_ativa": dimensao.value,
             "serie_diaria_disponivel": False,
-            "motivo": "eventos_diarios_municipio.parquet ausente — rode o pipeline com serie diaria.",
+            "motivo": "eventos_diarios_municipio.parquet ausente — "
+            "rode o pipeline com serie diaria.",
             "pontos": [],
             "resumo": None,
         }
 
-    rows = (
-        con.sql(
-            f"""
+    rows = con.sql(
+        f"""
         SELECT CAST(data AS DATE) AS dia, SUM(total_obitos)::BIGINT AS obitos
         FROM v_eventos_diarios
         WHERE LEFT(CAST(cod_mun_ibge AS VARCHAR), 6) = '{cod6}'
           AND YEAR(CAST(data AS DATE)) = {int(ano)}
         GROUP BY 1 ORDER BY 1
         """
-        )
-        .fetchdf()
-    )
+    ).fetchdf()
 
     pontos: list[dict] = []
     for _, r in rows.iterrows():
@@ -414,9 +412,7 @@ async def dados_mapa(
     join_ibge = _ibge_municipios_join(con, "o")
     mun_sel, uf_sel = _ibge_label_exprs(con, "o")
     uf_filt_mapa = "COALESCE(ibge.uf, o.uf)" if join_ibge else None
-    wa_o = _where_and(
-        ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_mapa
-    )
+    wa_o = _where_and(ano=ano, uf=uf, regiao=regiao, table_alias="o", uf_expr=uf_filt_mapa)
     join_pop = (
         """
             LEFT JOIN v_ibge_populacao pop
@@ -437,9 +433,9 @@ async def dados_mapa(
                    SUM(o.total_atendimentos) AS atendimentos,
                    MAX(o.lat) AS lat, MAX(o.lon) AS lon,
                    MAX(pop.populacao) AS populacao,
-                   {expr_round_numeric(
-                       "SUM(o.custo_total) / NULLIF(MAX(pop.populacao), 0)"
-                   )} AS custo_per_capita
+                   {
+                        expr_round_numeric("SUM(o.custo_total) / NULLIF(MAX(pop.populacao), 0)")
+                    } AS custo_per_capita
             FROM v_custos o {join_pop}
             {join_ibge}
             WHERE 1=1 {wa_o}

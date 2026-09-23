@@ -49,7 +49,9 @@ def _read_prelim_sources(
     bronze_path = Path(bronze_path)
     if not bronze_path.is_dir():
         raise FileNotFoundError(bronze_path)
-    manifest_path = Path(manifest_path) if manifest_path else bronze_path / "sim_prelim_manifest.json"
+    manifest_path = (
+        Path(manifest_path) if manifest_path else bronze_path / "sim_prelim_manifest.json"
+    )
     if not manifest_path.exists():
         raise FileNotFoundError(f"Manifesto SIM PRELIMINAR ausente: {manifest_path}")
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -107,7 +109,9 @@ def _provenance_case(paths: list[Path], metadata: dict[str, dict[str, Any]], fie
         entry = metadata.get(path.as_posix(), {})
         value = entry.get(field)
         if value:
-            clauses.append(f"WHEN source_file_name = '{_sql_literal(path)}' THEN '{_sql_literal(str(value))}'")
+            clauses.append(
+                f"WHEN source_file_name = '{_sql_literal(path)}' THEN '{_sql_literal(str(value))}'"
+            )
     if not clauses:
         return "CAST(NULL AS VARCHAR)"
     return "CASE " + " ".join(clauses) + " ELSE CAST(NULL AS VARCHAR) END"
