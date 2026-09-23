@@ -12,33 +12,9 @@ from .conftest import normalize_str
 pytestmark = pytest.mark.requires_data
 
 _UFS_BR = [
-    "AC",
-    "AL",
-    "AP",
-    "AM",
-    "BA",
-    "CE",
-    "DF",
-    "ES",
-    "GO",
-    "MA",
-    "MT",
-    "MS",
-    "MG",
-    "PA",
-    "PB",
-    "PR",
-    "PE",
-    "PI",
-    "RJ",
-    "RN",
-    "RS",
-    "RO",
-    "RR",
-    "SC",
-    "SP",
-    "SE",
-    "TO",
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+    "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ]
 
 
@@ -190,7 +166,6 @@ def test_listar_municipios_filtro_regiao(client: TestClient):
     assert len(munis_ne) > 0
     # Verifica se todos os municípios retornados são do Nordeste
     from backend.routers.utils import REGIOES
-
     ufs_ne = REGIOES["Nordeste"]
     assert all(m["uf"] in ufs_ne for m in munis_ne)
 
@@ -203,7 +178,6 @@ def test_mapa_filtro_regiao(client: TestClient, ano_disponivel: int):
     assert len(d_ne["dados"]) > 0
 
     from backend.routers.utils import REGIOES
-
     ufs_ne = REGIOES["Nordeste"]
     assert all(d["uf"] in ufs_ne for d in d_ne["dados"])
 
@@ -217,7 +191,6 @@ def test_geojson_filtro_regiao(client: TestClient, ano_disponivel: int):
     assert len(d_ne["features"]) > 0
 
     from backend.routers.utils import REGIOES
-
     ufs_ne = REGIOES["Nordeste"]
     for feat in d_ne["features"]:
         assert feat["properties"]["uf"] in ufs_ne
@@ -371,12 +344,17 @@ def test_indicadores_municipio_by_year(
 
 def test_ranking(client: TestClient, ano_disponivel: int):
     """Verifica se o endpoint de ranking retorna uma lista ordenada."""
-    r = client.get(f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil")
+    r = client.get(
+        f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil"
+    )
     assert r.status_code == 200
     d = r.json()
     assert "ranking" in d
     if len(d["ranking"]) > 1:
-        assert d["ranking"][0]["taxa_obitos_100mil"] >= d["ranking"][-1]["taxa_obitos_100mil"]
+        assert (
+            d["ranking"][0]["taxa_obitos_100mil"]
+            >= d["ranking"][-1]["taxa_obitos_100mil"]
+        )
 
 
 def test_ranking_filtros_geograficos(client: TestClient, ano_disponivel: int):
@@ -395,7 +373,6 @@ def test_ranking_filtros_geograficos(client: TestClient, ano_disponivel: int):
     # Se houver resultados, todos devem ser do Nordeste
     if len(d_ne["ranking"]) > 0:
         from backend.routers.utils import REGIOES
-
         ufs_ne = REGIOES["Nordeste"]
         assert all(m["uf"] in ufs_ne for m in d_ne["ranking"])
 

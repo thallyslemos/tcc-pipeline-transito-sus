@@ -21,7 +21,9 @@ def test_centroide_url_usa_codigo(monkeypatch):
     cod, coords = ibge.fetch_centroide_municipio("2927401")
     assert cod == "2927401"
     assert coords == {"lat": -10.0, "lon": -40.0}
-    assert seen == ["https://servicodados.ibge.gov.br/api/v4/malhas/municipios/2927401/metadados"]
+    assert seen == [
+        "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/2927401/metadados"
+    ]
 
 
 def test_infer_nao_le_sia(monkeypatch, tmp_path: Path):
@@ -29,9 +31,7 @@ def test_infer_nao_le_sia(monkeypatch, tmp_path: Path):
     silver = tmp_path / "data" / "silver"
     silver.mkdir(parents=True)
     con = duckdb.connect(":memory:")
-    con.sql(
-        "CREATE TABLE sim AS SELECT * FROM (VALUES ('292740', DATE '2024-01-01', 'BA')) t(cod_mun_ocorrencia, competencia, uf)"
-    )
+    con.sql("CREATE TABLE sim AS SELECT * FROM (VALUES ('292740', DATE '2024-01-01', 'BA')) t(cod_mun_ocorrencia, competencia, uf)")
     con.sql(f"COPY sim TO '{silver / 'sim.parquet'}' (FORMAT PARQUET)")
     con.close()
     assert ibge._infer_cod_ano_uf() == [("292740", 2024, "BA")]

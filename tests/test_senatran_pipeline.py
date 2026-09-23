@@ -269,10 +269,12 @@ def test_publish_blocks_unmatched_before_writing_gold(module, monkeypatch, tmp_p
 
 def test_merge_years_preserves_unprocessed_history(module, tmp_path):
     path = tmp_path / "fleet.parquet"
-    pd.DataFrame([{"ano": 2023, "cod_mun_ibge": "2919058", "frota_total": 10}]).to_parquet(
-        path, index=False
+    pd.DataFrame(
+        [{"ano": 2023, "cod_mun_ibge": "2919058", "frota_total": 10}]
+    ).to_parquet(path, index=False)
+    current = pd.DataFrame(
+        [{"ano": 2024, "cod_mun_ibge": "2919058", "frota_total": 12}]
     )
-    current = pd.DataFrame([{"ano": 2024, "cod_mun_ibge": "2919058", "frota_total": 12}])
 
     merged = module._merge_years(current, path, ["ano", "cod_mun_ibge"])
 

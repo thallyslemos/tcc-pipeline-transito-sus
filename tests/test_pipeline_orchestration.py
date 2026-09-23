@@ -18,12 +18,8 @@ def test_run_sim_only_nao_executa_enriquecimento_externo(monkeypatch):
     monkeypatch.setattr(datasus_mod, "UFS_BRASIL", ["BA"])
     monkeypatch.setattr(datasus_mod, "baixar_sim_streaming", lambda **_: Path("/tmp/sim_parts"))
     monkeypatch.setattr(run_mod, "processar_silver_sim", lambda _: Path("/tmp/silver_sim.parquet"))
-    monkeypatch.setattr(
-        run_mod, "gerar_gold_obitos_ocorrencia", lambda _: Path("/tmp/gold_occ.parquet")
-    )
-    monkeypatch.setattr(
-        run_mod, "gerar_gold_obitos_residencia", lambda _: Path("/tmp/gold_res.parquet")
-    )
+    monkeypatch.setattr(run_mod, "gerar_gold_obitos_ocorrencia", lambda _: Path("/tmp/gold_occ.parquet"))
+    monkeypatch.setattr(run_mod, "gerar_gold_obitos_residencia", lambda _: Path("/tmp/gold_res.parquet"))
     monkeypatch.setattr(
         run_mod,
         "gerar_gold_diario",
@@ -60,9 +56,7 @@ def test_salvar_ibge_parquet_deduplica_fetch_populacao(monkeypatch, tmp_path: Pa
         "fetch_centroide_municipio",
         lambda cod: (cod, {"lat": -10.0, "lon": -40.0}),
     )
-    monkeypatch.setattr(
-        ibge_mod, "baixar_malhas_geojson", lambda _dest: Path("/tmp/malhas.geojson")
-    )
+    monkeypatch.setattr(ibge_mod, "baixar_malhas_geojson", lambda _dest: Path("/tmp/malhas.geojson"))
     monkeypatch.setattr(ibge_mod, "MAX_WORKERS", 1)
 
     pop_calls: list[tuple[str, int]] = []

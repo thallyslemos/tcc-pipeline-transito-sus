@@ -240,7 +240,7 @@ def test_modulo_consolidado_nao_referencia_camada_preliminar(relative_path: str)
 def test_manifesto_preliminar_e_isolado_do_manifesto_consolidado():
     ingest = (PROJECT_ROOT / "data-pipeline" / "sim_prelim_ingest.py").read_text(encoding="utf-8")
     assert "sim_prelim_manifest.json" in ingest
-    assert "data/bronze/prelim" in ingest or 'bronze_dir) / "prelim"' in ingest.replace("'", '"')
+    assert "data/bronze/prelim" in ingest or "bronze_dir) / \"prelim\"" in ingest.replace("'", '"')
     assert re.search(r'settings\.bronze_dir\)\s*/\s*"prelim"', ingest)
 
 
@@ -261,8 +261,7 @@ def prelim_gold_real(tmp_path: Path):
 
     gold_dir = backend_settings.resolve(backend_settings.gold_dir)
     targets = {
-        role: gold_dir / filename
-        for role, filename in sim_prelim_gold.PRELIM_MART_FILENAMES.items()
+        role: gold_dir / filename for role, filename in sim_prelim_gold.PRELIM_MART_FILENAMES.items()
     }
     for path in targets.values():
         if path.exists():
@@ -405,8 +404,6 @@ def test_endpoints_consolidados_nunca_retornam_dado_preliminar(client):
 @pytest.mark.requires_data
 def test_sim_prelim_router_nao_intercepta_rotas_consolidadas(client):
     """O prefixo /api/sim/prelim nunca deve capturar chamadas para /api/sim/*."""
-    response = client.get(
-        "/api/sim/summary", params={"dimensao": "ocorrencia", "uf": "BA", "ano": 2024}
-    )
+    response = client.get("/api/sim/summary", params={"dimensao": "ocorrencia", "uf": "BA", "ano": 2024})
     assert response.status_code == 200
     assert response.json()["fonte"] == "SIM"

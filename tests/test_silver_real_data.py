@@ -20,60 +20,18 @@ import pytest
 def datasus_real_sim(tmp_path: Path):
     """Gera dados SIM no formato REAL: todas VARCHAR, trailing spaces, IDADE codificado."""
     records = [
-        {
-            "CAUSABAS": "V209",
-            "DTOBITO": "15032024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "1",
-            "IDADE": "425",
-            "UF": "BA",
-        },
-        {
-            "CAUSABAS": "V499 ",
-            "DTOBITO": "20062024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "2",
-            "IDADE": "432",
-            "UF": "BA",
-        },
-        {
-            "CAUSABAS": "V019",
-            "DTOBITO": "01012024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "1",
-            "IDADE": "310",
-            "UF": "BA",
-        },
-        {
-            "CAUSABAS": "V891 ",
-            "DTOBITO": "25122024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "1",
-            "IDADE": "498",
-            "UF": "BA",
-        },
-        {
-            "CAUSABAS": "V299",
-            "DTOBITO": "11042024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "1",
-            "IDADE": "510",
-            "UF": "BA",
-        },
-        {
-            "CAUSABAS": "X999 ",
-            "DTOBITO": "01012024",
-            "CODMUNOCOR": "2927408 ",
-            "CODMUNRES": "2927408 ",
-            "SEXO": "1",
-            "IDADE": "430",
-            "UF": "BA",
-        },
+        {"CAUSABAS": "V209", "DTOBITO": "15032024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "1", "IDADE": "425", "UF": "BA"},
+        {"CAUSABAS": "V499 ", "DTOBITO": "20062024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "2", "IDADE": "432", "UF": "BA"},
+        {"CAUSABAS": "V019", "DTOBITO": "01012024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "1", "IDADE": "310", "UF": "BA"},
+        {"CAUSABAS": "V891 ", "DTOBITO": "25122024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "1", "IDADE": "498", "UF": "BA"},
+        {"CAUSABAS": "V299", "DTOBITO": "11042024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "1", "IDADE": "510", "UF": "BA"},
+        {"CAUSABAS": "X999 ", "DTOBITO": "01012024", "CODMUNOCOR": "2927408 ",
+         "CODMUNRES": "2927408 ", "SEXO": "1", "IDADE": "430", "UF": "BA"},
     ]
     df = pd.DataFrame(records)
     for col in df.columns:
@@ -88,50 +46,18 @@ def datasus_real_sia(tmp_path: Path):
     """Gera dados SIA no formato REAL 2024: PA_CMP, PA_MUNPCN (NÃO PA_CODMUN),
     PA_FLIDADE, PA_VALAPR com leading spaces."""
     records = [
-        {
-            "PA_CIDPRI": "V209",
-            "PA_MUNPCN": "292740",
-            "PA_CMP": "202403",
-            "PA_VALAPR": "                     1250.50",
-            "PA_QTDAPR": "                   2",
-            "PA_SEXO": "M",
-            "PA_IDADE": "025",
-            "PA_FLIDADE": "1",
-            "UF": "BA",
-        },
-        {
-            "PA_CIDPRI": "V499",
-            "PA_MUNPCN": "292740",
-            "PA_CMP": "202406",
-            "PA_VALAPR": "                     3500.00",
-            "PA_QTDAPR": "                   1",
-            "PA_SEXO": "F",
-            "PA_IDADE": "045",
-            "PA_FLIDADE": "1",
-            "UF": "BA",
-        },
-        {
-            "PA_CIDPRI": "V019",
-            "PA_MUNPCN": "292740",
-            "PA_CMP": "202401",
-            "PA_VALAPR": "                      800.25",
-            "PA_QTDAPR": "                   3",
-            "PA_SEXO": "M",
-            "PA_IDADE": "008",
-            "PA_FLIDADE": "2",
-            "UF": "BA",
-        },
-        {
-            "PA_CIDPRI": "X999",
-            "PA_MUNPCN": "292740",
-            "PA_CMP": "202401",
-            "PA_VALAPR": "                      500.00",
-            "PA_QTDAPR": "                   1",
-            "PA_SEXO": "M",
-            "PA_IDADE": "030",
-            "PA_FLIDADE": "1",
-            "UF": "BA",
-        },
+        {"PA_CIDPRI": "V209", "PA_MUNPCN": "292740", "PA_CMP": "202403",
+         "PA_VALAPR": "                     1250.50", "PA_QTDAPR": "                   2",
+         "PA_SEXO": "M", "PA_IDADE": "025", "PA_FLIDADE": "1", "UF": "BA"},
+        {"PA_CIDPRI": "V499", "PA_MUNPCN": "292740", "PA_CMP": "202406",
+         "PA_VALAPR": "                     3500.00", "PA_QTDAPR": "                   1",
+         "PA_SEXO": "F", "PA_IDADE": "045", "PA_FLIDADE": "1", "UF": "BA"},
+        {"PA_CIDPRI": "V019", "PA_MUNPCN": "292740", "PA_CMP": "202401",
+         "PA_VALAPR": "                      800.25", "PA_QTDAPR": "                   3",
+         "PA_SEXO": "M", "PA_IDADE": "008", "PA_FLIDADE": "2", "UF": "BA"},
+        {"PA_CIDPRI": "X999", "PA_MUNPCN": "292740", "PA_CMP": "202401",
+         "PA_VALAPR": "                      500.00", "PA_QTDAPR": "                   1",
+         "PA_SEXO": "M", "PA_IDADE": "030", "PA_FLIDADE": "1", "UF": "BA"},
     ]
     df = pd.DataFrame(records)
     for col in df.columns:
@@ -145,26 +71,12 @@ def datasus_real_sia(tmp_path: Path):
 def datasus_old_sia(tmp_path: Path):
     """Gera dados SIA no formato antigo: PA_DATREF, PA_CODMUN."""
     records = [
-        {
-            "PA_CIDPRI": "V209",
-            "PA_CODMUN": "2927408",
-            "PA_DATREF": "202303",
-            "PA_VALAPR": "1100.00",
-            "PA_QTDAPR": "1",
-            "PA_SEXO": "M",
-            "PA_IDADE": "030",
-            "UF": "BA",
-        },
-        {
-            "PA_CIDPRI": "V499",
-            "PA_CODMUN": "2927408",
-            "PA_DATREF": "202306",
-            "PA_VALAPR": "2200.00",
-            "PA_QTDAPR": "2",
-            "PA_SEXO": "F",
-            "PA_IDADE": "020",
-            "UF": "BA",
-        },
+        {"PA_CIDPRI": "V209", "PA_CODMUN": "2927408", "PA_DATREF": "202303",
+         "PA_VALAPR": "1100.00", "PA_QTDAPR": "1", "PA_SEXO": "M",
+         "PA_IDADE": "030", "UF": "BA"},
+        {"PA_CIDPRI": "V499", "PA_CODMUN": "2927408", "PA_DATREF": "202306",
+         "PA_VALAPR": "2200.00", "PA_QTDAPR": "2", "PA_SEXO": "F",
+         "PA_IDADE": "020", "UF": "BA"},
     ]
     df = pd.DataFrame(records)
     for col in df.columns:
@@ -177,7 +89,6 @@ def datasus_old_sia(tmp_path: Path):
 def _reload_silver():
     """Recarrega modulo silver para pegar settings atualizados."""
     from importlib import import_module, reload
-
     config_mod = import_module("data-pipeline.config")
     reload(config_mod)
     silver_mod = import_module("data-pipeline.silver")
@@ -188,7 +99,6 @@ def _reload_silver():
 def test_silver_sim_real_dtobito(datasus_real_sim, tmp_path):
     """Silver SIM deve converter DTOBITO formato DDMMYYYY para DATE."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sim(datasus_real_sim)
@@ -204,7 +114,6 @@ def test_silver_sim_real_dtobito(datasus_real_sim, tmp_path):
 def test_silver_sim_real_idade_decode(datasus_real_sim, tmp_path):
     """Silver SIM deve decodificar IDADE DATASUS (425→25, 310→0, 498→98, 510→110)."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sim(datasus_real_sim)
@@ -224,7 +133,6 @@ def test_silver_sim_real_idade_decode(datasus_real_sim, tmp_path):
 def test_silver_sim_real_trailing_spaces(datasus_real_sim, tmp_path):
     """Silver SIM deve remover trailing spaces de CODMUNOCOR e CAUSABAS."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sim(datasus_real_sim)
@@ -242,7 +150,6 @@ def test_silver_sim_real_trailing_spaces(datasus_real_sim, tmp_path):
 def test_silver_sim_real_cid_filter(datasus_real_sim, tmp_path):
     """Silver SIM deve filtrar apenas CID V01-V89, excluindo X999."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sim(datasus_real_sim)
@@ -259,7 +166,6 @@ def test_silver_sia_real_pa_cmp_munpcn(datasus_real_sia, tmp_path):
     """Silver SIA deve processar dados 2024 reais:
     PA_CMP, PA_MUNPCN, PA_VALAPR com espaços, PA_FLIDADE."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sia(datasus_real_sia)
@@ -280,7 +186,6 @@ def test_silver_sia_real_pa_cmp_munpcn(datasus_real_sia, tmp_path):
 def test_silver_sia_real_pa_flidade(datasus_real_sia, tmp_path):
     """Silver SIA deve usar PA_FLIDADE: '2' (meses) → idade 0 anos."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sia(datasus_real_sia)
@@ -297,7 +202,6 @@ def test_silver_sia_real_pa_flidade(datasus_real_sia, tmp_path):
 def test_silver_sia_real_leading_spaces_valapr(datasus_real_sia, tmp_path):
     """Silver SIA deve parsear PA_VALAPR com leading spaces."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sia(datasus_real_sia)
@@ -314,7 +218,6 @@ def test_silver_sia_real_leading_spaces_valapr(datasus_real_sia, tmp_path):
 def test_silver_sia_old_pa_datref(datasus_old_sia, tmp_path):
     """Silver SIA deve processar dados com PA_DATREF + PA_CODMUN (layout antigo)."""
     import os
-
     os.environ["SILVER_DIR"] = str(tmp_path / "silver2")
     silver_mod = _reload_silver()
     result = silver_mod.processar_silver_sia(datasus_old_sia)

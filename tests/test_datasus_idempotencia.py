@@ -1,4 +1,4 @@
-"""Testes do caminho de materializacao Bronze deterministico."""
+﻿"""Testes do caminho de materializacao Bronze deterministico."""
 
 import importlib
 from pathlib import Path

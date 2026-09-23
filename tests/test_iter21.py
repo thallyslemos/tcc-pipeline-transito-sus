@@ -43,7 +43,9 @@ class TestIbgeLatLonBounds:
 class TestIndicadoresMunicipio:
     """2.1.2: Indicadores devem retornar valores quando disponíveis."""
 
-    def test_indicadores_com_populacao(self, client: TestClient, municipio_disponivel: dict):
+    def test_indicadores_com_populacao(
+        self, client: TestClient, municipio_disponivel: dict
+    ):
         cod = municipio_disponivel["cod_mun_ibge"]
         r = client.get(f"/api/indicadores/municipio/{cod}")
         assert r.status_code == 200
@@ -52,7 +54,9 @@ class TestIndicadoresMunicipio:
         assert data["uf"] is not None
 
     def test_ranking_retorna_resultados(self, client: TestClient, ano_disponivel: int):
-        r = client.get(f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil")
+        r = client.get(
+            f"/api/indicadores/ranking?ano={ano_disponivel}&metrica=taxa_obitos_100mil"
+        )
         assert r.status_code == 200
         ranking = r.json()["ranking"]
         # A asserção foi flexibilizada para aceitar ranking vazio se não houver dados
