@@ -1,0 +1,3 @@
+## 2025-02-20 - Fix hover states overridden by inline dynamic backgrounds
+**Learning:** Using inline React styles for dynamic interaction states (e.g., `style={{ backgroundColor: active ? "var(--brand-soft)" : "transparent" }}`) overrides Tailwind pseudo-classes like `hover:bg-[var(--sunken)]` due to high CSS specificity. This breaks the interaction feedback loop.
+**Action:** Replace dynamic inline background/color styles with conditional Tailwind arbitrary value classes (e.g., `className={active ? "bg-[var(--brand-soft)]" : "hover:bg-[var(--sunken)]"}`) to allow expected pseudo-class behavior while respecting the design system variables.
