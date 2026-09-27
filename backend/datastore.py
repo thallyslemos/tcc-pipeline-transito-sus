@@ -135,8 +135,12 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
     )
     obitos_legacy_path = gold_dir / "obitos_municipio_mes.parquet"
 
-    ocorrencia_path = next((p for p in ocorrencia_candidates if p.exists()), ocorrencia_candidates[0])
-    residencia_path = next((p for p in residencia_candidates if p.exists()), residencia_candidates[0])
+    ocorrencia_path = next(
+        (p for p in ocorrencia_candidates if p.exists()), ocorrencia_candidates[0]
+    )
+    residencia_path = next(
+        (p for p in residencia_candidates if p.exists()), residencia_candidates[0]
+    )
 
     if ocorrencia_path.exists():
         con.sql(f"""
