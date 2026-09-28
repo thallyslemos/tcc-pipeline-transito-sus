@@ -231,9 +231,9 @@ def run_prelim(ufs: list[str], anos: list[int]) -> None:
         uv run python -m data-pipeline.run --prelim --ufs BA --prelim-anos 2025 2026
     """
     from .datasus import UFS_BRASIL
+    from .silver_prelim import processar_silver_sim_prelim
     from .sim_prelim_gold import materializar_marts_prelim
     from .sim_prelim_ingest import baixar_sim_prelim_streaming
-    from .silver_prelim import processar_silver_sim_prelim
 
     if ufs == ["ALL"]:
         ufs = UFS_BRASIL
