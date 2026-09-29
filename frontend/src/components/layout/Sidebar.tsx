@@ -140,6 +140,7 @@ export default function Sidebar({ open, onClose }: Props) {
         <div className="px-3 pb-2">
           <button
             onClick={toggle}
+            aria-label={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
             style={{ color: "var(--ink-2)" }}
           >
