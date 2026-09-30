@@ -58,9 +58,7 @@ async def indicadores_municipio(
         ORDER BY ano
         """
     ).fetchdf()
-    anos_disponveis = (
-        [int(x) for x in anos_df["ano"].tolist()] if not anos_df.empty else []
-    )
+    anos_disponveis = [int(x) for x in anos_df["ano"].tolist()] if not anos_df.empty else []
     if ano is not None:
         anos_disponveis = [a for a in anos_disponveis if a == ano]
 
@@ -137,7 +135,8 @@ async def indicadores_municipio(
             "custos": "DATASUS - Sistema de Informacoes Ambulatoriais (SIA)",
             "metodologia_taxa": "Taxa por 100 mil hab = (eventos / populacao) * 100.000",
             "idh": "Atlas Brasil / PNUD (Censo 2010)",
-            "frota": "SENATRAN —frota municipal referência anual (ver data/gold/frota_municipio_ano.parquet)",
+            "frota": "SENATRAN —frota municipal referência anual "
+            "(ver data/gold/frota_municipio_ano.parquet)",
         },
     }
 

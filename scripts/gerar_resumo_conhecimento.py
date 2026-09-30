@@ -18,7 +18,7 @@ from pathlib import Path
 # ── Configuração ──────────────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path("/workspace/tcc")
-OUTPUT_DIR   = Path("/opt/team-shared")
+OUTPUT_DIR = Path("/opt/team-shared")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 TODAY = date.today().strftime("%Y%m%d")
@@ -27,19 +27,28 @@ TODAY = date.today().strftime("%Y%m%d")
 
 FONTES_INTEGRADAS = {
     "SIM (Sistema de Informações sobre Mortalidade)": {
-        "orgao":    "DATASUS / SVS — Ministério da Saúde",
-        "url":      "https://datasus.saude.gov.br/transferencia-de-arquivos/",
+        "orgao": "DATASUS / SVS — Ministério da Saúde",
+        "url": "https://datasus.saude.gov.br/transferencia-de-arquivos/",
         "protocolo": "FTP PySUS (.dbc → Parquet)",
-        "tabela":   "SIM/DO*",
+        "tabela": "SIM/DO*",
         "filtro_cid": "V01–V89 (Capítulo XX CID-10 — Acidentes de Transporte Terrestre)",
         "campos_chave": [
-            ("CAUSABAS",   "Causa básica do óbito (CID-10) — usar LEFT(CAUSABAS,3) para grupo V01–V89"),
-            ("DTOBITO",    "Data do óbito DDMMYYYY — aplicar TRIM + STRPTIME, descartar inválidos"),
-            ("CODMUNOCOR", "Código IBGE 7 dígitos do município de OCORRÊNCIA do óbito (local do sinistro)"),
-            ("CODMUNRES",  "Código IBGE 7 dígitos do município de RESIDÊNCIA da vítima"),
-            ("SEXO",       "1=Masculino, 2=Feminino — aplicar CAST(TRIM())"),
-            ("IDADE",      "Idade codificada em 3 dígitos — usar função DECODE_IDADE_SIM (anos para >= 1)"),
-            ("UF",         "Sigla UF — aplicar TRIM"),
+            (
+                "CAUSABAS",
+                "Causa básica do óbito (CID-10) — usar LEFT(CAUSABAS,3) para grupo V01–V89",
+            ),
+            ("DTOBITO", "Data do óbito DDMMYYYY — aplicar TRIM + STRPTIME, descartar inválidos"),
+            (
+                "CODMUNOCOR",
+                "Código IBGE 7 dígitos do município de OCORRÊNCIA do óbito (local do sinistro)",
+            ),
+            ("CODMUNRES", "Código IBGE 7 dígitos do município de RESIDÊNCIA da vítima"),
+            ("SEXO", "1=Masculino, 2=Feminino — aplicar CAST(TRIM())"),
+            (
+                "IDADE",
+                "Idade codificada em 3 dígitos — usar função DECODE_IDADE_SIM (anos para >= 1)",
+            ),
+            ("UF", "Sigla UF — aplicar TRIM"),
         ],
         "semantica": [
             "CODMUNOCOR ≈ local do acidente (proxy para o local do sinistro)",
@@ -54,23 +63,28 @@ FONTES_INTEGRADAS = {
             "TIPOBITO=1 indica óbito fetal — excluir ou documentar se incluso",
         ],
     },
-
     "SIA/PA (Sistema de Informações Ambulatoriais — Produção Ambulatorial)": {
-        "orgao":    "DATASUS — Ministério da Saúde",
-        "url":      "https://datasus.saude.gov.br/transferencia-de-arquivos/",
+        "orgao": "DATASUS — Ministério da Saúde",
+        "url": "https://datasus.saude.gov.br/transferencia-de-arquivos/",
         "protocolo": "FTP PySUS (.dbc → Parquet)",
-        "tabela":   "SIA/PAufaaaa.dbc",
+        "tabela": "SIA/PAufaaaa.dbc",
         "filtro_cid": "V01–V89 (mesmo capítulo CID-10)",
         "campos_chave": [
-            ("PA_CMP",     "Competência YYYYMM — origem da produção ambulatorial"),
-            ("PA_MUNPCN",  "Código IBGE 6 dígitos do município de RESIDÊNCIA do paciente (não confundir com PA_UFMUN)"),
-            ("PA_CIDPRI",  "CID primário — TRIM + LEFT(PA_CIDPRI,3) BETWEEN 'V01' AND 'V89'"),
-            ("PA_VALAPR",  "Valor APROVADO R$ — usar SEMPRE este, nunca PA_QTDPRO (não aprovado)"),
-            ("PA_QTDAPR",  "Quantidade aprovada — quantidade de procedimentos/apresentações autorizadas"),
-            ("PA_IDADE",   "Idade codificada — combinar com PA_FLIDADE (1=anos, 2=meses, 3=dias)"),
+            ("PA_CMP", "Competência YYYYMM — origem da produção ambulatorial"),
+            (
+                "PA_MUNPCN",
+                "Código IBGE 6 dígitos do município de RESIDÊNCIA do paciente (não confundir com PA_UFMUN)",
+            ),
+            ("PA_CIDPRI", "CID primário — TRIM + LEFT(PA_CIDPRI,3) BETWEEN 'V01' AND 'V89'"),
+            ("PA_VALAPR", "Valor APROVADO R$ — usar SEMPRE este, nunca PA_QTDPRO (não aprovado)"),
+            (
+                "PA_QTDAPR",
+                "Quantidade aprovada — quantidade de procedimentos/apresentações autorizadas",
+            ),
+            ("PA_IDADE", "Idade codificada — combinar com PA_FLIDADE (1=anos, 2=meses, 3=dias)"),
             ("PA_FLIDADE", "Flag da idade — indica unidade de PA_IDADE"),
-            ("PA_SEXO",    "Sexo M/F — aplicar TRIM"),
-            ("UF",         "Sigla UF — aplicar TRIM"),
+            ("PA_SEXO", "Sexo M/F — aplicar TRIM"),
+            ("UF", "Sigla UF — aplicar TRIM"),
         ],
         "semantica": [
             "PA_MUNPCN = município de residência do paciente (não o local de atendimento)",
@@ -85,21 +99,23 @@ FONTES_INTEGRADAS = {
         ],
         "referencia_financeiro": "docs/FINANCEIRO.md — metodologia TCU para detecção de anomalias em PA_QTDAPR/VALAPR",
     },
-
     "IBGE — Códigos e Localidades": {
-        "orgao":    "IBGE",
-        "url":      "https://www.ibge.gov.br/explica/codigos-dos-municipios.php",
+        "orgao": "IBGE",
+        "url": "https://www.ibge.gov.br/explica/codigos-dos-municipios.php",
         "protocolo": "CSV download + API HTTP",
         "campos_chave": [
-            ("Código Município Completo (7d)", "Código IBGE com dígito verificador — usar para JOIN com SIM/SIA"),
-            ("Município (6d)",                "Código sem dígito — usar para JOIN parcial com PA_MUNPCN (6d)"),
-            ("Nome_Município",               "Nome oficial do município"),
-            ("UF",                            "Código numérico da UF (ex: 29 = BA)"),
-            ("Nome_UF",                       "Nome por extenso"),
+            (
+                "Código Município Completo (7d)",
+                "Código IBGE com dígito verificador — usar para JOIN com SIM/SIA",
+            ),
+            ("Município (6d)", "Código sem dígito — usar para JOIN parcial com PA_MUNPCN (6d)"),
+            ("Nome_Município", "Nome oficial do município"),
+            ("UF", "Código numérico da UF (ex: 29 = BA)"),
+            ("Nome_UF", "Nome por extenso"),
             ("Região Geográfica Intermediária", "Código IBGE 2017 da região intermediária"),
             ("Nome Região Geográfica Intermediária", "Nome da região intermediária"),
-            ("Região Geográfica Imediata",   "Código IBGE 2017 da região imediata"),
-            ("Nome Região Geográfica Imediata",  "Nome da região imediata"),
+            ("Região Geográfica Imediata", "Código IBGE 2017 da região imediata"),
+            ("Nome Região Geográfica Imediata", "Nome da região imediata"),
         ],
         "enriquecimentos_disponiveis": [
             "lat/lon via API: servicodados.ibge.gov.br/api/v1/localidades/municipios/{cod}/coordenadas",
@@ -109,23 +125,28 @@ FONTES_INTEGRADAS = {
         ],
         "hierarquia": "UF → Região Intermediária (2017) → Região Imediata (2017) → Município",
     },
-
     "DENATRAN/RENAVAM — Frota de Veículos": {
-        "orgao":    "DENATRAN / Ministério dos Transportes",
-        "url":      "https://dados.transportes.gov.br/dataset/renavam",
+        "orgao": "DENATRAN / Ministério dos Transportes",
+        "url": "https://dados.transportes.gov.br/dataset/renavam",
         "protocolo": "Download CSV direto (requer autenticação básica ou link público)",
         "campos_chave": [
-            ("uf",           "Sigla UF"),
-            ("municipio",    "Nome do município (normalizar upper-case)"),
-            ("cod_municipio","Código IBGE 7 dígitos — principal chave de JOIN"),
+            ("uf", "Sigla UF"),
+            ("municipio", "Nome do município (normalizar upper-case)"),
+            ("cod_municipio", "Código IBGE 7 dígitos — principal chave de JOIN"),
             ("tipo_veiculo", "Categoria: AUTOMOVEL, MOTOCICLETA, CAMINHÃO, ÔNIBUS, etc."),
-            ("quantidade",   "Quantidade de veículos registrados"),
-            ("mes_referencia","Mês de referência da informação"),
-            ("ano_referencia","Ano de referência"),
+            ("quantidade", "Quantidade de veículos registrados"),
+            ("mes_referencia", "Mês de referência da informação"),
+            ("ano_referencia", "Ano de referência"),
         ],
         "tipos_veiculo_conhecidos": [
-            "AUTOMOVEL", "MOTOCICLETA", "CAMINHÃO", "ÔNIBUS",
-            "UTILITÁRIO", "MICROÔNIBUS", "CAMIONETA", "TRATOR",
+            "AUTOMOVEL",
+            "MOTOCICLETA",
+            "CAMINHÃO",
+            "ÔNIBUS",
+            "UTILITÁRIO",
+            "MICROÔNIBUS",
+            "CAMIONETA",
+            "TRATOR",
         ],
         "uso_estrategico": [
             "Denominador para taxa de mortalidade por 10k veículos (mais precisa que taxa por 100mil hab)",
@@ -152,26 +173,25 @@ WHERE o.ano = 2023
 GROUP BY m.nome, o.ano;
         """,
     },
-
     "SIDRA — Tabelas IBGE": {
         "tabelas": {
             "6579": {
-                "nome":    "Estimativas Populacionais Anuais",
-                "url":     "https://sidra.ibge.gov.br/tabela/6579",
-                "uso":     "Denominador para taxa por 100mil hab",
-                "campos":  "população estimada por município e ano",
+                "nome": "Estimativas Populacionais Anuais",
+                "url": "https://sidra.ibge.gov.br/tabela/6579",
+                "uso": "Denominador para taxa por 100mil hab",
+                "campos": "população estimada por município e ano",
             },
             "4714": {
-                "nome":    "Área Territorial e Densidade Demográfica (Censo 2022)",
-                "url":     "https://sidra.ibge.gov.br/tabela/4714",
-                "uso":     "Cálculo de densidade (hab/km²) e enriquecimento geográfico",
-                "campos":  "área km², densidade demográfica por município",
+                "nome": "Área Territorial e Densidade Demográfica (Censo 2022)",
+                "url": "https://sidra.ibge.gov.br/tabela/4714",
+                "uso": "Cálculo de densidade (hab/km²) e enriquecimento geográfico",
+                "campos": "área km², densidade demográfica por município",
             },
             "5938": {
-                "nome":    "PIB dos Municípios",
-                "url":     "https://sidra.ibge.gov.br/tabela/5938",
-                "uso":     "Análise de correlação entre PIB e sinistralidade (futuro)",
-                "campos":  "PIB municipal, valor adicionado, impostos",
+                "nome": "PIB dos Municípios",
+                "url": "https://sidra.ibge.gov.br/tabela/5938",
+                "uso": "Análise de correlação entre PIB e sinistralidade (futuro)",
+                "campos": "PIB municipal, valor adicionado, impostos",
             },
         },
     },
@@ -181,14 +201,13 @@ GROUP BY m.nome, o.ano;
 
 CONCEITOS = {
     "Taxa de mortalidade por 10k veículos": {
-        "formula":     "(óbitos / frota_total) * 10000",
-        "vantagem":    "Mais precisa que taxa por 100mil hab pois usa denominador diretamente relacionado ao risco (mais veículos = mais exposição)",
-        "aplicacao":   "Comparar municípios com frotas similares; identificar alta sinistralidade relativa",
+        "formula": "(óbitos / frota_total) * 10000",
+        "vantagem": "Mais precisa que taxa por 100mil hab pois usa denominador diretamente relacionado ao risco (mais veículos = mais exposição)",
+        "aplicacao": "Comparar municípios com frotas similares; identificar alta sinistralidade relativa",
         "sql_exemplo": "(SUM(o.quantidade)::decimal / NULLIF(SUM(f.quantidade), 0)) * 10000",
     },
-
     "CID V01–V89 — Acidentes de Transporte Terrestre": {
-        "descricao":  "Capítulo XX do CID-10, códigos V01 a V89, abrangendo todos os modos de transporte terrestre",
+        "descricao": "Capítulo XX do CID-10, códigos V01 a V89, abrangendo todos os modos de transporte terrestre",
         "subgrupos_utilizados": [
             ("V01–V09", "Pedestre"),
             ("V10–V19", "Ciclista"),
@@ -203,49 +222,44 @@ CONCEITOS = {
         "importante": "Filtrar LEFT(TRIM(cid), 3) BETWEEN 'V01' AND 'V89' — não usar string maior que 3 chars",
         "referencia": "oms / DATASUS / ONSV — todos usam este range",
     },
-
     "Residência vs Ocorrência": {
-        "descricao":  "Dois conceitos fundamentais em análise de acidentes de trânsito",
+        "descricao": "Dois conceitos fundamentais em análise de acidentes de trânsito",
         "ocorrencia": {
-            "campo_sim":   "CODMUNOCOR",
+            "campo_sim": "CODMUNOCOR",
             "significado": "Onde o óbito ocorreu (≈ local do sinistro)",
-            "uso":         "Indicadores de segurança viária (hotspots, map，警方)",
+            "uso": "Indicadores de segurança viária (hotspots, map，警方)",
         },
         "residencia": {
-            "campo_sim":   "CODMUNRES",
+            "campo_sim": "CODMUNRES",
             "significado": "Onde a vítima morava",
-            "uso":         "Perfil demográfico, planejamento de saúde local",
+            "uso": "Perfil demográfico, planejamento de saúde local",
         },
         "sia": {
-            "campo":       "PA_MUNPCN",
+            "campo": "PA_MUNPCN",
             "significado": "Município de residência do paciente (SIA não tem campo de ocorrência)",
-            "nota":        "SIA só tem residência do paciente — não confundir com local de atendimento (PA_UFMUN)",
+            "nota": "SIA só tem residência do paciente — não confundir com local de atendimento (PA_UFMUN)",
         },
         "impacto_numerico": "Nacionalmente, valores por residência tendem a ser maiores que por ocorrência (vítimas morrem em hospitais fora do município do acidente)",
     },
-
     "PA_VALAPR vs PA_QTDPRO": {
-        "descricao":  "Campo financeiro oficial do SIA",
-        "valido":     "PA_VALAPR — Valor aprovado pelo SUS (ja auditado)",
-        "evitar":     "PA_QTDPRO — Quantidade которая não passou pelo crivo de aprovação",
+        "descricao": "Campo financeiro oficial do SIA",
+        "valido": "PA_VALAPR — Valor aprovado pelo SUS (ja auditado)",
+        "evitar": "PA_QTDPRO — Quantidade которая não passou pelo crivo de aprovação",
         "referencia": "TCU 2020 — 'A variável PA_QTDAPR será utilizada por ela ter a informação já aprovada pelo SUS'",
     },
-
     "Custo per capita": {
-        "formula":   "custo_total_SIA / populacao_ibge",
+        "formula": "custo_total_SIA / populacao_ibge",
         "denominador": "População estimada IBGE (SIDRA 6579)",
-        "uso":       "Comparar ônus financeiro entre municípiosnormalized por tamanho populacional",
+        "uso": "Comparar ônus financeiro entre municípiosnormalized por tamanho populacional",
     },
-
     "Taxa por 100mil hab": {
-        "formula":   "(obitos / populacao) * 100000",
+        "formula": "(obitos / populacao) * 100000",
         "referencia": "Padrão OMS / DATASUS / SIMU",
-        "nota":      "Indicador mais usado, porém sensível a variações na base de população",
+        "nota": "Indicador mais usado, porém sensível a variações na base de população",
     },
-
     "Faixas etárias padronizadas": {
         "definidas": ["0-14", "15-24", "25-34", "35-44", "45-54", "55-64", "65+"],
-        "uso":       "Agregação e filtragem no pipeline Silver → Gold",
+        "uso": "Agregação e filtragem no pipeline Silver → Gold",
     },
 }
 
@@ -253,36 +267,31 @@ CONCEITOS = {
 
 CRUZAMENTOS = {
     "SIM + IBGE (óbitos por ocorrência + geografia)": {
-        "join":  "Silver SIM.cod_mun_ocorrencia → IBGE.cod_mun_ibge_7",
+        "join": "Silver SIM.cod_mun_ocorrencia → IBGE.cod_mun_ibge_7",
         "result": "Óbitos com lat/lon, UF, região intermediária/imediata, área km²",
         "usado_em": "Dashboards de mapa, rankings municipais",
     },
-
     "SIM + IBGE (óbitos por residência + geografia)": {
-        "join":  "Silver SIM.cod_mun_residencia → IBGE.cod_mun_ibge_7",
+        "join": "Silver SIM.cod_mun_residencia → IBGE.cod_mun_ibge_7",
         "result": "Perfil demográfico da vítima por município de moradia",
         "usado_em": "Análises de vulnerabilidade, perfil etário",
     },
-
     "SIA + IBGE (custos + geografia)": {
-        "join":  "Silver SIA.cod_mun (6d) → IBGE.cod_mun_ibge_6 (com prefixo UF)",
+        "join": "Silver SIA.cod_mun (6d) → IBGE.cod_mun_ibge_6 (com prefixo UF)",
         "result": "Custos ambulatoriais com lat/lon, região, área",
         "usado_em": "Indicadores de custo per capita, mapas de impacto financeiro",
     },
-
     "SIM (óbitos) + DENATRAN (frota)": {
-        "join":  "Gold óbito.cod_mun_ibge + ano → Gold frota.cod_mun_ibge + ano",
+        "join": "Gold óbito.cod_mun_ibge + ano → Gold frota.cod_mun_ibge + ano",
         "result": "Taxa de mortalidade por 10k veículos por município/ano",
         "usado_em": "ADR-002 — modelo dimensional; análise de sinistralidade relativa",
-        "nota":    "Frota agregada por ano, não mensal — usar ano do óbito para join",
+        "nota": "Frota agregada por ano, não mensal — usar ano do óbito para join",
     },
-
     "Gold óbito + SIDRA 6579 (população)": {
-        "join":  "Gold óbito.cod_mun_ibge + ano → IBGE_populacao.cod_mun_ibge + ano",
+        "join": "Gold óbito.cod_mun_ibge + ano → IBGE_populacao.cod_mun_ibge + ano",
         "result": "Taxa por 100mil hab",
         "importante": "População varia por ano — usar ano correto no join",
     },
-
     "Gold custos + Gold óbito (side-by-side)": {
         "result": "Comparar custo ambulatorial vs mortalidade por município/uf",
         "usado_em": "Dashboard resumo, correlação custo × óbito",
@@ -293,17 +302,17 @@ CRUZAMENTOS = {
 
 BASES_FUTURAS = {
     "PRF — Acidentes de Trânsito (Boletim de Ocorrência)": {
-        "orgao":       "Polícia Rodoviária Federal",
-        "url":         "https://www.gov.br/prf/pt-br/acesso-a-informacao/dados-abertos/dados-estatisticos-de-acidentes",
+        "orgao": "Polícia Rodoviária Federal",
+        "url": "https://www.gov.br/prf/pt-br/acesso-a-informacao/dados-abertos/dados-estatisticos-de-acidentes",
         "periodicidade": "Anual / trimestral",
         "campos_relevantes": [
-            ("br",       "Rodovia (BR-xxxx)"),
-            ("km",       "Kilômetro"),
+            ("br", "Rodovia (BR-xxxx)"),
+            ("km", "Kilômetro"),
             ("causa_acidente", "Causa registrada no BO"),
-            ("tipo_acidente",  "Colisão, saída de pista, capotamento, etc."),
-            ("data",     "Data/hora"),
+            ("tipo_acidente", "Colisão, saída de pista, capotamento, etc."),
+            ("data", "Data/hora"),
             ("municipio", "Código ou nome IBGE do município"),
-            ("vitimas",  "Quantidade de feridos/mortos"),
+            ("vitimas", "Quantidade de feridos/mortos"),
             ("veiculos", "Tipos de veículos envolvidos"),
         ],
         "potencial": [
@@ -314,20 +323,19 @@ BASES_FUTURAS = {
         ],
         "status_no_codigo": "NÃO implementado — futuro",
     },
-
     "RENAEST — Registro Nacional de Acidentes e Estatísticas de Trânsito": {
-        "orgao":       "Ministério dos Transportes / DENATRAN",
-        "url":         "https://dados.transportes.gov.br/",
-        "descricao":   "Sistema que consolida dados de acidentes de trânsito de múltiplas fontes (PRF, DETRANs, SAMU)",
+        "orgao": "Ministério dos Transportes / DENATRAN",
+        "url": "https://dados.transportes.gov.br/",
+        "descricao": "Sistema que consolida dados de acidentes de trânsito de múltiplas fontes (PRF, DETRANs, SAMU)",
         "campos_relevantes": [
             ("tipo_acidente", "Categoria do acidente"),
-            ("gravidade",     "Ileso, ferido leve, grave, morte"),
-            ("data",          "Data"),
-            ("uf",            "UF"),
-            ("municipio",     "Código IBGE"),
-            ("br",            "Rodovia (se rodoviário)"),
-            ("veiculos",      "Veículos envolvidos"),
-            ("pessoas",       "Vítimas por gravidade"),
+            ("gravidade", "Ileso, ferido leve, grave, morte"),
+            ("data", "Data"),
+            ("uf", "UF"),
+            ("municipio", "Código IBGE"),
+            ("br", "Rodovia (se rodoviário)"),
+            ("veiculos", "Veículos envolvidos"),
+            ("pessoas", "Vítimas por gravidade"),
         ],
         "potencial": [
             "Consolidação nacional de acidentes (não só mortes, mas feridos graves)",
@@ -338,17 +346,16 @@ BASES_FUTURAS = {
         "status_no_codigo": "NÃO implementado — futuro",
         "nota": "É a fonte que unificará PRF + DETRAN + outros — futuro próximo do projeto",
     },
-
     "SIH — Sistema de Informações Hospitalares": {
-        "orgao":       "DATASUS",
-        "url":         "https://datasus.saude.gov.br/transferencia-de-arquivos/",
-        "tabela":      "SIH/RD (AIH reducida)",
+        "orgao": "DATASUS",
+        "url": "https://datasus.saude.gov.br/transferencia-de-arquivos/",
+        "tabela": "SIH/RD (AIH reducida)",
         "campos_relevantes": [
             ("DIAG_PRINCIPAL", "CID da internação"),
-            ("MUNIC_RES",      "Código IBGE município residência"),
-            ("VAL_TOT",        "Valor total da internação"),
-            ("DT_INTER",       "Data de internação"),
-            ("CNES",           "Código do hospital"),
+            ("MUNIC_RES", "Código IBGE município residência"),
+            ("VAL_TOT", "Valor total da internação"),
+            ("DT_INTER", "Data de internação"),
+            ("CNES", "Código do hospital"),
         ],
         "potencial": [
             "Custo de internações por acidentes (AIH > custo ambulatorial SIA)",
@@ -358,45 +365,46 @@ BASES_FUTURAS = {
         "status_no_codigo": "NÃO implementado — futuro",
         "referencia_artigo": "SciELO 2025 (Record Linkage SIM + SIVEP) usa mesma estrutura de linkage",
     },
-
     "DATASUS TABNET/TABWIN": {
-        "url":     "https://datasus.saude.gov.br/",
-        "info":    "Interface de consulta do DATASUS para SIM, SIA, SIH, SINASC",
-        "uso":     "Validação de resultados contra fontes oficiais; cross-check anual",
+        "url": "https://datasus.saude.gov.br/",
+        "info": "Interface de consulta do DATASUS para SIM, SIA, SIH, SINASC",
+        "uso": "Validação de resultados contra fontes oficiais; cross-check anual",
         "urls_referencia": [
-            ("SIM — Mortalidade",      "https://datasus.saude.gov.br/transferencia-de-arquivos/ (FTP SIM)"),
-            ("SIA — Ambulatorial",     "https://datasus.saude.gov.br/transferencia-de-arquivos/ (FTP SIA)"),
-            ("Tabnet Online",          "https://datasus.saude.gov.br/"),
+            (
+                "SIM — Mortalidade",
+                "https://datasus.saude.gov.br/transferencia-de-arquivos/ (FTP SIM)",
+            ),
+            (
+                "SIA — Ambulatorial",
+                "https://datasus.saude.gov.br/transferencia-de-arquivos/ (FTP SIA)",
+            ),
+            ("Tabnet Online", "https://datasus.saude.gov.br/"),
         ],
     },
-
     "ONSV — Observatório Nacional de Segurança Viária": {
-        "url":     "https://onsv.github.io/analise-datasus-2023/datasus2023.html",
-        "info":    "Análise consolidada de mortes no trânsito brasileiro (dados DATASUS 2023)",
-        "uso":     "Benchmark externo para validar números do pipeline",
+        "url": "https://onsv.github.io/analise-datasus-2023/datasus2023.html",
+        "info": "Análise consolidada de mortes no trânsito brasileiro (dados DATASUS 2023)",
+        "uso": "Benchmark externo para validar números do pipeline",
         "metodologia": "Agregação por residência, CID V01–V89, SIM/DATASUS",
-        "referencia":  "PAC_AUDITORIA_SIM_SIA.md — usa ONSV como benchmark de cross-check",
+        "referencia": "PAC_AUDITORIA_SIM_SIA.md — usa ONSV como benchmark de cross-check",
     },
-
     "SIMU — Sistema Indicadores de Mobilidade e Segurança": {
-        "url":  "https://simu.cidades.gov.br/",
+        "url": "https://simu.cidades.gov.br/",
         "info": "Indicador: mortes em acidentes de trânsito por 100 mil habitantes",
         "uso": "Validação de taxa por 100mil; metodologia oficial do Ministério das Cidades",
         "nota": "Usa óbito por OCORRÊNCIA para recorte municipal (não residência)",
     },
-
     "Atlas Brasil — IDH Municipal": {
-        "url":     "http://www.atlasbrasil.org.br/",
-        "info":    "IDH por município (educação, renda, longevidade)",
+        "url": "http://www.atlasbrasil.org.br/",
+        "info": "IDH por município (educação, renda, longevidade)",
         "potencial_cruzamento": [
             "IDH vs taxa de mortalidade (municípios de baixa renda têm maior sinistralidade?)",
             "Correlação renda × frota × acidentes",
         ],
         "status_no_codigo": "NÃO implementado — oportunidade de enriquecimento",
     },
-
     "PNATRANS — Plano Nacional de Redução de Mortes": {
-        "url":  "https://www.gov.br/mobilidade/pt-br/assuntos/seguranca-no-transito/pntrans",
+        "url": "https://www.gov.br/mobilidade/pt-br/assuntos/seguranca-no-transito/pntrans",
         "info": "Política federal com metas de redução de mortes até 2030 (ODS 3.6)",
         "uso": "Comparar evolução real vs metas do PNATRANS por UF/município",
         "referencia": "REVISAO_LITERATURA.md — Meta 3.6 ODS",
@@ -406,18 +414,46 @@ BASES_FUTURAS = {
 # ── Regras de ouro descobertas ────────────────────────────────────────────────
 
 REGRAS = [
-    ("TRIM() sempre", "Todos os campos string do DATASUS podem ter espaços — aplicar TRIM() antes de qualquer transformação"),
-    ("LEFT(cid,3) para grupo", "Para filtrar V01–V89 usar LEFT(TRIM(campo), 3) BETWEEN 'V01' AND 'V89' — nunca CAUSABAS completo"),
-    ("PA_VALAPR > PA_QTDPRO", "Sempre usar PA_VALAPR (aprovado) para análises financeiras, conforme validação TCU 2020"),
-    ("CODMUNOCOR ≠ CODMUNRES", "Não confundir ocorrência com residência — têm valores diferentes e geram indicadores distintos"),
-    ("PA_MUNPCN = residência", "No SIA, o município é sempre o de residência do paciente, não o de atendimento"),
-    ("Código 7d para JOIN", "CODMUNOCOR e CODMUNRES são 7 dígitos; PA_MUNPCN é 6 dígitos — normalizar antes de JOIN com IBGE"),
-    ("6d para complementar", "PA_MUNPCN de 6 dígitos: concatenar com código UF (2d) para obter os 7d completos"),
-    ("Descartar DTOBITO null", "Registros com data de óbito inválida/nula devem ser removidos — documentar perda"),
-    ("Cross-check obrigatório", "Antes de publicar números, comparar com ONSV e SIMU (mesma metodologia CID V01–V89)"),
+    (
+        "TRIM() sempre",
+        "Todos os campos string do DATASUS podem ter espaços — aplicar TRIM() antes de qualquer transformação",
+    ),
+    (
+        "LEFT(cid,3) para grupo",
+        "Para filtrar V01–V89 usar LEFT(TRIM(campo), 3) BETWEEN 'V01' AND 'V89' — nunca CAUSABAS completo",
+    ),
+    (
+        "PA_VALAPR > PA_QTDPRO",
+        "Sempre usar PA_VALAPR (aprovado) para análises financeiras, conforme validação TCU 2020",
+    ),
+    (
+        "CODMUNOCOR ≠ CODMUNRES",
+        "Não confundir ocorrência com residência — têm valores diferentes e geram indicadores distintos",
+    ),
+    (
+        "PA_MUNPCN = residência",
+        "No SIA, o município é sempre o de residência do paciente, não o de atendimento",
+    ),
+    (
+        "Código 7d para JOIN",
+        "CODMUNOCOR e CODMUNRES são 7 dígitos; PA_MUNPCN é 6 dígitos — normalizar antes de JOIN com IBGE",
+    ),
+    (
+        "6d para complementar",
+        "PA_MUNPCN de 6 dígitos: concatenar com código UF (2d) para obter os 7d completos",
+    ),
+    (
+        "Descartar DTOBITO null",
+        "Registros com data de óbito inválida/nula devem ser removidos — documentar perda",
+    ),
+    (
+        "Cross-check obrigatório",
+        "Antes de publicar números, comparar com ONSV e SIMU (mesma metodologia CID V01–V89)",
+    ),
 ]
 
 # ── Funções de output ─────────────────────────────────────────────────────────
+
 
 def titulo(texto, nivel=1):
     if nivel == 1:
@@ -429,6 +465,7 @@ def titulo(texto, nivel=1):
     elif nivel == 4:
         return f"\n### {texto}\n"
     return texto
+
 
 def gerar_markdown():
     linhas = []
@@ -539,7 +576,7 @@ def gerar_markdown():
         linhas.append(f"| {tipo.capitalize()} | `{d['campo_sim']}` | {d['significado']} |")
     linhas.append(f"\n**SIA**: `{rc['sia']['campo']}` = {rc['sia']['significado']}")
     if "nota" in rc:
-            linhas.append(f"\n⚠️ **Nota**: {rc['nota']}")
+        linhas.append(f"\n⚠️ **Nota**: {rc['nota']}")
 
     # ── 3. Cruzamentos realizados ──────────────────────────────────────
     linhas.append(titulo("3. CRUZAMENTOS JÁ REALIZADOS / VALIDADOS", 1))
@@ -593,12 +630,30 @@ def gerar_markdown():
     linhas.append(titulo("6. OPORTUNIDADES DE CRUZAMENTO NÃO EXPLORADAS", 1))
 
     oportunidades = [
-        ("PRF × SIM (mortalidade)", "Validar número de mortes PRF vs SIM — identifica subnotificação"),
-        ("RENAEST × SIM × SIH", " cross-link para medir qualidade do registro (mortes que aparecem no SIM mas não no RENAEST)"),
-        ("Frota DENATRAN × PIB(IDH) × mortalidade", "Análise multivariada: municipios de alta frota + baixa renda = maior risco?"),
-        ("SIH × SIA (custos)", "Combinar internações (SIH) com ambulatório (SIA) para custo total do SUS por trânsito"),
-        ("Região intermediária × corredor de risco", "Agregar BRs por região intermediária — identificar eixos rodoviários de alta sinistralidade"),
-        ("Evolução temporal da frota × mortalidade", "Análise de tendência: crescimento da frota de motos correlaciona com aumento de Mortality?"),
+        (
+            "PRF × SIM (mortalidade)",
+            "Validar número de mortes PRF vs SIM — identifica subnotificação",
+        ),
+        (
+            "RENAEST × SIM × SIH",
+            " cross-link para medir qualidade do registro (mortes que aparecem no SIM mas não no RENAEST)",
+        ),
+        (
+            "Frota DENATRAN × PIB(IDH) × mortalidade",
+            "Análise multivariada: municipios de alta frota + baixa renda = maior risco?",
+        ),
+        (
+            "SIH × SIA (custos)",
+            "Combinar internações (SIH) com ambulatório (SIA) para custo total do SUS por trânsito",
+        ),
+        (
+            "Região intermediária × corredor de risco",
+            "Agregar BRs por região intermediária — identificar eixos rodoviários de alta sinistralidade",
+        ),
+        (
+            "Evolução temporal da frota × mortalidade",
+            "Análise de tendência: crescimento da frota de motos correlaciona com aumento de Mortality?",
+        ),
     ]
 
     for nome, desc in oportunidades:
@@ -608,9 +663,21 @@ def gerar_markdown():
     linhas.append(titulo("7. FONTES DE VALIDAÇÃO (CROSS-CHECK)", 1))
     linhas.append("Antes de publicar indicadores, comparar com estas fontes oficiais:\n")
     validacao = [
-        ("ONSV — Análise DATASUS 2023", "https://onsv.github.io/analise-datasus-2023/datasus2023.html", "Benchmark de mortalidade nacional"),
-        ("SIMU — Indicador por 100mil hab", "https://simu.cidades.gov.br/", "Metodologia oficial Ministério das Cidades"),
-        ("Tabnet DATASUS", "https://datasus.saude.gov.br/", "Consulta direta SIM/SIA/SIH para validação pontual"),
+        (
+            "ONSV — Análise DATASUS 2023",
+            "https://onsv.github.io/analise-datasus-2023/datasus2023.html",
+            "Benchmark de mortalidade nacional",
+        ),
+        (
+            "SIMU — Indicador por 100mil hab",
+            "https://simu.cidades.gov.br/",
+            "Metodologia oficial Ministério das Cidades",
+        ),
+        (
+            "Tabnet DATASUS",
+            "https://datasus.saude.gov.br/",
+            "Consulta direta SIM/SIA/SIH para validação pontual",
+        ),
         ("Painel ONSV", "https://onsv.github.io/", "Dashboards consolidados de segurança viária"),
     ]
     linhas.append("| Fonte | URL | Uso |")
@@ -620,7 +687,9 @@ def gerar_markdown():
 
     # Footer
     linhas.append("\n---\n")
-    linhas.append("*Documento gerado automaticamente pelo Hermes Agent — projeto tcc-pipeline-transito-sus*")
+    linhas.append(
+        "*Documento gerado automaticamente pelo Hermes Agent — projeto tcc-pipeline-transito-sus*"
+    )
 
     return "\n".join(linhas)
 
@@ -647,5 +716,6 @@ if __name__ == "__main__":
     print(f"✅ Markdown gerado: {output_md}")
 
     import json
+
     output_json.write_text(json.dumps(gerar_json(), indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"✅ JSON gerado: {output_json}")

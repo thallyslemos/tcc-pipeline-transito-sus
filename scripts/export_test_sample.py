@@ -21,15 +21,37 @@ OUTPUT_DIR = PROJECT_ROOT / "data" / "test_sample"
 
 
 SIM_COLS = [
-    "CAUSABAS", "DTOBITO", "CODMUNOCOR", "CODMUNRES",
-    "SEXO", "IDADE", "RACACOR", "UF",
+    "CAUSABAS",
+    "DTOBITO",
+    "CODMUNOCOR",
+    "CODMUNRES",
+    "SEXO",
+    "IDADE",
+    "RACACOR",
+    "UF",
 ]
 
 SIA_COLS = [
-    "PA_CIDPRI", "PA_CIDSEC", "PA_CODUNI", "PA_MUNPCN", "PA_UFMUN",
-    "PA_CMP", "PA_MVM", "PA_PROC_ID", "PA_VALAPR", "PA_VALPRO",
-    "PA_QTDAPR", "PA_QTDPRO", "PA_SEXO", "PA_IDADE", "PA_FLIDADE",
-    "PA_RACACOR", "PA_CATEND", "PA_NIVCPL", "PA_OBITO", "UF",
+    "PA_CIDPRI",
+    "PA_CIDSEC",
+    "PA_CODUNI",
+    "PA_MUNPCN",
+    "PA_UFMUN",
+    "PA_CMP",
+    "PA_MVM",
+    "PA_PROC_ID",
+    "PA_VALAPR",
+    "PA_VALPRO",
+    "PA_QTDAPR",
+    "PA_QTDPRO",
+    "PA_SEXO",
+    "PA_IDADE",
+    "PA_FLIDADE",
+    "PA_RACACOR",
+    "PA_CATEND",
+    "PA_NIVCPL",
+    "PA_OBITO",
+    "UF",
 ]
 
 
