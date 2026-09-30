@@ -70,20 +70,31 @@ def test_mart_filtra_qa_e_calcula_denominadores(tmp_path: Path):
     _fleet(fleet)
 
     sim_evidence.materializar_mart_municipal(
-        silver, role="ocorrencia", destino=out, municipio_path=dim,
-        populacao_path=pop, frota_path=fleet,
+        silver,
+        role="ocorrencia",
+        destino=out,
+        municipio_path=dim,
+        populacao_path=pop,
+        frota_path=fleet,
     )
     con = duckdb.connect(":memory:")
-    row = con.sql(f"SELECT SUM(total_obitos), MIN(taxa_obitos_100mil), MIN(taxa_obitos_10mil_veiculos), COUNT(*) FROM '{out}'").fetchone()
+    row = con.sql(
+        f"SELECT SUM(total_obitos), MIN(taxa_obitos_100mil), MIN(taxa_obitos_10mil_veiculos), COUNT(*) FROM '{out}'"
+    ).fetchone()
     assert row == (2, 100.0, 20.0, 2)
 
     res = tmp_path / "mart_res.parquet"
     sim_evidence.materializar_mart_municipal(
-        silver, role="residencia", destino=res, municipio_path=dim,
+        silver,
+        role="residencia",
+        destino=res,
+        municipio_path=dim,
         populacao_path=tmp_path / "missing-pop.parquet",
         frota_path=tmp_path / "missing-fleet.parquet",
     )
-    nulls = con.sql(f"SELECT COUNT(*) FROM '{res}' WHERE populacao_status = 'indisponivel' AND taxa_obitos_100mil IS NULL").fetchone()[0]
+    nulls = con.sql(
+        f"SELECT COUNT(*) FROM '{res}' WHERE populacao_status = 'indisponivel' AND taxa_obitos_100mil IS NULL"
+    ).fetchone()[0]
     assert nulls == 2
 
 
