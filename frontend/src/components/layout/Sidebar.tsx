@@ -74,11 +74,11 @@ function SidebarNav({ onClose }: { onClose: () => void }) {
                 key={href}
                 href={hrefComRecorteParaRota(href, recorte)}
                 onClick={onClose}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
-                style={{
-                  backgroundColor: active ? "var(--brand-soft)" : "transparent",
-                  color: active ? "var(--brand)" : "var(--ink-2)",
-                }}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-[var(--brand-soft)] text-[var(--brand)]"
+                    : "text-[var(--ink-2)] hover:bg-[var(--sunken)] hover:text-[var(--ink)]"
+                }`}
               >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2.2 : 1.8} />
                 {label}
@@ -140,8 +140,7 @@ export default function Sidebar({ open, onClose }: Props) {
         <div className="px-3 pb-2">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
-            style={{ color: "var(--ink-2)" }}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-[var(--ink-2)] transition-all hover:bg-[var(--sunken)] hover:text-[var(--ink)]"
           >
             {theme === "dark" ? (
               <Sun className="h-[18px] w-[18px]" strokeWidth={1.8} />
