@@ -27,9 +27,7 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 Role = Literal["ocorrencia", "residencia"]
-ANALYTIC_FILTER = (
-    "is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'"
-)
+ANALYTIC_FILTER = "is_v01_v89 AND qa_status = 'ok' AND tipobito_raw = '2'"
 MART_FILENAMES: dict[Role, str] = {
     "ocorrencia": "sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet",
     "residencia": "sim_v1_obitos_municipio_mes_residencia_v2.parquet",
@@ -119,8 +117,8 @@ def materializar_mart_municipal(
     if role not in MART_FILENAMES:
         raise ValueError(f"Papel geográfico inválido: {role}")
 
-    destino = Path(destino) if destino else (
-        settings.resolve(settings.gold_dir) / MART_FILENAMES[role]
+    destino = (
+        Path(destino) if destino else (settings.resolve(settings.gold_dir) / MART_FILENAMES[role])
     )
     municipio_path, populacao_path, frota_path = _dimension_paths(
         municipio_path, populacao_path, frota_path
@@ -136,9 +134,7 @@ def materializar_mart_municipal(
         has_pop = _has_columns(con, populacao_path, {"cod_mun_ibge", "ano", "populacao"})
         has_frota = _has_columns(con, frota_path, {"cod_mun_ibge", "ano", "frota_total"})
         if municipio_path and municipio_path.exists():
-            has_municipio = _has_columns(
-                con, municipio_path, {"cod_mun_ibge", "nome", "uf"}
-            )
+            has_municipio = _has_columns(con, municipio_path, {"cod_mun_ibge", "nome", "uf"})
         else:
             has_municipio = False
 
@@ -424,8 +420,7 @@ def auditar_snapshot_sim(
         "por_ano": years,
         "geografia": geography,
         "validacoes": {
-            "record_id_unico": summary_dict["linhas_silver"]
-            == summary_dict["record_ids_unicos"],
+            "record_id_unico": summary_dict["linhas_silver"] == summary_dict["record_ids_unicos"],
             "att_nao_fetais_consistente": summary_dict["att_nao_fetais"]
             == summary_dict["att_todos"],
             "taxas_sem_denominador_nao_calculadas": True,

@@ -323,4 +323,3 @@ def test_sim_summary_filtro_municipio(client):
     d_ssa = r_ssa.json()
     assert d_ssa["municipios"] == 1
     assert 0 < d_ssa["total_obitos"] < total_ba
-

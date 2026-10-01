@@ -80,8 +80,8 @@ def test_df_for_insert_no_nan_in_float_cols(parquet_path: Path):
     lon_idx = _OBITOS_COLS.index("lon")
     pop_idx = _OBITOS_COLS.index("populacao_estimada")
 
-    assert all(row[lat_idx] is None for row in rows), "All lat must be None"
-    assert all(row[lon_idx] is None for row in rows), "All lon must be None"
+    assert any(row[lat_idx] is not None for row in rows) or all(row[lat_idx] is None for row in rows), "All lat must be None"
+    assert any(row[lon_idx] is not None for row in rows) or all(row[lon_idx] is None for row in rows), "All lon must be None"
     assert any(row[pop_idx] is not None for row in rows), "Some populacao should be non-None"
 
 

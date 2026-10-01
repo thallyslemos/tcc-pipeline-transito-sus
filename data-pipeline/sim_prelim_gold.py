@@ -24,7 +24,13 @@ import duckdb
 
 from .config import settings
 from .logging import get_logger
-from .sim_evidence import ANALYTIC_FILTER, _atomic_copy, _dimension_paths, _has_columns, _sql_literal
+from .sim_evidence import (
+    ANALYTIC_FILTER,
+    _atomic_copy,
+    _dimension_paths,
+    _has_columns,
+    _sql_literal,
+)
 
 logger = get_logger(__name__)
 
@@ -52,8 +58,10 @@ def materializar_mart_prelim_municipal(
     if role not in PRELIM_MART_FILENAMES:
         raise ValueError(f"Papel geografico invalido: {role}")
 
-    destino = Path(destino) if destino else (
-        settings.resolve(settings.gold_dir) / PRELIM_MART_FILENAMES[role]
+    destino = (
+        Path(destino)
+        if destino
+        else (settings.resolve(settings.gold_dir) / PRELIM_MART_FILENAMES[role])
     )
     municipio_path, populacao_path, frota_path = _dimension_paths(
         municipio_path, populacao_path, frota_path
