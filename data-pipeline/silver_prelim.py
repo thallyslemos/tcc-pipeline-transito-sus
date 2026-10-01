@@ -110,7 +110,8 @@ def _provenance_case(paths: list[Path], metadata: dict[str, dict[str, Any]], fie
         value = entry.get(field)
         if value:
             clauses.append(
-                f"WHEN source_file_name = '{_sql_literal(path)}' THEN '{_sql_literal(str(value))}'"
+                f"WHEN source_file_name = '{_sql_literal(path)}' "
+                f"THEN '{_sql_literal(str(value))}'"
             )
     if not clauses:
         return "CAST(NULL AS VARCHAR)"

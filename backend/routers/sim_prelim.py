@@ -273,8 +273,8 @@ async def municipios(
     offset = (page - 1) * page_size
 
     total = con.sql(
-        f"SELECT COUNT(*) FROM (SELECT cod_mun_ibge_6 "
-        f"FROM {source} WHERE {where} GROUP BY cod_mun_ibge_6)"
+        f"SELECT COUNT(*) FROM "
+        f"(SELECT cod_mun_ibge_6 FROM {source} WHERE {where} GROUP BY cod_mun_ibge_6)"
     ).fetchone()[0]
     rows = (
         con.sql(

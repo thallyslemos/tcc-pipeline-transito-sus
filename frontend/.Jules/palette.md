@@ -1,3 +1,7 @@
+## 2025-02-20 - Fix hover states overridden by inline dynamic backgrounds
+**Learning:** Using inline React styles for dynamic interaction states (e.g., `style={{ backgroundColor: active ? "var(--brand-soft)" : "transparent" }}`) overrides Tailwind pseudo-classes like `hover:bg-[var(--sunken)]` due to high CSS specificity. This breaks the interaction feedback loop.
+**Action:** Replace dynamic inline background/color styles with conditional Tailwind arbitrary value classes (e.g., `className={active ? "bg-[var(--brand-soft)]" : "hover:bg-[var(--sunken)]"}`) to allow expected pseudo-class behavior while respecting the design system variables.
+
 ## 2024-10-01 - Consistent Focus and Hover States on Secondary Controls
 **Learning:** Many secondary buttons and interactive elements in the application (such as pagination, clear filters, and theme toggles) lacked visible focus states for keyboard navigation and hover states for mouse interaction, leading to an inconsistent and less accessible experience. Keyboard users could not see which element had focus.
 **Action:** Always apply `hover:bg-[var(--sunken)]` and `focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:outline-none` to secondary interactive elements to ensure consistent visual feedback and keyboard accessibility.
