@@ -101,10 +101,7 @@ END
 def _get_columns(con: duckdb.DuckDBPyConnection, source: str) -> set[str]:
     """Retorna conjunto de nomes de colunas de um Parquet."""
     return {
-        c[0]
-        for c in con.sql(
-            f"DESCRIBE SELECT * FROM read_parquet('{source}') LIMIT 0"
-        ).fetchall()
+        c[0] for c in con.sql(f"DESCRIBE SELECT * FROM read_parquet('{source}') LIMIT 0").fetchall()
     }
 
 
@@ -216,12 +213,14 @@ def processar_silver_sia(bronze_path: Path) -> Path:
     cols = _get_columns(con, source)
 
     date_col = _detect_sia_col(
-        con, source,
+        con,
+        source,
         ["PA_CMP", "PA_DATREF", "PA_MVM"],
         "competencia",
     )
     mun_col = _detect_sia_col(
-        con, source,
+        con,
+        source,
         ["PA_MUNPCN", "PA_CODMUN", "PA_UFMUN"],
         "municipio",
     )
