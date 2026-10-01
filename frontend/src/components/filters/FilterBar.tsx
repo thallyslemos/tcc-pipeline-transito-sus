@@ -79,7 +79,7 @@ export default function FilterBar<T extends string>({
       {hasActive && onReset && (
         <button
           onClick={onReset}
-          className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors"
+          className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors hover:bg-[var(--sunken)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
           style={{
             border: "1px solid var(--border)",
             color: "var(--ink-2)",

@@ -140,7 +140,7 @@ export default function Sidebar({ open, onClose }: Props) {
         <div className="px-3 pb-2">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all hover:bg-[var(--sunken)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
             style={{ color: "var(--ink-2)" }}
           >
             {theme === "dark" ? (

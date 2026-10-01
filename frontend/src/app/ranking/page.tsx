@@ -244,9 +244,9 @@ function RankingContent() {
         <div className="flex items-center justify-between px-4 py-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--ink-2)" }}>
           <span>{total ? `${(page - 1) * PAGE_SIZE + 1}-${Math.min(page * PAGE_SIZE, total)} de ${total}` : "Sem dados"}</span>
           <div className="flex items-center gap-2">
-            <button aria-label="Pagina anterior" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded p-1 disabled:opacity-30" style={{ border: "1px solid var(--border)" }}><ChevronLeft className="h-4 w-4" /></button>
+            <button aria-label="Pagina anterior" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))} className="rounded p-1 disabled:opacity-30 hover:bg-[var(--sunken)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] transition-colors" style={{ border: "1px solid var(--border)" }}><ChevronLeft className="h-4 w-4" /></button>
             <span>{page} / {totalPages}</span>
-            <button aria-label="Proxima pagina" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} className="rounded p-1 disabled:opacity-30" style={{ border: "1px solid var(--border)" }}><ChevronRight className="h-4 w-4" /></button>
+            <button aria-label="Proxima pagina" disabled={page >= totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))} className="rounded p-1 disabled:opacity-30 hover:bg-[var(--sunken)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] transition-colors" style={{ border: "1px solid var(--border)" }}><ChevronRight className="h-4 w-4" /></button>
           </div>
         </div>
       </div>
