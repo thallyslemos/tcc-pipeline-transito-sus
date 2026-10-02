@@ -87,6 +87,9 @@ def test_df_for_insert_no_nan_in_float_cols(parquet_path: Path):
 
 def test_df_for_insert_preserves_competencia_date(parquet_path: Path):
     """Verifica que competencia vira date object, nao string."""
+    if not parquet_path.exists():
+        pytest.skip(f"Parquet not found: {parquet_path}")
+
     df = pd.read_parquet(parquet_path)
     rows = _df_for_insert_logic(df, _OBITOS_COLS)
     comp_idx = _OBITOS_COLS.index("competencia")
@@ -98,6 +101,9 @@ def test_df_for_insert_preserves_competencia_date(parquet_path: Path):
 
 def test_df_for_insert_integer_types_int(parquet_path: Path):
     """ano, mes, total_obitos devem ser int Python, nao np.int64."""
+    if not parquet_path.exists():
+        pytest.skip(f"Parquet not found: {parquet_path}")
+
     df = pd.read_parquet(parquet_path)
     rows = _df_for_insert_logic(df, _OBITOS_COLS)
 
