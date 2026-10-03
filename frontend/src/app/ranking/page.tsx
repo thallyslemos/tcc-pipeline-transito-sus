@@ -172,17 +172,16 @@ function RankingContent() {
       <Lede rotulo="Contagem x taxa" leitura={leituraRanking} />
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
-        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "rate" ? "var(--brand-soft)" : "var(--surface)" }} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
+        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
         <button
-          className="rounded-lg px-3 py-1.5 disabled:opacity-40"
-          style={{ backgroundColor: sortMode === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
+          className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] disabled:opacity-40 disabled:hover:bg-[var(--surface)] ${sortMode === "vehicle_rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa por 10 mil veiculos (SENATRAN)" : "Indisponivel sem frota pareada no recorte"}
           onClick={() => setSortMode("vehicle_rate")}
         >
           Taxa / 10 mil veic.
         </button>
-        <button className="rounded-lg px-3 py-1.5" style={{ backgroundColor: sortMode === "absolute" ? "var(--brand-soft)" : "var(--surface)" }} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
+        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "absolute" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
         <ArrowUpDown className="h-3.5 w-3.5" />
       </div>
 
