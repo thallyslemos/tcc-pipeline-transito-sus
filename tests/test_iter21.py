@@ -1,8 +1,10 @@
+
 """Testes da Iteração 2.1 — Fixes de dados e backend.
 
 Metodologia test-first conforme AGENTS.md.
 """
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -24,6 +26,7 @@ class TestIbgeLatLonBounds:
                     f"{d['municipio']}: lon={d['lon']} fora dos limites"
                 )
 
+    @pytest.mark.requires_data
     def test_geojson_endpoint_filtra_coordenadas_invalidas(self, client: TestClient):
         r = client.get("/api/geo/municipios")
         assert r.status_code == 200
@@ -69,6 +72,7 @@ class TestIndicadoresMunicipio:
                 assert item["custo_per_capita"] >= 0
 
 
+@pytest.mark.requires_data
 class TestGeoJsonEndpoint:
     """2.1.4: Endpoint GeoJSON válido."""
 
