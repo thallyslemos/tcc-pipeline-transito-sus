@@ -214,5 +214,54 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
 
   useEffect(() => { addLayers(); }, [addLayers]);
   const hasPolygons = geoData?.features?.some((feature) => ["Polygon", "MultiPolygon"].includes(feature.geometry?.type ?? ""));
-  return <div className="relative h-full w-full"><div ref={container} className="h-full w-full" />{hasPolygons && <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}><button type="button" onClick={() => setMode("polygons")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "polygons" ? "var(--brand)" : "var(--surface)", color: mode === "polygons" ? "var(--canvas)" : "var(--ink-2)" }}>Poligonos</button><button type="button" onClick={() => setMode("circles")} className="px-3 py-1.5 text-xs" style={{ backgroundColor: mode === "circles" ? "var(--brand)" : "var(--surface)", color: mode === "circles" ? "var(--canvas)" : "var(--ink-2)" }}>Circulos</button></div>}<div className="absolute bottom-3 left-3 z-10">{escala === "relative" ? <ClassLegend isDark={dark} /> : <MapLegend escala={escala} minV={visual.min} maxV={visual.max} relativeCount={visual.count} />}</div></div>;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={container} className="h-full w-full" />
+      {hasPolygons && (
+        <div
+          className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg"
+          style={{ border: "1px solid var(--border)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setMode("polygons")}
+            aria-label="Exibir como polígonos"
+            aria-pressed={mode === "polygons"}
+            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+            style={{
+              backgroundColor: mode === "polygons" ? "var(--brand)" : "var(--surface)",
+              color: mode === "polygons" ? "var(--canvas)" : "var(--ink-2)",
+            }}
+          >
+            Poligonos
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("circles")}
+            aria-label="Exibir como círculos"
+            aria-pressed={mode === "circles"}
+            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+            style={{
+              backgroundColor: mode === "circles" ? "var(--brand)" : "var(--surface)",
+              color: mode === "circles" ? "var(--canvas)" : "var(--ink-2)",
+            }}
+          >
+            Circulos
+          </button>
+        </div>
+      )}
+      <div className="absolute bottom-3 left-3 z-10">
+        {escala === "relative" ? (
+          <ClassLegend isDark={dark} />
+        ) : (
+          <MapLegend
+            escala={escala}
+            minV={visual.min}
+            maxV={visual.max}
+            relativeCount={visual.count}
+          />
+        )}
+      </div>
+    </div>
+  );
 }

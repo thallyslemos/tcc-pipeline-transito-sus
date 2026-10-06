@@ -5,3 +5,6 @@
 ## 2024-10-01 - Explicit Mobile Close Buttons and Focus Styling
 **Learning:** Overlays designed purely for "click-outside to close" create an accessibility issue for mobile/small viewports where the overlay consumes the whole screen. A visible `aria-hidden` attribute on the overlay empty div prevents confusing screen reader output, and an explicit, focusable close button must be present in the modal/sidebar itself.
 **Action:** When creating off-canvas elements or overlays, always provide an explicit close action within the panel and add `aria-hidden="true"` to pure-backdrop decorative `div`s. Also, consistently use `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]` on all interactive elements to ensure visual keyboard navigability.
+## 2024-05-18 - Acessibilidade em Botões de Alternância no Mapa
+**Learning:** Botões que alternam modos visuais (como de Polígonos para Círculos num mapa) precisam de indicações claras de estado para tecnologias assistivas, além de apenas rótulos. O uso combinado de `aria-pressed` e `aria-label` é essencial.
+**Action:** Sempre verificar e adicionar `aria-pressed={condicao}` em botões que atuam como toggles de estado visual, e focar o contorno visual com utilitários `focus-visible` do Tailwind para garantir a navegação por teclado.
