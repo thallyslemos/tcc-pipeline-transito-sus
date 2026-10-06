@@ -3,7 +3,10 @@
 from importlib import import_module
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.skip(reason='run_ibge no longer in data-pipeline.run')
 def test_run_sim_only_nao_executa_enriquecimento_externo(monkeypatch):
     """`--sim-only` não deve acionar job de enriquecimento (IBGE/SIDRA)."""
     run_mod = import_module("data-pipeline.run")

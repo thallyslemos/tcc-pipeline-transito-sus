@@ -168,6 +168,15 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
             CREATE VIEW IF NOT EXISTS v_custos AS
             SELECT * FROM read_parquet('{custos_path}')
         """)
+    else:
+        con.sql("""
+            CREATE VIEW IF NOT EXISTS v_custos AS
+            SELECT cod_mun_ibge, municipio, uf, competencia, ano, mes,
+                   CAST(0.0 AS DOUBLE) AS custo_total,
+                   0 AS total_procedimentos, 0 AS total_atendimentos,
+                   tipo_veiculo, faixa_etaria, lat, lon
+            FROM v_obitos LIMIT 0
+        """)
 
     ibge_mun_path = _data_path("ibge_municipios.parquet")
     ibge_pop_path = _data_path("ibge_populacao.parquet")
