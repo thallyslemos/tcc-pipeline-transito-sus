@@ -1,7 +1,7 @@
+
 """Testes da Iteração 2.1 — Fixes de dados e backend.
 
 Metodologia test-first conforme AGENTS.md.
-
 """
 
 import pytest
@@ -70,8 +70,6 @@ class TestIndicadoresMunicipio:
                 assert item["populacao"] > 0
                 assert item["taxa_obitos_100mil"] >= 0
                 assert item["custo_per_capita"] >= 0
-
-
 
 
 @pytest.mark.requires_data
