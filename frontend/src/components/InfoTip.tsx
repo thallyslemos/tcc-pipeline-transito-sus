@@ -86,7 +86,7 @@ export default function InfoTip({ termo, variante = "icone", className }: Props)
         aria-label={`Ajuda: ${entry.titulo}`}
         aria-expanded={open}
         onClick={toggle}
-        className={`inline-flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${
+        className={`inline-flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--sunken)] ${
           variante === "colchete" ? "h-5 px-1 font-mono text-[11px] font-medium" : "h-5 w-5"
         } ${className ?? ""}`}
         style={{ color: "var(--ink-2)" }}
@@ -145,7 +145,7 @@ function InfoTipPopover({
           type="button"
           aria-label="Fechar"
           onClick={onClose}
-          className="shrink-0 rounded-full p-0.5 hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+          className="shrink-0 rounded-full p-0.5 hover:bg-[var(--sunken)]"
           style={{ color: "var(--ink-2)" }}
         >
           <X className="h-3.5 w-3.5" />
