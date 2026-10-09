@@ -75,7 +75,7 @@ export default function GraficoMoldura({
               type="button"
               onClick={aoExportar}
               disabled={exportando}
-              className="text-[11px] underline disabled:opacity-50"
+              className="text-[11px] underline disabled:opacity-50 rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
               style={{ color: "var(--brand)" }}
             >
               {exportando ? "Exportando..." : "Exportar PNG"}
