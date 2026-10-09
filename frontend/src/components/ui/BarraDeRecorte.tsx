@@ -44,7 +44,7 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           N = {formatNumber(n)}
         </span>
         {aoClicarLink && (
-          <button type="button" onClick={aoClicarLink} className="text-[11px] underline" style={{ color: "var(--brand)" }}>
+          <button type="button" onClick={aoClicarLink} className="text-[11px] underline rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1" style={{ color: "var(--brand)" }}>
             Link do recorte
           </button>
         )}
@@ -52,7 +52,7 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           <button
             type="button"
             onClick={aoClicarExportar}
-            className="text-[11px] underline"
+            className="text-[11px] underline rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
             style={{ color: "var(--brand)" }}
           >
             Exportar
