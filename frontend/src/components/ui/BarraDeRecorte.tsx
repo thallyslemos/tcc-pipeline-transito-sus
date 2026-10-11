@@ -21,18 +21,30 @@ interface Props {
  * <FilterBar> (nao a substitui): FilterBar e o controle de entrada, esta
  * barra e o resumo de saida — papeis diferentes, mesmo estado.
  */
-export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExportar }: Props) {
+export default function BarraDeRecorte({
+  chips,
+  n,
+  aoClicarLink,
+  aoClicarExportar,
+}: Props) {
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2"
-      style={{ backgroundColor: "var(--sunken)", border: "1px solid var(--border)" }}
+      style={{
+        backgroundColor: "var(--sunken)",
+        border: "1px solid var(--border)",
+      }}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         {chips.map((chip) => (
           <span
             key={chip.rotulo}
             className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--hairline)", color: "var(--ink-2)" }}
+            style={{
+              backgroundColor: "var(--surface)",
+              border: "1px solid var(--hairline)",
+              color: "var(--ink-2)",
+            }}
           >
             <span style={{ color: "var(--ink-3)" }}>{chip.rotulo}</span>
             <span className="num">{chip.valor}</span>
@@ -44,7 +56,12 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           N = {formatNumber(n)}
         </span>
         {aoClicarLink && (
-          <button type="button" onClick={aoClicarLink} className="text-[11px] underline" style={{ color: "var(--brand)" }}>
+          <button
+            type="button"
+            onClick={aoClicarLink}
+            className="rounded text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
+            style={{ color: "var(--brand)" }}
+          >
             Link do recorte
           </button>
         )}
@@ -52,7 +69,7 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           <button
             type="button"
             onClick={aoClicarExportar}
-            className="text-[11px] underline"
+            className="rounded text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
             style={{ color: "var(--brand)" }}
           >
             Exportar
