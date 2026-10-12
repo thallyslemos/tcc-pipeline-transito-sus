@@ -1,4 +1,6 @@
+import { useState, useRef, useEffect } from "react";
 import { formatNumber } from "@/lib/format";
+import { Check } from "lucide-react";
 
 export interface ChipRecorte {
   rotulo: string;
@@ -22,6 +24,24 @@ interface Props {
  * barra e o resumo de saida — papeis diferentes, mesmo estado.
  */
 export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExportar }: Props) {
+  const [copiado, setCopiado] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const handleCopiarLink = () => {
+    if (aoClicarLink) {
+      aoClicarLink();
+      setCopiado(true);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopiado(false), 2000);
+    }
+  };
+
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2"
@@ -44,15 +64,28 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           N = {formatNumber(n)}
         </span>
         {aoClicarLink && (
-          <button type="button" onClick={aoClicarLink} className="text-[11px] underline" style={{ color: "var(--brand)" }}>
-            Link do recorte
+          <button
+            type="button"
+            onClick={handleCopiarLink}
+            aria-live="polite"
+            className="inline-flex items-center gap-1 rounded text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
+            style={{ color: copiado ? "var(--ok)" : "var(--brand)" }}
+          >
+            {copiado ? (
+              <>
+                <Check className="h-3 w-3" />
+                Copiado!
+              </>
+            ) : (
+              "Link do recorte"
+            )}
           </button>
         )}
         {aoClicarExportar && (
           <button
             type="button"
             onClick={aoClicarExportar}
-            className="text-[11px] underline"
+            className="rounded text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
             style={{ color: "var(--brand)" }}
           >
             Exportar
