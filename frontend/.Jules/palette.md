@@ -5,7 +5,3 @@
 ## 2024-10-01 - Explicit Mobile Close Buttons and Focus Styling
 **Learning:** Overlays designed purely for "click-outside to close" create an accessibility issue for mobile/small viewports where the overlay consumes the whole screen. A visible `aria-hidden` attribute on the overlay empty div prevents confusing screen reader output, and an explicit, focusable close button must be present in the modal/sidebar itself.
 **Action:** When creating off-canvas elements or overlays, always provide an explicit close action within the panel and add `aria-hidden="true"` to pure-backdrop decorative `div`s. Also, consistently use `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]` on all interactive elements to ensure visual keyboard navigability.
-
-## 2024-10-12 - Accessible Visual Feedback for Silent Clipboard Actions
-**Learning:** Functions that copy to the clipboard (e.g. "Link do recorte") are fundamentally silent, especially on smaller screens. This causes confusion for visually impaired users relying on screen readers who receive no confirmation, and it also negatively affects sighted users who receive no visual cue that their click was registered.
-**Action:** Always include a temporary visual state change (like changing button text to "Copiado!" for 2 seconds) alongside an `aria-live="polite"` attribute for these silent actions. Also, ensure buttons styled as text links include focus rings (e.g. `focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1 rounded`) for robust keyboard accessibility.

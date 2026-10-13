@@ -98,7 +98,7 @@ def _df_for_insert(df: pd.DataFrame, columns: list[str]) -> list[tuple[Any, ...]
         if dtype == "float64":
             values = sub[col].values
             mask = np.isnan(values) | np.isinf(values)
-            sub[col] = pd.Series(np.where(mask, None, values), index=sub.index)
+            sub[col] = pd.Series(np.where(mask, None, values), index=sub.index, dtype=object)
         elif pd.api.types.is_integer_dtype(dtype):
             values = sub[col].values
             mask = pd.isna(sub[col])
