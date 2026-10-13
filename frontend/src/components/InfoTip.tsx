@@ -28,12 +28,19 @@ const VIEWPORT_MARGIN = 8;
 function computePosition(trigger: HTMLElement): Position {
   const rect = trigger.getBoundingClientRect();
   let left = rect.right - POPOVER_WIDTH;
-  left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN));
+  left = Math.max(
+    VIEWPORT_MARGIN,
+    Math.min(left, window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN),
+  );
   const top = rect.bottom + 6;
   return { top, left };
 }
 
-export default function InfoTip({ termo, variante = "icone", className }: Props) {
+export default function InfoTip({
+  termo,
+  variante = "icone",
+  className,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<Position | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -53,7 +60,11 @@ export default function InfoTip({ termo, variante = "icone", className }: Props)
     };
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (popoverRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      if (
+        popoverRef.current?.contains(target) ||
+        triggerRef.current?.contains(target)
+      )
+        return;
       setOpen(false);
     };
 
@@ -86,8 +97,10 @@ export default function InfoTip({ termo, variante = "icone", className }: Props)
         aria-label={`Ajuda: ${entry.titulo}`}
         aria-expanded={open}
         onClick={toggle}
-        className={`inline-flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--sunken)] ${
-          variante === "colchete" ? "h-5 px-1 font-mono text-[11px] font-medium" : "h-5 w-5"
+        className={`inline-flex shrink-0 items-center justify-center rounded-full outline-none transition-colors hover:bg-[var(--sunken)] focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1 ${
+          variante === "colchete"
+            ? "h-5 px-1 font-mono text-[11px] font-medium"
+            : "h-5 w-5"
         } ${className ?? ""}`}
         style={{ color: "var(--ink-2)" }}
       >
@@ -138,14 +151,17 @@ function InfoTipPopover({
       }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="text-[13px] font-semibold" style={{ color: "var(--ink)" }}>
+        <p
+          className="text-[13px] font-semibold"
+          style={{ color: "var(--ink)" }}
+        >
           {entry.titulo}
         </p>
         <button
           type="button"
           aria-label="Fechar"
           onClick={onClose}
-          className="shrink-0 rounded-full p-0.5 hover:bg-[var(--sunken)]"
+          className="shrink-0 rounded-full p-0.5 outline-none hover:bg-[var(--sunken)] focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
           style={{ color: "var(--ink-2)" }}
         >
           <X className="h-3.5 w-3.5" />
@@ -153,25 +169,34 @@ function InfoTipPopover({
       </div>
       <dl className="space-y-2">
         <div>
-          <dt className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--ink-3)" }}>
+          <dt
+            className="text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: "var(--ink-3)" }}
+          >
             O que mostra
           </dt>
           <dd className="mt-0.5">{entry.oQueMostra}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--ink-3)" }}>
+          <dt
+            className="text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: "var(--ink-3)" }}
+          >
             Como ler
           </dt>
           <dd className="mt-0.5">{entry.comoLer}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--attention-ink)" }}>
+          <dt
+            className="text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: "var(--attention-ink)" }}
+          >
             Não permite concluir
           </dt>
           <dd className="mt-0.5">{entry.oQueNaoPermiteConcluir}</dd>
         </div>
       </dl>
     </div>,
-    document.body
+    document.body,
   );
 }

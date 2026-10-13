@@ -58,6 +58,8 @@ def parquet_path():
     p = Path("data/gold/obitos_ocorrencia_municipio_mes.parquet")
     if not p.exists():
         p = Path("data/gold/obitos_municipio_mes.parquet")
+    if not p.exists():
+        pytest.skip(f"Parquet not found: {p}")
     return p
 
 

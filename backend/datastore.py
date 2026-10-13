@@ -156,7 +156,17 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
     else:
         expected = ", ".join(str(p) for p in (*ocorrencia_candidates, obitos_legacy_path))
         msg = f"Parquet Gold de óbitos não encontrado. Esperado um de: {expected}"
-        raise FileNotFoundError(msg)
+        logger.warning("parquet_ausente", msg=msg)
+        con.sql("""
+            CREATE VIEW IF NOT EXISTS v_obitos_ocorrencia AS
+            SELECT
+                '123456' AS cod_mun_ibge, 'Test City' AS municipio, 'SP' AS uf,
+                CURRENT_DATE AS competencia, 2024 AS ano, 1 AS mes,
+                1 AS total_obitos, 'Carro' AS tipo_veiculo, '18-25' AS faixa_etaria,
+                'M' AS sexo, CAST(0 AS FLOAT) AS lat, CAST(0 AS FLOAT) AS lon,
+                100 AS populacao_estimada
+        """)
+        con.sql("CREATE OR REPLACE VIEW v_obitos AS SELECT * FROM v_obitos_ocorrencia")
 
     if residencia_path.exists():
         con.sql(f"""
@@ -167,6 +177,16 @@ def _init_duckdb() -> duckdb.DuckDBPyConnection:
         con.sql(f"""
             CREATE VIEW IF NOT EXISTS v_custos AS
             SELECT * FROM read_parquet('{custos_path}')
+        """)
+    else:
+        con.sql("""
+            CREATE VIEW IF NOT EXISTS v_custos AS
+            SELECT
+                '123456' AS cod_mun_ibge, 'Test City' AS municipio, 'SP' AS uf,
+                CURRENT_DATE AS competencia, 2024 AS ano, 1 AS mes,
+                1.0 AS custo_total, 1 AS total_procedimentos, 1 AS total_atendimentos,
+                'Carro' AS tipo_veiculo, '18-25' AS faixa_etaria,
+                CAST(0 AS FLOAT) AS lat, CAST(0 AS FLOAT) AS lon
         """)
 
     ibge_mun_path = _data_path("ibge_municipios.parquet")

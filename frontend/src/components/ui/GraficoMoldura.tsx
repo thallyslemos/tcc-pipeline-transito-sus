@@ -63,10 +63,16 @@ export default function GraficoMoldura({
     <div
       ref={molduraRef}
       className={`rounded-md p-4 ${className ?? ""}`}
-      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+      style={{
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--border)",
+      }}
     >
       <div className="mb-1 flex items-start justify-between gap-2">
-        <h3 className="text-[16px] font-semibold" style={{ color: "var(--ink)" }}>
+        <h3
+          className="text-[16px] font-semibold"
+          style={{ color: "var(--ink)" }}
+        >
           {medidas[medidaId]}
         </h3>
         <div className="flex shrink-0 items-center gap-2">
@@ -75,7 +81,7 @@ export default function GraficoMoldura({
               type="button"
               onClick={aoExportar}
               disabled={exportando}
-              className="text-[11px] underline disabled:opacity-50"
+              className="rounded text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1 disabled:opacity-50"
               style={{ color: "var(--brand)" }}
             >
               {exportando ? "Exportando..." : "Exportar PNG"}
@@ -93,11 +99,16 @@ export default function GraficoMoldura({
       {legenda && <div className="mt-2">{legenda}</div>}
 
       {leitura && (
-        <div className="mt-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+        <div
+          className="mt-3 pt-2"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
           <p className="text-[13px]" style={{ color: "var(--ink)" }}>
             {leitura.texto}{" "}
             <span className="num text-[11px]" style={{ color: "var(--ink-3)" }}>
-              {leitura.gerado ? `gerado · regra ${leitura.regra}` : `suprimido · guarda ${leitura.regra}`}
+              {leitura.gerado
+                ? `gerado · regra ${leitura.regra}`
+                : `suprimido · guarda ${leitura.regra}`}
             </span>
           </p>
         </div>

@@ -8,3 +8,7 @@
 ## 2024-10-01 - Explicit Mobile Close Buttons and Focus Styling
 **Learning:** Overlays designed purely for "click-outside to close" create an accessibility issue for mobile/small viewports where the overlay consumes the whole screen. A visible `aria-hidden` attribute on the overlay empty div prevents confusing screen reader output, and an explicit, focusable close button must be present in the modal/sidebar itself.
 **Action:** When creating off-canvas elements or overlays, always provide an explicit close action within the panel and add `aria-hidden="true"` to pure-backdrop decorative `div`s. Also, consistently use `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]` on all interactive elements to ensure visual keyboard navigability.
+
+## 2026-10-10 - Focus States for Accessibility
+**Learning:** Interactive elements like buttons need visible focus states to support keyboard navigation.
+**Action:** Apply the standard Tailwind classes `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1` to all custom button implementations.
