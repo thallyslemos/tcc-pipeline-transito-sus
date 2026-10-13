@@ -61,6 +61,7 @@ def _get_info_parquet(cod_mun: str) -> dict | None:
     except Exception:
         return None
 
+
 # Populacao estimada por municipio/ano (fonte: IBGE Tabela 6579)
 # Valores arredondados em milhares para o MVP
 POPULACAO_ESTIMADA: dict[str, dict[int, int]] = {

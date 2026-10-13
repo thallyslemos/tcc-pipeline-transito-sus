@@ -351,9 +351,7 @@ def _choose_workbook(names: list[str]) -> str:
     if not workbooks:
         raise SenatranError("Pacote oficial sem planilha XLS/XLSX")
     december = [
-        name
-        for name in workbooks
-        if _mentions_december(name) and "MUNIC" in normalize_text(name)
+        name for name in workbooks if _mentions_december(name) and "MUNIC" in normalize_text(name)
     ]
     if not december:
         raise SenatranError("Pacote oficial sem planilha municipal de dezembro")
@@ -472,10 +470,9 @@ def read_official_workbook(path: Path) -> tuple[pd.DataFrame, str, str]:
                 frame = frame.dropna(how="all")
                 frame["UF"] = frame["UF"].astype(str).str.strip().str.upper()
                 frame["MUNICIPIO"] = frame["MUNICIPIO"].astype(str).str.strip()
-                valid_geography = (
-                    frame["UF"].str.fullmatch(r"[A-Z]{2}", na=False)
-                    & ~frame["MUNICIPIO"].map(normalize_text).eq("MUNICIPIO")
-                )
+                valid_geography = frame["UF"].str.fullmatch(r"[A-Z]{2}", na=False) & ~frame[
+                    "MUNICIPIO"
+                ].map(normalize_text).eq("MUNICIPIO")
                 rejected_geography_rows = int((~valid_geography).sum())
                 frame = frame[valid_geography].copy()
                 required = {"UF", "MUNICIPIO", "TOTAL", *VEHICLE_TYPES}
@@ -574,13 +571,10 @@ def bridge_municipalities(
         canonical = ibge[["cod_mun_ibge", "uf"]].rename(columns={"uf": "uf_ibge"})
         mapped_aliases = mapped_aliases.merge(canonical, on="cod_mun_ibge", how="left")
         invalid = mapped_aliases[
-            mapped_aliases["uf_ibge"].isna()
-            | mapped_aliases["uf_ibge"].ne(mapped_aliases["uf"])
+            mapped_aliases["uf_ibge"].isna() | mapped_aliases["uf_ibge"].ne(mapped_aliases["uf"])
         ]
         if not invalid.empty:
-            keys = invalid[["uf", "municipio_senatran", "cod_mun_ibge"]].to_dict(
-                orient="records"
-            )
+            keys = invalid[["uf", "municipio_senatran", "cod_mun_ibge"]].to_dict(orient="records")
             raise SenatranError(f"Aliases sem integridade referencial com o IBGE: {keys}")
     frame = source.copy()
     frame["municipio_senatran"] = frame["MUNICIPIO"]

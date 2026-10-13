@@ -67,9 +67,7 @@ def run_sim_evidence(
     """Audita e materializa o contrato SIM-only sem baixar nem sobrescrever."""
     from .sim_evidence import auditar_snapshot_sim, materializar_marts_sim
 
-    report = auditar_snapshot_sim(
-        silver_path, manifest_path=manifest_path, output_path=qa_output
-    )
+    report = auditar_snapshot_sim(silver_path, manifest_path=manifest_path, output_path=qa_output)
     marts = materializar_marts_sim(silver_path, destino_dir=gold_dir)
     logger.info(
         "sim_evidence_concluido",

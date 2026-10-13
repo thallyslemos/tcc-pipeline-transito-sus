@@ -23,9 +23,7 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 LOCALIDADES_URL = "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
-METADADOS_MUN_URL = (
-    "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
-)
+METADADOS_MUN_URL = "https://servicodados.ibge.gov.br/api/v4/malhas/municipios/{cod}/metadados"
 MALHAS_BR_URL = (
     "https://servicodados.ibge.gov.br/api/v4/malhas/paises/BR"
     "?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=municipio"
@@ -150,10 +148,8 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
     """Infere munic?pio/ano somente do SIM, sem misturar SIA no cat?logo IBGE."""
     silver_sim, _legacy_sia = _silver_paths()
     candidates = [
-        settings.resolve(settings.silver_dir)
-        / "sim_v2_nacional_2010_2024_contract_v2.parquet",
-        settings.resolve(settings.silver_dir)
-        / "sim_v2_nacional_2010_2024_contract_v1.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_nacional_2010_2024_contract_v2.parquet",
+        settings.resolve(settings.silver_dir) / "sim_v2_nacional_2010_2024_contract_v1.parquet",
         settings.resolve(settings.silver_dir) / "sim_v2_nacional_2010_2024.parquet",
         settings.resolve(settings.silver_dir) / "sim_v2_ba_2010_2024.parquet",
         silver_sim,
@@ -166,9 +162,7 @@ def _infer_cod_ano_uf() -> list[tuple[str, int, str]]:
     try:
         columns = {
             str(row[0]).lower()
-            for row in con.sql(
-                f"DESCRIBE SELECT * FROM read_parquet('{source}')"
-            ).fetchall()
+            for row in con.sql(f"DESCRIBE SELECT * FROM read_parquet('{source}')").fetchall()
         }
         if "cod_mun_ocorrencia_6" in columns:
             query = f"""
@@ -246,10 +240,16 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
         loc = _find_localidade(cod)
         if loc:
             coords = coords_map.get(loc.cod_mun_ibge, {})
-            municipios_rows.append({
-                "cod_mun_ibge": loc.cod_mun_ibge, "nome": loc.nome, "uf": loc.uf,
-                "regiao": loc.regiao, "lat": coords.get("lat"), "lon": coords.get("lon"),
-            })
+            municipios_rows.append(
+                {
+                    "cod_mun_ibge": loc.cod_mun_ibge,
+                    "nome": loc.nome,
+                    "uf": loc.uf,
+                    "regiao": loc.regiao,
+                    "lat": coords.get("lat"),
+                    "lon": coords.get("lon"),
+                }
+            )
     df_mun = pd.DataFrame(municipios_rows).drop_duplicates(subset=["cod_mun_ibge"])
     _write_parquet(df_mun, dest_dir / "ibge_municipios.parquet")
     logger.info("ibge_municipios_salvo", registros=len(df_mun))
@@ -268,10 +268,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
     )
     pop_rows = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        tasks = {
-            executor.submit(fetch_populacao, cod, ano)
-            for cod, ano in pop_keys
-        }
+        tasks = {executor.submit(fetch_populacao, cod, ano) for cod, ano in pop_keys}
         for future in as_completed(tasks):
             cod, ano, pop = future.result()
             if pop:
@@ -285,6 +282,7 @@ def salvar_ibge_parquet(dest_dir: Path | None = None) -> None:
 
     # 4) Malhas GeoJSON
     baixar_malhas_geojson(dest_dir / "ibge_malhas_municipios.geojson")
+
 
 def baixar_malhas_geojson(dest: Path | None = None) -> Path:
     """Baixa GeoJSON de malhas de TODOS os municípios do Brasil (IBGE v4)."""

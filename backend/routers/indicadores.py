@@ -58,9 +58,7 @@ async def indicadores_municipio(
         ORDER BY ano
         """
     ).fetchdf()
-    anos_disponveis = (
-        [int(x) for x in anos_df["ano"].tolist()] if not anos_df.empty else []
-    )
+    anos_disponveis = [int(x) for x in anos_df["ano"].tolist()] if not anos_df.empty else []
     if ano is not None:
         anos_disponveis = [a for a in anos_disponveis if a == ano]
 

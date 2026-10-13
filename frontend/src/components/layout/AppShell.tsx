@@ -24,7 +24,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             aria-label="Abrir menu"
             aria-expanded={sidebarOpen}
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-1.5 transition-colors hover:bg-[var(--sunken)] lg:hidden"
+            className="rounded-lg p-1.5 transition-colors hover:bg-[var(--sunken)] lg:hidden outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
             style={{ color: "var(--ink-2)" }}
           >
             <Menu className="h-5 w-5" />

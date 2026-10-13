@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  X,
   BarChart3,
   Building2,
   Map,
@@ -74,7 +75,7 @@ function SidebarNav({ onClose }: { onClose: () => void }) {
                 key={href}
                 href={hrefComRecorteParaRota(href, recorte)}
                 onClick={onClose}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${
                   active
                     ? "bg-[var(--brand-soft)] text-[var(--brand)]"
                     : "text-[var(--ink-2)] hover:bg-[var(--sunken)] hover:text-[var(--ink)]"
@@ -101,6 +102,7 @@ export default function Sidebar({ open, onClose }: Props) {
           className="fixed inset-0 z-30 lg:hidden"
           style={{ backgroundColor: "var(--overlay)" }}
           onClick={onClose}
+          aria-hidden="true"
         />
       )}
 
@@ -114,23 +116,34 @@ export default function Sidebar({ open, onClose }: Props) {
         }}
       >
         <div
-          className="flex h-16 items-center gap-2.5 px-5"
+          className="flex h-16 items-center justify-between px-5"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
-            style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold"
+              style={{ backgroundColor: "var(--brand)", color: "var(--canvas)" }}
+            >
+              SUS
+            </div>
+            <div className="leading-tight">
+              <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
+                Trânsito no SUS
+              </p>
+              <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
+                Pipeline Analítico
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            onClick={onClose}
+            className="rounded-lg p-1.5 transition-colors hover:bg-[var(--sunken)] lg:hidden outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+            style={{ color: "var(--ink-2)" }}
           >
-            SUS
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
-              Trânsito no SUS
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--ink-2)" }}>
-              Pipeline Analítico
-            </p>
-          </div>
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <Suspense fallback={<nav className="flex-1 px-3 py-4" />}>
@@ -140,7 +153,7 @@ export default function Sidebar({ open, onClose }: Props) {
         <div className="px-3 pb-2">
           <button
             onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-[var(--ink-2)] hover:bg-[var(--sunken)] hover:text-[var(--ink)]"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all text-[var(--ink-2)] hover:bg-[var(--sunken)] hover:text-[var(--ink)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
           >
             {theme === "dark" ? (
               <Sun className="h-[18px] w-[18px]" strokeWidth={1.8} />
