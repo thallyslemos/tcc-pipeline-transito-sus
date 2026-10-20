@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from "react";
 import { formatNumber } from "@/lib/format";
 
 export interface ChipRecorte {
@@ -23,24 +22,6 @@ interface Props {
  * barra e o resumo de saida — papeis diferentes, mesmo estado.
  */
 export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExportar }: Props) {
-  const [copiado, setCopiado] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  const handleCopiarLink = () => {
-    if (aoClicarLink) {
-      aoClicarLink();
-      setCopiado(true);
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setCopiado(false), 2000);
-    }
-  };
-
   return (
     <div
       className="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2"
@@ -63,21 +44,15 @@ export default function BarraDeRecorte({ chips, n, aoClicarLink, aoClicarExporta
           N = {formatNumber(n)}
         </span>
         {aoClicarLink && (
-          <button
-            type="button"
-            onClick={handleCopiarLink}
-            className="text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] rounded focus-visible:ring-offset-1"
-            style={{ color: "var(--brand)" }}
-            aria-live="polite"
-          >
-            {copiado ? "Copiado!" : "Link do recorte"}
+          <button type="button" onClick={aoClicarLink} className="text-[11px] underline" style={{ color: "var(--brand)" }}>
+            Link do recorte
           </button>
         )}
         {aoClicarExportar && (
           <button
             type="button"
             onClick={aoClicarExportar}
-            className="text-[11px] underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] rounded focus-visible:ring-offset-1"
+            className="text-[11px] underline"
             style={{ color: "var(--brand)" }}
           >
             Exportar
