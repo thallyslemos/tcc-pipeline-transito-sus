@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import BarraDeRecorte from "./BarraDeRecorte";
 
@@ -12,13 +12,24 @@ describe("BarraDeRecorte", () => {
   });
 
   it("botao de link so aparece quando aoClicarLink e informado, e dispara o callback", () => {
+    vi.useFakeTimers();
     const { rerender } = render(<BarraDeRecorte chips={[]} n={0} />);
     expect(screen.queryByText("Link do recorte")).not.toBeInTheDocument();
 
     const aoClicarLink = vi.fn();
     rerender(<BarraDeRecorte chips={[]} n={0} aoClicarLink={aoClicarLink} />);
-    fireEvent.click(screen.getByText("Link do recorte"));
+
+    const button = screen.getByText("Link do recorte");
+    fireEvent.click(button);
     expect(aoClicarLink).toHaveBeenCalledOnce();
+    expect(screen.getByText("Copiado!")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByText("Link do recorte")).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it("botao de exportar so aparece quando aoClicarExportar e informado", () => {
