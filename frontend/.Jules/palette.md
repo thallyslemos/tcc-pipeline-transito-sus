@@ -23,3 +23,8 @@
 ## 2025-02-24 - Skip to Main Content Link Styling
 **Learning:** When implementing "skip to main content" links (which are essential for keyboard navigation past sidebars), the visually hidden state should be managed by translating the element off-screen using `absolute -translate-y-full`. When focused via keyboard, it should animate into view using `focus-visible:translate-y-0`. This avoids layout shift and provides a smooth experience. Additionally, the target content container should receive `id="main-content"`, `tabIndex={-1}`, and `outline-none` to allow programmatic focus without displaying an unsightly focus ring.
 **Action:** Consistently use the `-translate-y-full` to `focus-visible:translate-y-0` pattern for skip links. Ensure target containers use `tabIndex={-1}` and `outline-none` for seamless programmatic focus management.
+
+
+## 2024-05-18 - Acessibilidade em Botões de Alternância no Mapa
+**Learning:** Botões que alternam modos visuais (como de Polígonos para Círculos num mapa) precisam de indicações claras de estado para tecnologias assistivas, além de apenas rótulos. O uso combinado de `aria-pressed` e `aria-label` é essencial.
+**Action:** Sempre verificar e adicionar `aria-pressed={condicao}` em botões que atuam como toggles de estado visual, e focar o contorno visual com utilitários `focus-visible` do Tailwind para garantir a navegação por teclado.
