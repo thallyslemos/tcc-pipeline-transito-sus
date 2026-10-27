@@ -121,9 +121,9 @@ async def indicadores_municipio(
 
     return {
         "cod_mun_ibge": cod_mun,
-        "municipio": info["nome"],
-        "uf": info["uf"],
-        "regiao": info["regiao"],
+        "municipio": info["nome"] if info else None,
+        "uf": info["uf"] if info else None,
+        "regiao": info["regiao"] if info else None,
         "dimensao_ativa": dimensao.value,
         "area_km2": info.get("area_km2"),
         "idh": info.get("idh"),

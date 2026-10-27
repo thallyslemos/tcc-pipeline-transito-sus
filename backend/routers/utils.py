@@ -41,7 +41,7 @@ def _literal_sql(value: str) -> str:
 
 def cod6_seguro(cod_mun: str) -> str | None:
     """Retorna código IBGE de 6 dígitos ou None se inválido."""
-    cod6 = "".join(c for c in cod_mun.strip()[:7] if c.isdigit())
+    cod6 = "".join(c for c in cod_mun.strip()[:6] if c.isdigit())
     return cod6 if _COD6_RE.match(cod6) else None
 
 
