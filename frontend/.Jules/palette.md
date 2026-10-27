@@ -33,3 +33,8 @@
 ## 2024-10-08 - Accessible Map Mode Toggles
 **Learning:** Toggle buttons (like map mode switchers) without `aria-pressed` or keyboard focus styles block screen reader users from understanding their state and keyboard users from navigating to them.
 **Action:** When implementing toggle buttons, always add an `aria-pressed` attribute matching the component state and explicit focus utilities like `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]`.
+
+
+## 2024-10-02 - State Toggle Buttons and ARIA Pressed
+**Learning:** State toggle buttons without `aria-pressed` attributes are read as regular buttons by screen readers, failing to communicate which sorting/filtering mode is currently active.
+**Action:** Always include `aria-pressed={activeState === "currentMode"}` on state toggle buttons to clearly convey active status to assistive technologies.
