@@ -28,3 +28,8 @@
 ## 2024-05-18 - Acessibilidade em Botões de Alternância no Mapa
 **Learning:** Botões que alternam modos visuais (como de Polígonos para Círculos num mapa) precisam de indicações claras de estado para tecnologias assistivas, além de apenas rótulos. O uso combinado de `aria-pressed` e `aria-label` é essencial.
 **Action:** Sempre verificar e adicionar `aria-pressed={condicao}` em botões que atuam como toggles de estado visual, e focar o contorno visual com utilitários `focus-visible` do Tailwind para garantir a navegação por teclado.
+
+
+## 2024-10-08 - Accessible Map Mode Toggles
+**Learning:** Toggle buttons (like map mode switchers) without `aria-pressed` or keyboard focus styles block screen reader users from understanding their state and keyboard users from navigating to them.
+**Action:** When implementing toggle buttons, always add an `aria-pressed` attribute matching the component state and explicit focus utilities like `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]`.
