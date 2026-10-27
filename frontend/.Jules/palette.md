@@ -18,3 +18,8 @@
 ## 2024-10-02 - Inline Background Styles Break Tailwind Hover Specificity
 **Learning:** Using inline styles for dynamic background colors on interactive elements (e.g., `style={{ backgroundColor: 'var(--surface)' }}`) prevents Tailwind's pseudo-class utilities like `hover:bg-[var(--sunken)]` from working due to CSS specificity rules. Inline styles always win.
 **Action:** When building toggleable or interactive elements that need conditional background colors, use Tailwind arbitrary values in the `className` string (e.g., `className={`... ${isActive ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}`) instead of inline `style={{}}`. This preserves the ability for `hover:` and `focus-visible:` classes to override the background appropriately.
+
+
+## 2025-02-24 - Skip to Main Content Link Styling
+**Learning:** When implementing "skip to main content" links (which are essential for keyboard navigation past sidebars), the visually hidden state should be managed by translating the element off-screen using `absolute -translate-y-full`. When focused via keyboard, it should animate into view using `focus-visible:translate-y-0`. This avoids layout shift and provides a smooth experience. Additionally, the target content container should receive `id="main-content"`, `tabIndex={-1}`, and `outline-none` to allow programmatic focus without displaying an unsightly focus ring.
+**Action:** Consistently use the `-translate-y-full` to `focus-visible:translate-y-0` pattern for skip links. Ensure target containers use `tabIndex={-1}` and `outline-none` for seamless programmatic focus management.
