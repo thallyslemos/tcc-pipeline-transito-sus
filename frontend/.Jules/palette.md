@@ -83,3 +83,8 @@
 ## 2025-10-31 - Feedback visual para acao de copia (Clipboard)
 **Learning:** Copiar um link para o clipboard altera um estado externo (a area de transferencia do SO) sem nenhum impacto natural na UI. Se nao houver feedback visual (como o texto do botao mudar para "Copiado!" temporariamente) e sonoro (atraves de `aria-live="polite"` alertando leitores de tela), o usuario fica em duvida se a acao funcionou e pode clicar multiplas vezes ou abandonar a tarefa.
 **Action:** Ao criar componentes que copiam dados para a area de transferencia, sempre inclua um estado local (ex: `copiado`) ativado no `onClick` e revertido apos ~2s (via `setTimeout`). O texto do botao deve refletir o estado de sucesso e deve conter `aria-live="polite"` para suportar a11y.
+
+
+## 2024-10-26 - Accessible Clipboard Copy Feedback
+**Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
+**Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
