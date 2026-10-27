@@ -68,3 +68,8 @@
 ## 2024-10-21 - Visual and Screen Reader Feedback for Copy Actions
 **Learning:** Copy-to-clipboard buttons (like "Link do recorte") lack inherent feedback, leaving users (especially screen reader users) unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., text changing to "Copiado!") and ensure the button has `aria-live="polite"` so screen readers announce the text change immediately.
+
+
+## 2024-10-23 - Visual confirmation for "Copiar Link" actions
+**Learning:** Actions that interact with the clipboard (like copying a URL) often lacked immediate visual and screen reader feedback in this app. Users clicking "Link do recorte" wouldn't know if the action succeeded.
+**Action:** Adding a temporary "Copiado!" visual state with `aria-live="polite"` to clipboard actions provides both visual confirmation and screen reader announcement, adhering to accessibility best practices.

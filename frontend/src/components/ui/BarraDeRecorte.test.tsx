@@ -12,7 +12,15 @@ describe("BarraDeRecorte", () => {
   });
 
   it("renderiza os chips do recorte e o N sempre visivel", () => {
-    render(<BarraDeRecorte chips={[{ rotulo: "UF", valor: "BA" }, { rotulo: "Ano", valor: "2024" }]} n={3105} />);
+    render(
+      <BarraDeRecorte
+        chips={[
+          { rotulo: "UF", valor: "BA" },
+          { rotulo: "Ano", valor: "2024" },
+        ]}
+        n={3105}
+      />,
+    );
     expect(screen.getByText("UF")).toBeInTheDocument();
     expect(screen.getByText("BA")).toBeInTheDocument();
     expect(screen.getByText("2024")).toBeInTheDocument();
@@ -39,6 +47,14 @@ describe("BarraDeRecorte", () => {
     });
 
     expect(screen.getByText("Link do recorte")).toBeInTheDocument();
+  });
+
+  it("botao de link altera texto para Copiado!", () => {
+    const aoClicarLink = vi.fn();
+    render(<BarraDeRecorte chips={[]} n={0} aoClicarLink={aoClicarLink} />);
+    const button = screen.getByText("Link do recorte");
+    fireEvent.click(button);
+    expect(screen.getByText("Copiado!")).toBeInTheDocument();
   });
 
   it("botao de exportar so aparece quando aoClicarExportar e informado", () => {
