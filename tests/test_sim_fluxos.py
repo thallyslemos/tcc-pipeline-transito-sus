@@ -187,7 +187,8 @@ def test_fluxos_geo_inclui_municipio_alvo(client):
     assert response.status_code == 200
     features = response.json()["features"]
     alvo_features = [
-        f for f in features
+        f
+        for f in features
         if f["properties"].get("is_alvo") and f["properties"]["cod_mun_ibge"][:6] == _COD
     ]
     assert len(alvo_features) >= 1
