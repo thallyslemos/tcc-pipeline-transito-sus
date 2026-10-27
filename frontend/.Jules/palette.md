@@ -73,3 +73,8 @@
 ## 2024-10-23 - Visual confirmation for "Copiar Link" actions
 **Learning:** Actions that interact with the clipboard (like copying a URL) often lacked immediate visual and screen reader feedback in this app. Users clicking "Link do recorte" wouldn't know if the action succeeded.
 **Action:** Adding a temporary "Copiado!" visual state with `aria-live="polite"` to clipboard actions provides both visual confirmation and screen reader announcement, adhering to accessibility best practices.
+
+
+## 2026-10-23 - Clipboard Feedback and Keyboard Focus Accessibility
+**Learning:** Interactive bare text buttons like "Link do recorte" and "Exportar" frequently lack keyboard focus indicators and provide no visual/auditory feedback upon interaction. Users leveraging copy-to-clipboard functionality need immediate confirmation of success, especially screen reader users.
+**Action:** Add temporary visual state changes (e.g., "Copiado!") coupled with `aria-live="polite"` for clipboard operations to provide immediate, accessible feedback. Ensure bare text buttons have explicit focus styling using standard design system utilities (e.g., `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] rounded focus-visible:ring-offset-1`).
