@@ -78,3 +78,8 @@
 ## 2026-10-23 - Clipboard Feedback and Keyboard Focus Accessibility
 **Learning:** Interactive bare text buttons like "Link do recorte" and "Exportar" frequently lack keyboard focus indicators and provide no visual/auditory feedback upon interaction. Users leveraging copy-to-clipboard functionality need immediate confirmation of success, especially screen reader users.
 **Action:** Add temporary visual state changes (e.g., "Copiado!") coupled with `aria-live="polite"` for clipboard operations to provide immediate, accessible feedback. Ensure bare text buttons have explicit focus styling using standard design system utilities (e.g., `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] rounded focus-visible:ring-offset-1`).
+
+
+## 2025-10-31 - Feedback visual para acao de copia (Clipboard)
+**Learning:** Copiar um link para o clipboard altera um estado externo (a area de transferencia do SO) sem nenhum impacto natural na UI. Se nao houver feedback visual (como o texto do botao mudar para "Copiado!" temporariamente) e sonoro (atraves de `aria-live="polite"` alertando leitores de tela), o usuario fica em duvida se a acao funcionou e pode clicar multiplas vezes ou abandonar a tarefa.
+**Action:** Ao criar componentes que copiam dados para a area de transferencia, sempre inclua um estado local (ex: `copiado`) ativado no `onClick` e revertido apos ~2s (via `setTimeout`). O texto do botao deve refletir o estado de sucesso e deve conter `aria-live="polite"` para suportar a11y.
