@@ -53,3 +53,8 @@
 ## 2026-10-11 - Immediate feedback for copy actions
 **Learning:** Interactive actions like copying to clipboard need immediate visual and screen reader feedback (using `aria-live`), otherwise users are left uncertain if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to announce the success to screen readers.
+
+
+## 2024-10-13 - Visual feedback for copy to clipboard action
+**Learning:** Users lack immediate visual feedback when interacting with copy-to-clipboard elements, which reduces certainty that the action succeeded. When modifying button text directly for temporary feedback (e.g. "Copiado!"), it's crucial to also include `aria-live="polite"` so screen reader users are also informed of the state change.
+**Action:** Add temporary visual state changes (like swapping text to "Copiado!") alongside `aria-live="polite"` on copy-to-clipboard interactions across the application to improve certainty for all users.
