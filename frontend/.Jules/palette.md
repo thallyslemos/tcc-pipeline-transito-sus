@@ -58,3 +58,8 @@
 ## 2024-10-13 - Visual feedback for copy to clipboard action
 **Learning:** Users lack immediate visual feedback when interacting with copy-to-clipboard elements, which reduces certainty that the action succeeded. When modifying button text directly for temporary feedback (e.g. "Copiado!"), it's crucial to also include `aria-live="polite"` so screen reader users are also informed of the state change.
 **Action:** Add temporary visual state changes (like swapping text to "Copiado!") alongside `aria-live="polite"` on copy-to-clipboard interactions across the application to improve certainty for all users.
+
+
+## 2026-10-16 - Feedback completo para operações de área de transferência
+**Learning:** Operações de cópia para a área de transferência precisam tanto de feedback visual temporário (ex: texto mudando para 'Copiado!') quanto de feedback para leitores de tela usando `aria-live="polite"` para garantir uma experiência acessível e completa.
+**Action:** Ao implementar botões de 'copiar link' ou funcionalidades semelhantes, sempre gerenciar um estado temporário de sucesso e aplicar `aria-live="polite"` para anúncios dinâmicos.
