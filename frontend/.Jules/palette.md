@@ -43,3 +43,8 @@
 ## 2024-10-10 - Keyboard accessibility utilities and aria-pressed states
 **Learning:** For keyboard accessibility, interactive elements (like buttons) must have a visual focus indicator. The standard pattern across this application is to use Tailwind utilities `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]`. Text links / bare buttons might also need `rounded` and `focus-visible:ring-offset-1` so the outline looks balanced. State toggle buttons (like "Polígonos" / "Círculos") must include an `aria-pressed={boolean}` attribute to convey their active state clearly to screen readers.
 **Action:** Ensure all new buttons and interactive elements include these focus visibility utilities. Use `aria-pressed` for any button that acts as a state toggle.
+
+
+## 2026-10-10 - Focus States for Accessibility
+**Learning:** Interactive elements like buttons need visible focus states to support keyboard navigation.
+**Action:** Apply the standard Tailwind classes `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1` to all custom button implementations.

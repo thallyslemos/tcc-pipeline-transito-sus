@@ -59,12 +59,14 @@ export default function FilterBar<T extends string>({
               value={String(values[f.key as T] ?? "")}
               onChange={(e) => onChange(f.key as T, e.target.value)}
               className="h-9 min-w-[140px] rounded-lg px-2.5 text-sm focus:outline-none focus:ring-2"
-              style={{
-                backgroundColor: "var(--surface)",
-                border: "1px solid var(--border)",
-                color: "var(--ink)",
-                "--tw-ring-color": "var(--brand)",
-              } as React.CSSProperties}
+              style={
+                {
+                  backgroundColor: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  color: "var(--ink)",
+                  "--tw-ring-color": "var(--brand)",
+                } as React.CSSProperties
+              }
             >
               <option value="">{f.placeholder || "Todos"}</option>
               {f.options.map((o, i) => (
@@ -74,12 +76,12 @@ export default function FilterBar<T extends string>({
               ))}
             </select>
           </div>
-        )
+        ),
       )}
       {hasActive && onReset && (
         <button
           onClick={onReset}
-          className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors"
+          className="mt-5 flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
           style={{
             border: "1px solid var(--border)",
             color: "var(--ink-2)",
