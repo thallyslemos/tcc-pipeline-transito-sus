@@ -47,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="p-4 sm:p-6 outline-none">
+        <main id="main-content" tabIndex={-1} className="scroll-mt-16 p-4 sm:p-6 outline-none">
           {children}
         </main>
       </div>

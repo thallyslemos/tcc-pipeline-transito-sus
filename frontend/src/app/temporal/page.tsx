@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -84,9 +86,7 @@ function TemporalContent() {
   const [error, setError] = useState<string | null>(null);
 
   // Estado -> URL via useRecorte (ver dashboard/page.tsx).
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   useEffect(() => {
     fetchSimAnos(filters.dimensao)

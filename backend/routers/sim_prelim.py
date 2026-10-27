@@ -298,9 +298,7 @@ async def municipios(
             row["data_extracao"].isoformat() if row.get("data_extracao") is not None else None
         )
 
-    extracao_geral = con.sql(
-        f"SELECT MAX(data_extracao) FROM {source} WHERE {where}"
-    ).fetchone()[0]
+    extracao_geral = con.sql(f"SELECT MAX(data_extracao) FROM {source} WHERE {where}").fetchone()[0]
     return {
         "fonte": "SIM-PRELIMINAR",
         "dimensao": dimensao,

@@ -227,26 +227,26 @@ export default function MapView({ data, metrica: _metrica, dimensao, ano, uf, re
             onClick={() => setMode("polygons")}
             aria-label="Exibir como polígonos"
             aria-pressed={mode === "polygons"}
-            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink)]"
             style={{
               backgroundColor: mode === "polygons" ? "var(--brand)" : "var(--surface)",
               color: mode === "polygons" ? "var(--canvas)" : "var(--ink-2)",
             }}
           >
-            Poligonos
+            Polígonos
           </button>
           <button
             type="button"
             onClick={() => setMode("circles")}
             aria-label="Exibir como círculos"
             aria-pressed={mode === "circles"}
-            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+            className="px-3 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--ink)]"
             style={{
               backgroundColor: mode === "circles" ? "var(--brand)" : "var(--surface)",
               color: mode === "circles" ? "var(--canvas)" : "var(--ink-2)",
             }}
           >
-            Circulos
+            Círculos
           </button>
         </div>
       )}

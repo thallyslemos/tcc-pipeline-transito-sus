@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, GitBranch } from "lucide-react";
@@ -261,10 +263,7 @@ function FluxosContent() {
     });
   }, [recorte.municipio]);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined")
-      navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   useEffect(() => {
     if (!municipioSelecionado) return;

@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 
@@ -119,9 +121,7 @@ function RankingContent() {
     return chips;
   }, [filters, rows]);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   const ordered = [...rows].sort((a, b) => {
     if (sortMode === "absolute") return b.obitos - a.obitos;
@@ -172,16 +172,16 @@ function RankingContent() {
       <Lede rotulo="Contagem x taxa" leitura={leituraRanking} />
 
       <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
-        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
+        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} aria-pressed={sortMode === "rate"} onClick={() => setSortMode("rate")}>Taxa / 100 mil</button>
         <button
           className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] disabled:opacity-40 disabled:hover:bg-[var(--surface)] ${sortMode === "vehicle_rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa por 10 mil veiculos (SENATRAN)" : "Indisponivel sem frota pareada no recorte"}
-          onClick={() => setSortMode("vehicle_rate")}
+          aria-pressed={sortMode === "vehicle_rate"} onClick={() => setSortMode("vehicle_rate")}
         >
           Taxa / 10 mil veic.
         </button>
-        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "absolute" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
+        <button className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${sortMode === "absolute" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`} aria-pressed={sortMode === "absolute"} onClick={() => setSortMode("absolute")}>Obitos absolutos</button>
         <ArrowUpDown className="h-3.5 w-3.5" />
       </div>
 

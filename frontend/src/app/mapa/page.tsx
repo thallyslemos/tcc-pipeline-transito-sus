@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
@@ -86,9 +88,7 @@ function MapaContent() {
     return chips;
   }, [filters]);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   const filterDefs = useMemo(
     () => buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),

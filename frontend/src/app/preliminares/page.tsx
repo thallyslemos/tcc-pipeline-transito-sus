@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import { Suspense, useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -131,9 +133,7 @@ function PreliminaresContent() {
   const [ufs, setUfs] = useState<string[]>([]);
   const [municipiosOpcoes, setMunicipiosOpcoes] = useState<SimPrelimMunicipio[]>([]);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   const [summary, setSummary] = useState<SimPrelimSummary | null>(null);
   const [consolidadoPorMes, setConsolidadoPorMes] = useState<{ competencia: string; total: number }[]>([]);

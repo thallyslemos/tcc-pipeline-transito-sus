@@ -342,8 +342,7 @@ async def serie_diaria_municipio(
             "dimensao_ativa": dimensao.value,
             "serie_diaria_disponivel": False,
             "motivo": (
-                "eventos_diarios_municipio.parquet ausente — "
-                "rode o pipeline com serie diaria."
+                "eventos_diarios_municipio.parquet ausente — rode o pipeline com serie diaria."
             ),
             "pontos": [],
             "resumo": None,

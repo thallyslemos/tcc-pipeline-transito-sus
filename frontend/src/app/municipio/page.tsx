@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import ThemedTooltip from "@/components/charts/ThemedTooltip";
@@ -41,9 +43,7 @@ function MunicipioContent() {
   const [detail, setDetail] = useState<SimMunicipioDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   const leituraSerie = useMemo(() => {
     if (!detail) return null;

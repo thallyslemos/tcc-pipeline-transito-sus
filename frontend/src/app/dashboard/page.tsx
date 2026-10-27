@@ -1,5 +1,7 @@
 "use client";
 
+import { copiarLinkDoRecorte } from "@/lib/clipboard";
+
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -186,9 +188,7 @@ function DashboardContent() {
     return chips;
   }, [filters, municipios]);
 
-  const copiarLinkDoRecorte = () => {
-    if (typeof window !== "undefined") navigator.clipboard?.writeText(window.location.href);
-  };
+
 
   // design/DESIGN_SYSTEM.md §11 — CSV com numerador (obitos) e denominador
   // (populacao) em colunas separadas, pra taxa poder ser recalculada fora

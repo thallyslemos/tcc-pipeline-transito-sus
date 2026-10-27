@@ -27,17 +27,17 @@ describe("BarraDeRecorte", () => {
     expect(screen.getByText(/N = 3\.105/)).toBeInTheDocument();
   });
 
-  it("botao de link so aparece quando aoClicarLink e informado, dispara o callback e mostra feedback visual temporario", () => {
+  it("botao de link so aparece quando aoClicarLink e informado, dispara o callback e mostra feedback visual temporario", async () => {
     const { rerender } = render(<BarraDeRecorte chips={[]} n={0} />);
     expect(screen.queryByText("Link do recorte")).not.toBeInTheDocument();
 
-    const aoClicarLink = vi.fn();
+    const aoClicarLink = vi.fn().mockResolvedValue(undefined);
     rerender(<BarraDeRecorte chips={[]} n={0} aoClicarLink={aoClicarLink} />);
 
     const button = screen.getByText("Link do recorte");
     expect(button).toBeInTheDocument();
 
-    fireEvent.click(button);
+    await act(async () => { fireEvent.click(button); });
     expect(aoClicarLink).toHaveBeenCalledOnce();
 
     expect(screen.getByText("Copiado!")).toBeInTheDocument();
@@ -49,11 +49,11 @@ describe("BarraDeRecorte", () => {
     expect(screen.getByText("Link do recorte")).toBeInTheDocument();
   });
 
-  it("botao de link altera texto para Copiado!", () => {
-    const aoClicarLink = vi.fn();
+  it("botao de link altera texto para Copiado!", async () => {
+    const aoClicarLink = vi.fn().mockResolvedValue(undefined);
     render(<BarraDeRecorte chips={[]} n={0} aoClicarLink={aoClicarLink} />);
     const button = screen.getByText("Link do recorte");
-    fireEvent.click(button);
+    await act(async () => { fireEvent.click(button); });
     expect(screen.getByText("Copiado!")).toBeInTheDocument();
   });
 
