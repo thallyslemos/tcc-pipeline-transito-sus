@@ -48,3 +48,8 @@
 ## 2026-10-10 - Focus States for Accessibility
 **Learning:** Interactive elements like buttons need visible focus states to support keyboard navigation.
 **Action:** Apply the standard Tailwind classes `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1` to all custom button implementations.
+
+
+## 2026-10-11 - Immediate feedback for copy actions
+**Learning:** Interactive actions like copying to clipboard need immediate visual and screen reader feedback (using `aria-live`), otherwise users are left uncertain if the action succeeded.
+**Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to announce the success to screen readers.
