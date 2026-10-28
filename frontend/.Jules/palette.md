@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2025-02-23 - Screen reader support for Custom Comboboxes
+**Learning:** For custom combobox implementations with keyboard navigation (like `<FilterCombobox>`), it's essential to manually wire `aria-activedescendant` on the input, pointing to the dynamically generated `id` of the currently highlighted listbox option. Just using `aria-selected` is not sufficient for screen readers to announce the focused option when using arrow keys, because focus technically remains on the input.
+**Action:** When creating or maintaining custom dropdowns/comboboxes with keyboard arrow navigation, always ensure `aria-activedescendant` is present on the input and dynamically updates to match the `id` of the highlighted option. Ensure list items have deterministic IDs.
