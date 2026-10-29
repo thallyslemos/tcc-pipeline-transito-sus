@@ -88,3 +88,6 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+## 2024-10-28 - [Accessible State Toggle Buttons]
+**Learning:** In order to use pseudo-classes like hover: for a change in state visually, one must use Tailwind classes like bg-[var(--brand-soft)] instead of inline background color styling which takes precedence due to specificity rules and overwrites the hover styling.
+**Action:** Replace inline background styling with tailwind utilities classes and implement standard outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] utility classes for state toggle buttons keyboard accessibility.
