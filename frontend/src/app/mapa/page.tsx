@@ -6,14 +6,24 @@ import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import FilterBar from "@/components/filters/FilterBar";
 import BarraDeRecorte from "@/components/ui/BarraDeRecorte";
-import { fetchMapa, fetchSimAnos, fetchSimMunicipios, fetchSimTipos } from "@/lib/api";
+import {
+  fetchMapa,
+  fetchSimAnos,
+  fetchSimMunicipios,
+  fetchSimTipos,
+} from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { useRecorte } from "@/lib/url/useRecorte";
-import { buildFiltrosAgregados, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
+import {
+  buildFiltrosAgregados,
+  valoresRecorteFilter,
+} from "@/lib/filtros/buildFilterDefs";
 import type { FilterValues, MapPoint, SimMunicipio } from "@/lib/types";
 import type { MapScaleMode } from "@/components/map/MapLegend";
 
-const MapView = dynamic(() => import("@/components/map/MapView"), { ssr: false });
+const MapView = dynamic(() => import("@/components/map/MapView"), {
+  ssr: false,
+});
 
 // useSearchParams() exige boundary de Suspense na pre-renderizacao estatica
 // do App Router (ver dashboard/page.tsx).
@@ -21,7 +31,10 @@ export default function MapaPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+        <div
+          className="flex h-96 items-center justify-center text-sm"
+          style={{ color: "var(--ink-2)" }}
+        >
           Carregando...
         </div>
       }
@@ -32,7 +45,12 @@ export default function MapaPage() {
 }
 
 function MapaContent() {
-  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
+  const {
+    recorte: filters,
+    setRecorte,
+    patchRecorte,
+    registrarAnosDisponiveis,
+  } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
   const [data, setData] = useState<MapPoint[]>([]);
@@ -53,46 +71,73 @@ function MapaContent() {
       registrarAnosDisponiveis(result.anos);
       if (!anoInicializado.current && result.anos.length) {
         anoInicializado.current = true;
-        setRecorte((current) => (current.ano == null ? { ...current, ano: result.anos.at(-1) } : current));
+        setRecorte((current) =>
+          current.ano == null
+            ? { ...current, ano: result.anos.at(-1) }
+            : current,
+        );
       }
     });
   }, [filters.dimensao, registrarAnosDisponiveis, setRecorte]);
 
   useEffect(() => {
     fetchSimTipos(filters.dimensao).then((result) => setTipos(result.tipos));
-    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then((result) => { setMunicipios(result.municipios); setUfs([...new Set(result.municipios.map((row) => row.uf))].sort()); });
+    fetchSimMunicipios({ dimensao: filters.dimensao }, 1, 200).then(
+      (result) => {
+        setMunicipios(result.municipios);
+        setUfs([...new Set(result.municipios.map((row) => row.uf))].sort());
+      },
+    );
   }, [filters.dimensao]);
   useEffect(() => {
     setLoading(true);
-    fetchMapa(filters).then((result) => setData(result.dados)).finally(() => setLoading(false));
+    fetchMapa(filters)
+      .then((result) => setData(result.dados))
+      .finally(() => setLoading(false));
   }, [filters]);
   const change = (key: string, value: string) => {
-    if (key === "dimensao") patchRecorte({ dimensao: value === "residencia" ? "residencia" : "ocorrencia" });
+    if (key === "dimensao")
+      patchRecorte({
+        dimensao: value === "residencia" ? "residencia" : "ocorrencia",
+      });
     if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
-    if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined });
-    if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined });
-    if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
+    if (key === "uf")
+      patchRecorte({ uf: value || undefined, regiao: undefined });
+    if (key === "regiao")
+      patchRecorte({ regiao: value || undefined, uf: undefined });
+    if (key === "tipo_veiculo")
+      patchRecorte({ tipo_veiculo: value || undefined });
   };
   const total = data.reduce((sum, row) => sum + row.valor, 0);
-  const vehicleRateAvailable = data.some((row) => row.taxa_obitos_10mil_veiculos != null);
+  const vehicleRateAvailable = data.some(
+    (row) => row.taxa_obitos_10mil_veiculos != null,
+  );
 
   useEffect(() => {
     if (!vehicleRateAvailable && escala === "vehicle_rate") setEscala("total");
   }, [escala, vehicleRateAvailable]);
   const chipsRecorte = useMemo(() => {
-    const chips = [{ rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" }];
+    const chips = [
+      {
+        rotulo: "Dimensão",
+        valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência",
+      },
+    ];
     if (filters.uf) chips.push({ rotulo: "UF", valor: filters.uf });
     if (filters.regiao) chips.push({ rotulo: "Região", valor: filters.regiao });
-    chips.push({ rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "Todos" });
-    if (filters.tipo_veiculo) chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
+    chips.push({
+      rotulo: "Ano",
+      valor: filters.ano ? String(filters.ano) : "Todos",
+    });
+    if (filters.tipo_veiculo)
+      chips.push({ rotulo: "Veículo", valor: filters.tipo_veiculo });
     return chips;
   }, [filters]);
 
-
-
   const filterDefs = useMemo(
-    () => buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),
-    [anos, ufs, tipos, filters.uf]
+    () =>
+      buildFiltrosAgregados({ anos, ufs, tipos, ufSelecionada: filters.uf }),
+    [anos, ufs, tipos, filters.uf],
   );
 
   const filterValues = useMemo(
@@ -100,16 +145,18 @@ function MapaContent() {
       valoresRecorteFilter(
         filters,
         filterDefs.map((f) => f.key),
-        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options])),
       ),
-    [filters, filterDefs]
+    [filters, filterDefs],
   );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>Mapa SIM</h1>
+          <h1 className="text-lg font-bold" style={{ color: "var(--ink)" }}>
+            Mapa SIM
+          </h1>
           <p className="text-xs" style={{ color: "var(--ink-2)" }}>
             Obitos por municipio - {formatNumber(total)} no filtro atual
           </p>
@@ -118,46 +165,66 @@ function MapaContent() {
           filters={filterDefs}
           values={filterValues}
           onChange={change}
-          onReset={() => setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })}
+          onReset={() =>
+            setRecorte({ dimensao: "ocorrencia", ano: anos.at(-1) })
+          }
         />
       </div>
-      <BarraDeRecorte chips={chipsRecorte} n={total} aoClicarLink={copiarLinkDoRecorte} />
+      <BarraDeRecorte
+        chips={chipsRecorte}
+        n={total}
+        aoClicarLink={copiarLinkDoRecorte}
+      />
       <div className="flex items-center gap-2 text-xs">
         <button
           type="button"
           onClick={() => setEscala("total")}
-          className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "total" ? "var(--brand-soft)" : "var(--surface)" }}
+          aria-pressed={escala === "total"}
+          className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${escala === "total" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
         >
           Obitos absolutos
         </button>
         <button
           type="button"
           onClick={() => setEscala("relative")}
-          className="rounded-lg px-3 py-1.5"
-          style={{ backgroundColor: escala === "relative" ? "var(--brand-soft)" : "var(--surface)" }}
+          aria-pressed={escala === "relative"}
+          className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${escala === "relative" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
         >
           Taxa / 100 mil
         </button>
         <button
           type="button"
           onClick={() => setEscala("vehicle_rate")}
+          aria-pressed={escala === "vehicle_rate"}
           disabled={!vehicleRateAvailable}
-          title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
-          className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-          style={{ backgroundColor: escala === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
+          title={
+            vehicleRateAvailable
+              ? "Taxa calculada com frota SENATRAN"
+              : "Taxa indisponivel sem denominador SENATRAN"
+          }
+          className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-[var(--surface)] ${escala === "vehicle_rate" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
         >
           Taxa / 10 mil veiculos
         </button>
       </div>
       {!vehicleRateAvailable && (
         <p className="text-xs" style={{ color: "var(--ink-2)" }}>
-          Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi materializado para este recorte.
+          Taxa veicular indisponivel: o denominador SENATRAN ainda nao foi
+          materializado para este recorte.
         </p>
       )}
-      <div className="h-[560px] overflow-hidden rounded-xl" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}>
+      <div
+        className="h-[560px] overflow-hidden rounded-xl"
+        style={{
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--border)",
+        }}
+      >
         {loading ? (
-          <div className="flex h-full items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+          <div
+            className="flex h-full items-center justify-center text-sm"
+            style={{ color: "var(--ink-2)" }}
+          >
             Carregando mapa...
           </div>
         ) : (
@@ -173,9 +240,18 @@ function MapaContent() {
           />
         )}
       </div>
-      <div className="rounded-xl p-4 text-xs" style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)", color: "var(--ink-2)" }}>
-        Centroides sao opcionais; a camada cartografica usa prioritariamente os poligonos GeoJSON do IBGE.
-        Os municipios sem registro permanecem no mapa em estado neutro. {municipios.length} municipios disponiveis para consulta.
+      <div
+        className="rounded-xl p-4 text-xs"
+        style={{
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--border)",
+          color: "var(--ink-2)",
+        }}
+      >
+        Centroides sao opcionais; a camada cartografica usa prioritariamente os
+        poligonos GeoJSON do IBGE. Os municipios sem registro permanecem no mapa
+        em estado neutro. {municipios.length} municipios disponiveis para
+        consulta.
       </div>
     </div>
   );

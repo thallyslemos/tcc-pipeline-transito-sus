@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2026-10-31 - CSS Specificity Conflict with Tailwind Hover States
+**Learning:** Using inline styles for dynamic background colors (e.g., `style={{ backgroundColor: active ? "var(--brand-soft)" : "transparent" }}`) in Next.js/React prevents Tailwind's `hover:` pseudo-classes from applying due to CSS specificity rules.
+**Action:** Use Tailwind's arbitrary values (e.g., `bg-[var(--brand-soft)]`) directly in the `className` string to apply dynamic theme variables, ensuring `hover:` states function correctly. Also, remember to add `aria-pressed` and `focus-visible` styles to toggle buttons for better accessibility.

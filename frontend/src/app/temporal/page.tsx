@@ -30,8 +30,16 @@ import {
 import { formatNumber, formatPValor, formatPercentual } from "@/lib/format";
 import { gerarLeitura } from "@/lib/leitura";
 import { useRecorte } from "@/lib/url/useRecorte";
-import { buildFiltrosTemporal, valoresRecorteFilter } from "@/lib/filtros/buildFilterDefs";
-import type { FilterValues, SimDiaSemana, SimOutliers, SimSerieMensal } from "@/lib/types";
+import {
+  buildFiltrosTemporal,
+  valoresRecorteFilter,
+} from "@/lib/filtros/buildFilterDefs";
+import type {
+  FilterValues,
+  SimDiaSemana,
+  SimOutliers,
+  SimSerieMensal,
+} from "@/lib/types";
 
 // design/DESIGN_SYSTEM.md §2: "percentual com uma casa", sempre pt-BR
 // (virgula) — auditoria A2, .toFixed() sozinho gera separador em ponto.
@@ -61,7 +69,10 @@ export default function TemporalPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-96 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+        <div
+          className="flex h-96 items-center justify-center text-sm"
+          style={{ color: "var(--ink-2)" }}
+        >
           Carregando...
         </div>
       }
@@ -72,12 +83,21 @@ export default function TemporalPage() {
 }
 
 function TemporalContent() {
-  const { recorte: filters, setRecorte, patchRecorte, registrarAnosDisponiveis } = useRecorte();
+  const {
+    recorte: filters,
+    setRecorte,
+    patchRecorte,
+    registrarAnosDisponiveis,
+  } = useRecorte();
   const [anos, setAnos] = useState<number[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [ufs, setUfs] = useState<string[]>([]);
-  const [municipios, setMunicipios] = useState<{ cod_mun_ibge: string; municipio: string; uf: string }[]>([]);
-  const [modoSerieMensal, setModoSerieMensal] = useState<"obitos" | "media_diaria">("obitos");
+  const [municipios, setMunicipios] = useState<
+    { cod_mun_ibge: string; municipio: string; uf: string }[]
+  >([]);
+  const [modoSerieMensal, setModoSerieMensal] = useState<
+    "obitos" | "media_diaria"
+  >("obitos");
 
   const [serieMensal, setSerieMensal] = useState<SimSerieMensal | null>(null);
   const [diaSemana, setDiaSemana] = useState<SimDiaSemana | null>(null);
@@ -86,7 +106,6 @@ function TemporalContent() {
   const [error, setError] = useState<string | null>(null);
 
   // Estado -> URL via useRecorte (ver dashboard/page.tsx).
-
 
   useEffect(() => {
     fetchSimAnos(filters.dimensao)
@@ -134,7 +153,11 @@ function TemporalContent() {
     Promise.all([
       fetchSimTemporalSerieMensal(base),
       fetchSimTemporalDiaSemana(base),
-      fetchSimTemporalOutliers({ ...base, min_obitos: 5, somente_concentrados: true }),
+      fetchSimTemporalOutliers({
+        ...base,
+        min_obitos: 5,
+        somente_concentrados: true,
+      }),
     ])
       .then(([sm, ds, out]) => {
         if (cancelled) return;
@@ -143,7 +166,12 @@ function TemporalContent() {
         setOutliers(out);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erro ao carregar dados temporais");
+        if (!cancelled)
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Erro ao carregar dados temporais",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -160,13 +188,19 @@ function TemporalContent() {
         obitos: p.obitos,
         media_diaria:
           p.media_diaria ??
-          (p.dias_no_mes && p.dias_no_mes > 0 ? Math.round((p.obitos / p.dias_no_mes) * 100) / 100 : 0),
+          (p.dias_no_mes && p.dias_no_mes > 0
+            ? Math.round((p.obitos / p.dias_no_mes) * 100) / 100
+            : 0),
         pico: p.competencia === serieMensal?.resumo.mes_pico,
       })),
-    [serieMensal]
+    [serieMensal],
   );
 
-  const [detail, setDetail] = useState<{ cod_mun_ibge: string; municipio: string; uf: string } | null>(null);
+  const [detail, setDetail] = useState<{
+    cod_mun_ibge: string;
+    municipio: string;
+    uf: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!filters.municipio) {
@@ -174,13 +208,17 @@ function TemporalContent() {
       return;
     }
     // Check if it's already in the list to avoid fetch
-    const exists = municipios.find(m => m.cod_mun_ibge === filters.municipio);
+    const exists = municipios.find((m) => m.cod_mun_ibge === filters.municipio);
     if (exists) {
       setDetail(exists);
       return;
     }
     // We could use fetchSimMunicipio here, but it requires ano, which we might not have, so let's use fetchSimMunicipios with exactly this code if needed. Actually we can just let it display the ID or use fetchSimMunicipios
-    fetchSimMunicipios({ dimensao: filters.dimensao, municipio: filters.municipio }, 1, 1)
+    fetchSimMunicipios(
+      { dimensao: filters.dimensao, municipio: filters.municipio },
+      1,
+      1,
+    )
       .then((r) => {
         if (r.municipios.length > 0) setDetail(r.municipios[0]);
       })
@@ -211,7 +249,7 @@ function TemporalContent() {
         dimensao: filters.dimensao,
         municipioOpcoes,
       }),
-    [anos, ufs, tipos, filters.uf, filters.dimensao, municipioOpcoes]
+    [anos, ufs, tipos, filters.uf, filters.dimensao, municipioOpcoes],
   );
 
   const filterValues = useMemo(
@@ -219,9 +257,9 @@ function TemporalContent() {
       valoresRecorteFilter(
         filters,
         filterDefs.map((f) => f.key),
-        Object.fromEntries(filterDefs.map((f) => [f.key, f.options]))
+        Object.fromEntries(filterDefs.map((f) => [f.key, f.options])),
       ),
-    [filters, filterDefs]
+    [filters, filterDefs],
   );
 
   const diaSemanaChartData = useMemo(
@@ -231,12 +269,15 @@ function TemporalContent() {
         media_por_dia: d.media_por_dia,
         fimDeSemana: d.dia_semana === 6 || d.dia_semana === 7,
       })),
-    [diaSemana]
+    [diaSemana],
   );
 
   const mediaGeralDia = useMemo(() => {
     if (!diaSemana || diaSemana.total_obitos === 0) return 0;
-    const totalDias = diaSemana.distribuicao.reduce((acc, d) => acc + d.dias_no_calendario, 0);
+    const totalDias = diaSemana.distribuicao.reduce(
+      (acc, d) => acc + d.dias_no_calendario,
+      0,
+    );
     return totalDias ? diaSemana.total_obitos / totalDias : 0;
   }, [diaSemana]);
 
@@ -248,7 +289,10 @@ function TemporalContent() {
     return gerarLeitura({
       g1: { totalObitos: serieMensal.resumo.total_obitos },
       r1: {
-        pontos: serieMensal.pontos.map((p) => ({ periodo: p.competencia, valor: p.obitos })),
+        pontos: serieMensal.pontos.map((p) => ({
+          periodo: p.competencia,
+          valor: p.obitos,
+        })),
         opcoes: { sujeito: "O total de óbitos", formatarValor: formatNumber },
       },
     });
@@ -265,20 +309,30 @@ function TemporalContent() {
           Analise Temporal
         </h1>
         <p className="text-xs" style={{ color: "var(--ink-2)" }}>
-          Serie mensal, distribuicao por dia da semana e concentracao temporal (casos de evento unico)
+          Serie mensal, distribuicao por dia da semana e concentracao temporal
+          (casos de evento unico)
         </p>
       </div>
 
       {/* Filters */}
       <div
         className="flex flex-wrap items-end gap-4 rounded-xl p-4"
-        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--border)" }}
+        style={{
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--border)",
+        }}
       >
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: "var(--ink-2)" }}>
+          <span
+            className="text-[11px] font-medium uppercase tracking-wider"
+            style={{ color: "var(--ink-2)" }}
+          >
             Dimensao
           </span>
-          <div className="flex overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)" }}>
+          <div
+            className="flex overflow-hidden rounded-lg"
+            style={{ border: "1px solid var(--border)" }}
+          >
             {(["ocorrencia", "residencia"] as const).map((dim) => (
               <button
                 key={dim}
@@ -286,8 +340,12 @@ function TemporalContent() {
                 onClick={() => patchRecorte({ dimensao: dim })}
                 className="px-3 py-2 text-xs font-medium capitalize transition-colors"
                 style={{
-                  backgroundColor: filters.dimensao === dim ? "var(--brand)" : "var(--surface)",
-                  color: filters.dimensao === dim ? "var(--canvas)" : "var(--ink-2)",
+                  backgroundColor:
+                    filters.dimensao === dim
+                      ? "var(--brand)"
+                      : "var(--surface)",
+                  color:
+                    filters.dimensao === dim ? "var(--canvas)" : "var(--ink-2)",
                 }}
               >
                 {dim}
@@ -300,38 +358,73 @@ function TemporalContent() {
           filters={filterDefs}
           values={filterValues}
           onChange={(key, value) => {
-            if (key === "ano") patchRecorte({ ano: value ? Number(value) : undefined });
-            else if (key === "uf") patchRecorte({ uf: value || undefined, regiao: undefined, municipio: undefined });
-            else if (key === "regiao") patchRecorte({ regiao: value || undefined, uf: undefined, municipio: undefined });
-            else if (key === "tipo_veiculo") patchRecorte({ tipo_veiculo: value || undefined });
-            else if (key === "municipio") patchRecorte({ municipio: value || undefined });
+            if (key === "ano")
+              patchRecorte({ ano: value ? Number(value) : undefined });
+            else if (key === "uf")
+              patchRecorte({
+                uf: value || undefined,
+                regiao: undefined,
+                municipio: undefined,
+              });
+            else if (key === "regiao")
+              patchRecorte({
+                regiao: value || undefined,
+                uf: undefined,
+                municipio: undefined,
+              });
+            else if (key === "tipo_veiculo")
+              patchRecorte({ tipo_veiculo: value || undefined });
+            else if (key === "municipio")
+              patchRecorte({ municipio: value || undefined });
           }}
-          onReset={() => setRecorte({ dimensao: filters.dimensao ?? "ocorrencia" })}
+          onReset={() =>
+            setRecorte({ dimensao: filters.dimensao ?? "ocorrencia" })
+          }
         />
       </div>
 
       <BarraDeRecorte
         chips={[
-          { rotulo: "Dimensão", valor: filters.dimensao === "residencia" ? "Residência" : "Ocorrência" },
+          {
+            rotulo: "Dimensão",
+            valor:
+              filters.dimensao === "residencia" ? "Residência" : "Ocorrência",
+          },
           ...(filters.uf ? [{ rotulo: "UF", valor: filters.uf }] : []),
-          ...(filters.regiao ? [{ rotulo: "Região", valor: filters.regiao }] : []),
-          ...(filters.municipio ? [{ rotulo: "Município", valor: String(filters.municipio) }] : []),
-          { rotulo: "Ano", valor: filters.ano ? String(filters.ano) : "2010-2024" },
-          ...(filters.tipo_veiculo ? [{ rotulo: "Veículo", valor: filters.tipo_veiculo }] : []),
+          ...(filters.regiao
+            ? [{ rotulo: "Região", valor: filters.regiao }]
+            : []),
+          ...(filters.municipio
+            ? [{ rotulo: "Município", valor: String(filters.municipio) }]
+            : []),
+          {
+            rotulo: "Ano",
+            valor: filters.ano ? String(filters.ano) : "2010-2024",
+          },
+          ...(filters.tipo_veiculo
+            ? [{ rotulo: "Veículo", valor: filters.tipo_veiculo }]
+            : []),
         ]}
         n={serieMensal?.resumo.total_obitos ?? 0}
         aoClicarLink={copiarLinkDoRecorte}
       />
 
       {loading && (
-        <div className="flex h-16 items-center justify-center text-sm" style={{ color: "var(--ink-2)" }}>
+        <div
+          className="flex h-16 items-center justify-center text-sm"
+          style={{ color: "var(--ink-2)" }}
+        >
           Carregando dados temporais...
         </div>
       )}
       {error && !loading && (
         <div
           className="rounded-lg px-4 py-3 text-sm"
-          style={{ backgroundColor: "var(--risk-1)", color: "var(--risk-5)", border: "1px solid var(--risk-5)" }}
+          style={{
+            backgroundColor: "var(--risk-1)",
+            color: "var(--risk-5)",
+            border: "1px solid var(--risk-5)",
+          }}
         >
           {error}
         </div>
@@ -345,17 +438,24 @@ function TemporalContent() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiStat
               rotulo="Media mensal"
-              valor={serieMensal.resumo.media_mensal != null ? formatNumber(Math.round(serieMensal.resumo.media_mensal)) : "-"}
+              valor={
+                serieMensal.resumo.media_mensal != null
+                  ? formatNumber(Math.round(serieMensal.resumo.media_mensal))
+                  : "-"
+              }
               denominador={`${serieMensal.resumo.meses_com_obito} meses com registro`}
             />
             <KpiStat
               rotulo="Media diaria (periodo)"
               valor={
                 serieMensal.resumo.media_diaria_geral != null
-                  ? serieMensal.resumo.media_diaria_geral.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })
+                  ? serieMensal.resumo.media_diaria_geral.toLocaleString(
+                      "pt-BR",
+                      {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      },
+                    )
                   : "-"
               }
               denominador="obitos por dia civil no recorte"
@@ -370,10 +470,13 @@ function TemporalContent() {
               rotulo="Media diaria no pico"
               valor={
                 serieMensal.resumo.mes_pico_media_diaria != null
-                  ? serieMensal.resumo.mes_pico_media_diaria.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })
+                  ? serieMensal.resumo.mes_pico_media_diaria.toLocaleString(
+                      "pt-BR",
+                      {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      },
+                    )
                   : "-"
               }
               denominador="obitos/dia no mes de maior contagem"
@@ -382,14 +485,21 @@ function TemporalContent() {
               rotulo="Razao fim de semana / dia util"
               valor={
                 diaSemana.razao_fim_semana != null
-                  ? diaSemana.razao_fim_semana.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  ? diaSemana.razao_fim_semana.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })
                   : "-"
               }
               denominador={`${pct(diaSemana.fim_de_semana.proporcao_observada)} dos obitos no fim de semana`}
             />
             <KpiStat
               rotulo="Qui-quadrado (dia da semana)"
-              valor={diaSemana.qui_quadrado.p_valor != null ? formatPValor(diaSemana.qui_quadrado.p_valor) : "-"}
+              valor={
+                diaSemana.qui_quadrado.p_valor != null
+                  ? formatPValor(diaSemana.qui_quadrado.p_valor)
+                  : "-"
+              }
               denominador={
                 diaSemana.qui_quadrado.significativo_005 === null
                   ? "sem dados suficientes"
@@ -401,41 +511,70 @@ function TemporalContent() {
           </div>
 
           {/* Serie mensal */}
-          <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--ink-2)" }}>
+          <div
+            className="flex flex-wrap items-center gap-2 text-xs"
+            style={{ color: "var(--ink-2)" }}
+          >
             <span>Serie mensal:</span>
             <button
               type="button"
-              className="rounded-lg px-3 py-1.5"
-              style={{ backgroundColor: modoSerieMensal === "obitos" ? "var(--brand-soft)" : "var(--surface)" }}
+              aria-pressed={modoSerieMensal === "obitos"}
+              className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${modoSerieMensal === "obitos" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
               onClick={() => setModoSerieMensal("obitos")}
             >
               Contagem absoluta
             </button>
             <button
               type="button"
-              className="rounded-lg px-3 py-1.5"
-              style={{ backgroundColor: modoSerieMensal === "media_diaria" ? "var(--brand-soft)" : "var(--surface)" }}
+              aria-pressed={modoSerieMensal === "media_diaria"}
+              className={`rounded-lg px-3 py-1.5 transition-colors hover:bg-[var(--sunken)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${modoSerieMensal === "media_diaria" ? "bg-[var(--brand-soft)]" : "bg-[var(--surface)]"}`}
               onClick={() => setModoSerieMensal("media_diaria")}
             >
               Media por dia no mes
             </button>
           </div>
-          <GraficoMoldura medidaId="serie_mensal_obitos" leitura={leituraSerieMensal} proveniencia={proveniencia}>
+          <GraficoMoldura
+            medidaId="serie_mensal_obitos"
+            leitura={leituraSerieMensal}
+            proveniencia={proveniencia}
+          >
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={serieChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--chart-grid)"
+                />
                 <XAxis
                   dataKey="competencia"
                   tick={{ fontSize: 9, fill: "var(--chart-axis)" }}
-                  interval={serieChartData.length > 24 ? Math.floor(serieChartData.length / 24) : 0}
+                  interval={
+                    serieChartData.length > 24
+                      ? Math.floor(serieChartData.length / 24)
+                      : 0
+                  }
                   axisLine={{ stroke: "var(--hairline)" }}
                   tickLine={false}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
+                  axisLine={{ stroke: "var(--hairline)" }}
+                  tickLine={false}
+                />
                 <ThemedTooltip
-                  formatter={(value: number, _name: string, item: { payload?: { obitos?: number; media_diaria?: number } }) => {
-                    const row = item?.payload as { obitos?: number; media_diaria?: number } | undefined;
-                    if (modoSerieMensal === "media_diaria" && row?.obitos != null) {
+                  formatter={(
+                    value: number,
+                    _name: string,
+                    item: {
+                      payload?: { obitos?: number; media_diaria?: number };
+                    },
+                  ) => {
+                    const row = item?.payload as
+                      | { obitos?: number; media_diaria?: number }
+                      | undefined;
+                    if (
+                      modoSerieMensal === "media_diaria" &&
+                      row?.obitos != null
+                    ) {
                       return [
                         `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} /dia (${formatNumber(row.obitos)} obitos)`,
                         "Media diaria",
@@ -445,12 +584,19 @@ function TemporalContent() {
                   }}
                 />
                 <Bar
-                  dataKey={modoSerieMensal === "media_diaria" ? "media_diaria" : "obitos"}
+                  dataKey={
+                    modoSerieMensal === "media_diaria"
+                      ? "media_diaria"
+                      : "obitos"
+                  }
                   radius={[3, 3, 0, 0]}
                   isAnimationActive={false}
                 >
                   {serieChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.pico ? "var(--risk-5)" : "var(--hairline)"} />
+                    <Cell
+                      key={i}
+                      fill={entry.pico ? "var(--risk-5)" : "var(--hairline)"}
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -465,12 +611,27 @@ function TemporalContent() {
           >
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={diaSemanaChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
-                <XAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "var(--chart-axis)" }} axisLine={{ stroke: "var(--hairline)" }} tickLine={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--chart-grid)"
+                />
+                <XAxis
+                  dataKey="nome"
+                  tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
+                  axisLine={{ stroke: "var(--hairline)" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
+                  axisLine={{ stroke: "var(--hairline)" }}
+                  tickLine={false}
+                />
                 <ThemedTooltip
                   formatter={(value: number) => [
-                    value.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }),
+                    value.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 3,
+                      maximumFractionDigits: 3,
+                    }),
                     "Media por dia",
                   ]}
                 />
@@ -478,11 +639,25 @@ function TemporalContent() {
                   y={mediaGeralDia}
                   stroke="var(--ink-2)"
                   strokeDasharray="4 4"
-                  label={{ value: "media geral", fontSize: 10, fill: "var(--ink-2)", position: "insideTopRight" }}
+                  label={{
+                    value: "media geral",
+                    fontSize: 10,
+                    fill: "var(--ink-2)",
+                    position: "insideTopRight",
+                  }}
                 />
-                <Bar dataKey="media_por_dia" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                <Bar
+                  dataKey="media_por_dia"
+                  radius={[3, 3, 0, 0]}
+                  isAnimationActive={false}
+                >
                   {diaSemanaChartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.fimDeSemana ? "var(--risk-5)" : "var(--hairline)"} />
+                    <Cell
+                      key={i}
+                      fill={
+                        entry.fimDeSemana ? "var(--risk-5)" : "var(--hairline)"
+                      }
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -490,20 +665,48 @@ function TemporalContent() {
           </GraficoMoldura>
 
           {/* Outliers */}
-          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-            <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-              <h2 className="text-sm font-semibold" style={{ color: "var(--ink)" }}>
-                Municipios com concentracao temporal (evento unico / concentrado)
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{ border: "1px solid var(--border)" }}
+          >
+            <div
+              className="px-4 py-3"
+              style={{
+                borderBottom: "1px solid var(--border)",
+                backgroundColor: "var(--surface)",
+              }}
+            >
+              <h2
+                className="text-sm font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
+                Municipios com concentracao temporal (evento unico /
+                concentrado)
               </h2>
               <p className="text-xs" style={{ color: "var(--ink-2)" }}>
-                Taxas anuais dominadas por um unico dia ou mes nao descrevem risco viario habitual — ver caso Gaviao/2024
+                Taxas anuais dominadas por um unico dia ou mes nao descrevem
+                risco viario habitual — ver caso Gaviao/2024
               </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", backgroundColor: "var(--surface)" }}>
-                    {["Municipio", "UF", "Ano", "Obitos", "Meses c/ obito", "% mes pico", "% dia pico", "Classe"].map((h) => (
+                  <tr
+                    style={{
+                      borderBottom: "1px solid var(--border)",
+                      backgroundColor: "var(--surface)",
+                    }}
+                  >
+                    {[
+                      "Municipio",
+                      "UF",
+                      "Ano",
+                      "Obitos",
+                      "Meses c/ obito",
+                      "% mes pico",
+                      "% dia pico",
+                      "Classe",
+                    ].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider"
@@ -516,20 +719,50 @@ function TemporalContent() {
                 </thead>
                 <tbody>
                   {(outliers?.municipios ?? []).map((m) => (
-                    <tr key={`${m.cod_mun_ibge}-${m.ano}`} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td className="px-4 py-2.5 font-medium" style={{ color: "var(--ink)" }}>{m.municipio}</td>
-                      <td className="px-4 py-2.5" style={{ color: "var(--ink-2)" }}>{m.uf}</td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>{m.ano}</td>
-                      <td className="px-4 py-2.5 tabular-nums font-medium" style={{ color: "var(--ink)" }}>
+                    <tr
+                      key={`${m.cod_mun_ibge}-${m.ano}`}
+                      style={{ borderBottom: "1px solid var(--border)" }}
+                    >
+                      <td
+                        className="px-4 py-2.5 font-medium"
+                        style={{ color: "var(--ink)" }}
+                      >
+                        {m.municipio}
+                      </td>
+                      <td
+                        className="px-4 py-2.5"
+                        style={{ color: "var(--ink-2)" }}
+                      >
+                        {m.uf}
+                      </td>
+                      <td
+                        className="px-4 py-2.5 tabular-nums"
+                        style={{ color: "var(--ink-2)" }}
+                      >
+                        {m.ano}
+                      </td>
+                      <td
+                        className="px-4 py-2.5 tabular-nums font-medium"
+                        style={{ color: "var(--ink)" }}
+                      >
                         {formatNumber(m.obitos_ano)}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
+                      <td
+                        className="px-4 py-2.5 tabular-nums"
+                        style={{ color: "var(--ink-2)" }}
+                      >
                         {m.meses_com_obito}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
+                      <td
+                        className="px-4 py-2.5 tabular-nums"
+                        style={{ color: "var(--ink-2)" }}
+                      >
                         {pct(m.share_mes_pico)}
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums" style={{ color: "var(--ink-2)" }}>
+                      <td
+                        className="px-4 py-2.5 tabular-nums"
+                        style={{ color: "var(--ink-2)" }}
+                      >
                         {pct(m.share_dia_pico)}
                       </td>
                       <td className="px-4 py-2.5">
@@ -547,8 +780,13 @@ function TemporalContent() {
                   ))}
                   {(outliers?.municipios.length ?? 0) === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-6 text-center text-sm" style={{ color: "var(--ink-2)" }}>
-                        Nenhum municipio com concentracao temporal relevante no recorte selecionado
+                      <td
+                        colSpan={8}
+                        className="px-4 py-6 text-center text-sm"
+                        style={{ color: "var(--ink-2)" }}
+                      >
+                        Nenhum municipio com concentracao temporal relevante no
+                        recorte selecionado
                       </td>
                     </tr>
                   )}
@@ -558,7 +796,11 @@ function TemporalContent() {
             {outliers && (
               <div
                 className="px-4 py-2 text-[10px]"
-                style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--border)", color: "var(--ink-2)" }}
+                style={{
+                  backgroundColor: "var(--surface)",
+                  borderTop: "1px solid var(--border)",
+                  color: "var(--ink-2)",
+                }}
               >
                 {outliers.notas_metodologicas}
               </div>
