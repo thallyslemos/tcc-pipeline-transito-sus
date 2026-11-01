@@ -125,26 +125,29 @@ function MapaContent() {
       <div className="flex items-center gap-2 text-xs">
         <button
           type="button"
+          aria-pressed={escala === "total"}
           onClick={() => setEscala("total")}
-          className="rounded-lg px-3 py-1.5"
+          className="rounded-lg px-3 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
           style={{ backgroundColor: escala === "total" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Obitos absolutos
         </button>
         <button
           type="button"
+          aria-pressed={escala === "relative"}
           onClick={() => setEscala("relative")}
-          className="rounded-lg px-3 py-1.5"
+          className="rounded-lg px-3 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
           style={{ backgroundColor: escala === "relative" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 100 mil
         </button>
         <button
           type="button"
+          aria-pressed={escala === "vehicle_rate"}
           onClick={() => setEscala("vehicle_rate")}
           disabled={!vehicleRateAvailable}
           title={vehicleRateAvailable ? "Taxa calculada com frota SENATRAN" : "Taxa indisponivel sem denominador SENATRAN"}
-          className="rounded-lg px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg px-3 py-1.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] disabled:cursor-not-allowed disabled:opacity-50"
           style={{ backgroundColor: escala === "vehicle_rate" ? "var(--brand-soft)" : "var(--surface)" }}
         >
           Taxa / 10 mil veiculos

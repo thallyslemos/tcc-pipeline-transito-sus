@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2024-11-01 - Add aria-pressed to segment controls
+**Learning:** Segmented control buttons that act as tabs or radio buttons (like the map scale toggles) need `aria-pressed` to announce their active state to screen readers. Relying only on background color changes for visual feedback is not accessible.
+**Action:** Always verify that interactive elements visually representing a toggle/active state include `aria-pressed="true/false"` and proper focus indicator styles (`focus-visible:ring-2`, `outline-none`).
