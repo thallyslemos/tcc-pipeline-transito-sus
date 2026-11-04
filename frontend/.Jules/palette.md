@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2026-11-04 - Feedback Visual e Sonoro para Ações de Exportação de Arquivos
+**Learning:** Assim como operações de cópia para a área de transferência, ações que exportam arquivos (como baixar um PNG) precisam de feedback visual imediato e confirmação para leitores de tela. Sem o feedback, usuários podem ficar em dúvida se a ação de exportar foi concluída com sucesso.
+**Action:** Ao implementar botões de exportação (ex: 'Exportar PNG'), adicione um estado de sucesso visual temporário (ex: mudar o texto para 'Exportado!') e use `aria-live="polite"` para anunciar a conclusão da ação para leitores de tela.
