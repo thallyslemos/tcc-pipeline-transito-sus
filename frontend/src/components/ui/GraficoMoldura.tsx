@@ -48,12 +48,17 @@ export default function GraficoMoldura({
 }: Props) {
   const molduraRef = useRef<HTMLDivElement>(null);
   const [exportando, setExportando] = useState(false);
+  const [exportado, setExportado] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const aoExportar = async () => {
     if (!molduraRef.current || !nomeArquivoPng || exportando) return;
     setExportando(true);
+    if (timer.current !== null) clearTimeout(timer.current);
     try {
       await exportarPng(molduraRef.current, nomeArquivoPng);
+      setExportado(true);
+      timer.current = setTimeout(() => setExportado(false), 2000);
     } finally {
       setExportando(false);
     }
@@ -71,15 +76,20 @@ export default function GraficoMoldura({
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {nomeArquivoPng && (
-            <button
-              type="button"
-              onClick={aoExportar}
-              disabled={exportando}
-              className="text-[11px] underline disabled:opacity-50 rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
-              style={{ color: "var(--brand)" }}
-            >
-              {exportando ? "Exportando..." : "Exportar PNG"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={aoExportar}
+                disabled={exportando}
+                className="text-[11px] underline disabled:opacity-50 rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
+                style={{ color: "var(--brand)" }}
+              >
+                {exportando ? "Exportando..." : exportado ? "Exportado!" : "Exportar PNG"}
+              </button>
+              <span role="status" aria-live="polite" className="sr-only">
+                {exportado ? "Figura PNG exportada." : exportando ? "Exportando figura PNG..." : ""}
+              </span>
+            </>
           )}
           {termoAjuda && <InfoTip termo={termoAjuda} variante="colchete" />}
         </div>
