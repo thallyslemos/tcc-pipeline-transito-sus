@@ -182,7 +182,7 @@ export default function SobreContent() {
                   href={autor.links.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg px-3 py-1.5 text-[13px]"
+                  className="rounded-lg px-3 py-1.5 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
                   style={{ border: "1px solid var(--border)", color: "var(--brand)" }}
                 >
                   LinkedIn
@@ -191,7 +191,7 @@ export default function SobreContent() {
                   href={autor.links.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg px-3 py-1.5 text-[13px]"
+                  className="rounded-lg px-3 py-1.5 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
                   style={{ border: "1px solid var(--border)", color: "var(--brand)" }}
                 >
                   GitHub
