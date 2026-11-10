@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2026-10-24 - Focus States for Text Links
+**Learning:** Text links (like anchor tags `<a href="...">`) need clear visible focus states to support keyboard navigation, similar to buttons, but may need additional padding or rounded classes if they are styled as buttons or need to look balanced.
+**Action:** Consistently apply the standard Tailwind classes `outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]` to anchor tags to ensure they are accessible via keyboard navigation. Include `rounded` and `focus-visible:ring-offset-1` if the link acts like a button or needs an offset outline.

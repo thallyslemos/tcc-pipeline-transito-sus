@@ -289,7 +289,7 @@ function PreliminaresContent() {
           sao apenas &ldquo;nao revisados&rdquo; — sao incompletos: a base cresce por meses apos o fim do ano.
           Comparar {ano} preliminar com 2024 consolidado produziria uma queda falsa que mede completude da
           captacao, nao mortalidade. Use o indicador de completude abaixo para avaliar a maturidade da base, e
-          o <a href="/dashboard" className="underline">Painel Geral</a> para as taxas consolidadas.
+          o <a href="/dashboard" className="underline outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] rounded focus-visible:ring-offset-1">Painel Geral</a> para as taxas consolidadas.
         </p>
       </div>
 
