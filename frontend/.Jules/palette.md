@@ -88,3 +88,7 @@
 ## 2024-10-26 - Accessible Clipboard Copy Feedback
 **Learning:** Copying links or data to the clipboard without visual and screen reader feedback leaves users unsure if the action succeeded.
 **Action:** When implementing copy-to-clipboard functionality, always include a temporary visual state change (e.g., 'Copiado!') and an `aria-live="polite"` attribute to provide immediate feedback and announce the success to screen readers.
+
+## 2024-11-10 - Add visual feedback to Exportar PNG
+**Learning:** When implementing copy-to-clipboard or file export functionality (like downloading a PNG), including a temporary visual state change (e.g., 'Exportado!') and an `aria-live="polite"` attribute provides immediate feedback and announces the success to screen readers. This ensures interactive elements have clear feedback loops.
+**Action:** Always include temporary state changes and ARIA live regions for copy/export actions.

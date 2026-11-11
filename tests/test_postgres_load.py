@@ -77,6 +77,8 @@ _CUSTOS_COLS = [
 def parquet_path():
     p = Path("data/gold/obitos_ocorrencia_municipio_mes.parquet")
     if not p.exists():
+        p = Path("data/gold/sim_v1_obitos_municipio_mes_ocorrencia_v2.parquet")
+    if not p.exists():
         p = Path("data/gold/obitos_municipio_mes.parquet")
     return p
 
