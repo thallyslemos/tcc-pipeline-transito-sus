@@ -101,7 +101,8 @@ class TestGeoJsonEndpoint:
             return
         assert len(fc["features"]) > 0
         # A métrica de custo pode ser zero, então a asserção é >= 0
-        assert fc["features"][0]["properties"]["valor"] >= 0
+        if len(fc["features"]) > 0:
+            assert fc["features"][0]["properties"]["valor"] >= 0
 
     def test_geojson_filtro_ano(self, client: TestClient, ano_disponivel: int):
         r = client.get(f"/api/geo/municipios?ano={ano_disponivel}")
