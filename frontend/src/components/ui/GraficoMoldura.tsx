@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import InfoTip from "@/components/InfoTip";
 import type { TermoAjuda } from "@/content/ajuda";
 import { medidas, type MedidaId } from "@/content/medidas";
@@ -48,12 +48,23 @@ export default function GraficoMoldura({
 }: Props) {
   const molduraRef = useRef<HTMLDivElement>(null);
   const [exportando, setExportando] = useState(false);
+  const [exportado, setExportado] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const aoExportar = async () => {
     if (!molduraRef.current || !nomeArquivoPng || exportando) return;
     setExportando(true);
+    if (timerRef.current !== null) clearTimeout(timerRef.current);
     try {
       await exportarPng(molduraRef.current, nomeArquivoPng);
+      setExportado(true);
+      timerRef.current = setTimeout(() => setExportado(false), 2000);
     } finally {
       setExportando(false);
     }
@@ -71,15 +82,20 @@ export default function GraficoMoldura({
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {nomeArquivoPng && (
-            <button
-              type="button"
-              onClick={aoExportar}
-              disabled={exportando}
-              className="text-[11px] underline disabled:opacity-50 rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
-              style={{ color: "var(--brand)" }}
-            >
-              {exportando ? "Exportando..." : "Exportar PNG"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={aoExportar}
+                disabled={exportando}
+                className="text-[11px] underline disabled:opacity-50 rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-1"
+                style={{ color: "var(--brand)" }}
+              >
+                {exportado ? "Exportado!" : exportando ? "Exportando..." : "Exportar PNG"}
+              </button>
+              <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+                {exportado ? "PNG exportado com sucesso." : exportando ? "Exportando PNG." : ""}
+              </span>
+            </>
           )}
           {termoAjuda && <InfoTip termo={termoAjuda} variante="colchete" />}
         </div>
